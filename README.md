@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/banner.svg" alt="AeroSentinel — Airplane flying animation" width="100%" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Status-In%20Progress-yellow?style=for-the-badge" alt="Status: In Progress" />
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
