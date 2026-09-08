@@ -9,27 +9,10 @@
 
 > **Predicts Remaining Useful Life (RUL) and classifies failure risk — *Normal / At Risk / High Risk / Failure Likely* — for turbofan engine components, with explainable predictions behind every result.**
 
-**Team-88** — Aarohi & Prem
 
 ---
 
-## ⚠️ Implementation Status
 
-> [!IMPORTANT]
-> This README describes the **intended, complete system**. The table below shows what's actually built right now.
-
-| Component | Status |
-|---|---|
-| Data pipeline (`load_data`, `clean_data`, `compute_rul`, `split_by_unit`) | ✅ Built and verified against real data |
-| Sensor degradation analysis (correlation + monotonicity ranking) | ✅ Built and verified against real data |
-| Component health analysis | ❌ Not started |
-| RUL regression model | ❌ Not started |
-| Failure-risk classifier (4-band) | ❌ Not started |
-| Explainability (SHAP) | ❌ Not started |
-| Backend API (FastAPI) | ❌ Not started |
-| Frontend dashboard (React) | ❌ Not started |
-
----
 
 ## 🔍 Problem
 
@@ -41,8 +24,6 @@ Maintenance teams need to detect abnormal component conditions early and predict
 
 AeroSentinel is a machine learning pipeline trained on the **NASA C-MAPSS FD001** turbofan engine degradation dataset. It cleans and analyzes sensor telemetry, predicts RUL via regression, classifies failure risk into four actionable bands, and explains which sensors drove each prediction — served through a FastAPI backend and a React dashboard.
 
-> [!NOTE]
-> **Dataset note:** The project brief originally referenced an unrelated Telecom Churn dataset. This was identified as a mismatch and corrected to NASA C-MAPSS FD001, which actually supports RUL regression and degradation analysis. See `docs/22_ADRs.md` (ADR-008) for the full record of that decision.
 
 ---
 
@@ -105,29 +86,7 @@ Full design rationale lives in `docs/` — see [Documentation](#-documentation) 
 
 > Numbers will be filled in once both models are trained — see `docs/10_Model_Card.md` for the same discipline applied in full.
 
----
 
-## 📁 Project Structure
-
-```
-aerosentinel/
-├── docs/                    # Full documentation set — BRD, PRD, TRD, HLD, LLD, etc.
-├── src/
-│   ├── data/                # ✅ Built — load, clean, compute RUL, split
-│   ├── analysis/            # ✅ Built — sensor degradation ranking
-│   ├── features/            # ❌ Not yet built
-│   ├── models/              # ❌ Not yet built
-│   └── explainability/      # ❌ Not yet built
-├── backend/                 # ❌ Not yet built — FastAPI
-├── frontend/                # ❌ Not yet built — React + Vite
-├── data/
-│   ├── raw/                 # Place dataset files here
-│   └── processed/           # Pipeline outputs
-├── tests/
-└── requirements.txt
-```
-
----
 
 ## 🔌 API Reference
 
@@ -166,12 +125,6 @@ Full design documentation lives in `docs/`:
 
 > [!CAUTION]
 > AeroSentinel is a **decision-support tool**. It is **not** a certified airworthiness determination, must **not** be used for real-time in-flight safety decisions, and does **not** replace certified maintenance procedures. Predictions inform human review — they do not trigger autonomous maintenance action.
-
----
-
-## 👥 Team
-
-**Team-88** — Aarohi & Prem
 
 ---
 
