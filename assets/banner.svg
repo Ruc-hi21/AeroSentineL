@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200">
+  <style>
+    @keyframes fly {
+      0% { transform: translateX(-200px); }
+      100% { transform: translateX(900px); }
+    }
+    @keyframes twinkle1 {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    @keyframes twinkle2 {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    @keyframes twinkle3 {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    @keyframes glow {
+      0%, 100% { r: 2; opacity: 0.6; }
+      50% { r: 4; opacity: 1; }
+    }
+    .plane-group {
+      animation: fly 6s linear infinite;
+    }
+    .trail-group {
+      animation: fly 6s linear infinite;
+    }
+    .star-a { animation: twinkle1 3s ease-in-out infinite; }
+    .star-b { animation: twinkle2 2.5s ease-in-out infinite; }
+    .star-c { animation: twinkle3 4s ease-in-out infinite; }
+    .star-d { animation: twinkle1 3.5s ease-in-out infinite; }
+    .star-e { animation: twinkle2 2.8s ease-in-out infinite; }
+    .star-f { animation: twinkle3 3.2s ease-in-out infinite; }
+    .engine-glow {
+      animation: glow 0.4s ease-in-out infinite;
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#38bdf8;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:#38bdf8;stop-opacity:0.6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="800" height="200" fill="url(#sky)" rx="12"/>
+
+  <!-- Stars -->
+  <circle class="star-a" cx="50" cy="30" r="1.2" fill="white"/>
+  <circle class="star-b" cx="150" cy="60" r="1" fill="white"/>
+  <circle class="star-c" cx="280" cy="25" r="1.3" fill="white"/>
+  <circle class="star-a" cx="400" cy="50" r="1" fill="white"/>
+  <circle class="star-d" cx="520" cy="35" r="1.2" fill="white"/>
+  <circle class="star-e" cx="650" cy="55" r="1" fill="white"/>
+  <circle class="star-f" cx="720" cy="20" r="1.3" fill="white"/>
+  <circle class="star-b" cx="100" cy="80" r="0.8" fill="white"/>
+  <circle class="star-c" cx="350" cy="75" r="1" fill="white"/>
+  <circle class="star-e" cx="600" cy="80" r="0.9" fill="white"/>
+  <circle class="star-d" cx="200" cy="45" r="1.1" fill="white"/>
+  <circle class="star-f" cx="470" cy="28" r="0.9" fill="white"/>
+  <circle class="star-a" cx="750" cy="65" r="1" fill="white"/>
+
+  <!-- Contrail / vapor trail -->
+  <g class="trail-group">
+    <line x1="-180" y1="102" x2="0" y2="102" stroke="url(#trail)" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="-160" y1="108" x2="0" y2="108" stroke="url(#trail)" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- Airplane -->
+  <g class="plane-group">
+    <!-- Fuselage -->
+    <path d="M0,100 Q10,92 30,92 L55,92 L60,88 L65,92 L80,92 Q90,92 95,100 Q90,108 80,108 L65,108 L60,112 L55,108 L30,108 Q10,108 0,100 Z" fill="#e2e8f0"/>
+    <!-- Cockpit window -->
+    <path d="M88,96 Q92,94 94,100 Q92,106 88,104 Z" fill="#38bdf8" opacity="0.8"/>
+    <!-- Top wing -->
+    <path d="M35,92 L20,78 L55,78 L50,92 Z" fill="#94a3b8"/>
+    <!-- Bottom wing -->
+    <path d="M35,108 L20,122 L55,122 L50,108 Z" fill="#94a3b8"/>
+    <!-- Tail top -->
+    <path d="M5,92 L-5,78 L15,78 L12,92 Z" fill="#64748b"/>
+    <!-- Tail bottom -->
+    <path d="M5,108 L-5,122 L15,122 L12,108 Z" fill="#64748b"/>
+    <!-- Engine glow -->
+    <circle class="engine-glow" cx="-2" cy="100" r="3" fill="#f97316"/>
+  </g>
+
+  <!-- Title text -->
+  <text x="400" y="170" text-anchor="middle" fill="#e2e8f0" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="bold" letter-spacing="4">
+    A E R O S E N T I N E L
+  </text>
+  <text x="400" y="190" text-anchor="middle" fill="#64748b" font-family="Segoe UI, Arial, sans-serif" font-size="11" letter-spacing="2">
+    Predictive Engine Health
+  </text>
+</svg>
