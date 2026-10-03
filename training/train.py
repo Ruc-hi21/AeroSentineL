@@ -53,3 +53,28 @@ def prepare_data():
     sensors, sensor_scores = select_sensors(train)
     health = HealthAnalyzer().fit(train, sensors)
     return health.transform(train), health.transform(val), sensors, sensor_scores, health
+
+
+def train_rul(X_train, y_train, X_val, y_val, groups, trials):
+    baselines = {
+        "linear_regression": make_pipeline(StandardScaler(), LinearRegression()),
+        "random_forest": RandomForestRegressor(n_estimators=100, min_samples_leaf=5,
+                                               n_jobs=-1, random_state=SEED),
+    }
+    results = {"baselines": {}}
+    for name, model in baselines.items():
+        pred = np.clip(model.fit(X_train, y_train).predict(X_val), 0, RUL_CAP)
+        results["baselines"][name] = regression_metrics(y_val, pred)
+        log.info("RUL baseline %-18s %s", name, results["baselines"][name])
+
+    params, cv_rmse = DEFAULT_PARAMS, None
+    if trials:
+        params, cv_rmse = tune(lambda p: XGBRegressor(**BASE_PARAMS, **p),
+                               X_train, y_train, groups, "regression", trials)
+    model = RULRegressor(params).fit(X_train, y_train)
+    low, high = model.predict_interval(X_val)
+    results["xgboost"] = {**regression_metrics(y_val, model.predict(X_val)),
+                          "interval_coverage": interval_coverage(y_val, low, high),
+                          "cv_rmse": cv_rmse}
+    log.info("RUL xgboost            %s", results["xgboost"])
+    return model, params, results
