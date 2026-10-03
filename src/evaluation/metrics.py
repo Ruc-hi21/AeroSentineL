@@ -56,3 +56,8 @@ def classification_metrics(y_true, proba):
         "per_band": per_band,
         "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),  # nested list for JSON
     }
+
+
+def format_regression_summary(metrics: dict) -> str:
+    """Render concise string representation of core regression metrics."""
+    return f"RMSE: {metrics.get('rmse', 0.0):.2f} | MAE: {metrics.get('mae', 0.0):.2f} | R2: {metrics.get('r2', 0.0):.3f}"
