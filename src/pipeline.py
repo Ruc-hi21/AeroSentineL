@@ -35,7 +35,7 @@ class AnalysisResult:
     stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
     validation: dict | None = None
     cleaning: dict | None = None
-    error: dict | None = None
+    error: dict | None = None  # {"code", "message", "requestId"}
 
 
 def _fail(result, exc):
