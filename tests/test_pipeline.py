@@ -70,7 +70,7 @@ def test_one_failing_model_gives_partial_result(test_df, monkeypatch):  # TEST-0
     def broken(_):
         raise RuntimeError("simulated model failure")
 
-    monkeypatch.setattr(artifacts.risk, "classify_band", broken)
+    monkeypatch.setattr(artifacts.risk, "classify_band", broken)  # replaces method for this test only
     result = analyze(test_df[test_df["unit"] <= 3])
     assert result.status == "PARTIAL"
     assert result.stages["risk"].startswith("failed")
