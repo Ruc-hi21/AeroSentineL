@@ -12,6 +12,14 @@ class AeroSentinelError(Exception):
     def __repr__(self):
         return f"{type(self).__name__}(code={self.code!r}, message={self.message!r})"
 
+    def to_dict(self) -> dict:
+        """Serialize error details to a dictionary structure for UI and API consumption."""
+        return {
+            "error": True,
+            "code": self.code,
+            "message": self.message,
+        }
+
 
 class InvalidDataError(AeroSentinelError):
     """Raised when the uploaded dataset is missing columns or is unparseable."""
