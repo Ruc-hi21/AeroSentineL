@@ -14,6 +14,7 @@ class AeroSentinelError(Exception):
 
 
 class InvalidDataError(AeroSentinelError):
+    """Raised when the uploaded dataset is missing columns or is unparseable."""
     code = "INVALID_DATASET"
 
 
