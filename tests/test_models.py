@@ -78,3 +78,12 @@ def test_explanations_name_sensors_for_both_models():  # TEST-M-007
     for top in (rul_top, risk_top):
         assert len(top) == 3 and all(len(row) == 2 for row in top)
         assert all(not f["sensor"].endswith(("_mean", "_std")) for row in top for f in row)
+
+
+def test_rul_bounds_validation():
+    import pandas as pd
+    from src.preprocessing.labeling import validate_rul_bounds
+    df = pd.DataFrame({"RUL": [10.0, 5.0, 0.0]})
+    assert validate_rul_bounds(df) is True
+    df_invalid = pd.DataFrame({"RUL": [10.0, -1.0, 0.0]})
+    assert validate_rul_bounds(df_invalid) is False
