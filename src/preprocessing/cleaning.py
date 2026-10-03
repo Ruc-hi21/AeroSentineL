@@ -11,7 +11,7 @@ def clean_data(df):
     df = df[[c for c in RAW_COLUMNS if c in df.columns]].apply(pd.to_numeric, errors="coerce")
     rows_in = len(df)
 
-    df = df.dropna(subset=ID_COLS)
+    df = df.dropna(subset=ID_COLS)  # rows where unit or cycle is NaN are unidentifiable
     df = df[df["cycle"] >= 1]
     dropped_invalid = rows_in - len(df)
 
