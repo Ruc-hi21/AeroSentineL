@@ -16,7 +16,6 @@ class RULRegressor:
     def __init__(self, params=None):
         self.params = params or {}
         self.model = XGBRegressor(**BASE_PARAMS, **self.params)
-        # One model predicts both interval quantiles.
         self.interval_model = XGBRegressor(
             **BASE_PARAMS, **INTERVAL_PARAMS,
             objective="reg:quantileerror", quantile_alpha=np.array(RUL_INTERVAL),

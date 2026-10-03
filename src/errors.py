@@ -8,6 +8,9 @@ class AeroSentinelError(Exception):
         super().__init__(message)
         self.message = message
 
+    def __repr__(self):
+        return f"{type(self).__name__}(code={self.code!r}, message={self.message!r})"
+
 
 class InvalidDataError(AeroSentinelError):
     code = "INVALID_DATASET"
