@@ -24,7 +24,8 @@ class FailureRiskClassifier:
         self.params = params or {}
         self.model = XGBClassifier(
             tree_method="hist", n_jobs=-1, random_state=SEED,
-            objective="multi:softprob", **self.params,
+            objective="multi:softprob",  # produces full probability distribution over classes
+            **self.params,
         )
 
     def fit(self, X, bands):
