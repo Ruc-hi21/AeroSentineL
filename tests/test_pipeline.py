@@ -24,7 +24,7 @@ def test_df():
     return read_sensor_file(TEST_FILE)
 
 
-def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005
+def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005  # TEST-001, TEST-005
     result = analyze(test_df)
     assert result.status == "COMPLETED"
     units = result.units
