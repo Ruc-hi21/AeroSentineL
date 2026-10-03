@@ -31,7 +31,7 @@ class AnalysisResult:
     status: str = "PROCESSING"
     model_version: str | None = None
     units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
-    history: pd.DataFrame | None = None
+    history: pd.DataFrame | None = None  # every cycle: health score and predicted RUL
     stages: dict = field(default_factory=dict)
     validation: dict | None = None
     cleaning: dict | None = None
