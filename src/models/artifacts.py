@@ -10,6 +10,7 @@ from src.config import MODELS_DIR, MODEL_VERSION
 from src.errors import ModelNotFoundError
 from src.explainability.explainer import Explainer
 
+# Stable filenames; changing them breaks backward-compatible model loading
 FILES = {
     "health": "health_analyzer.joblib",
     "rul": "rul_regressor.joblib",
