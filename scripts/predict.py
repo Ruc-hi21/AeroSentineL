@@ -43,7 +43,7 @@ def main(path):
     print(f"\n{len(units)} units. Band counts: {units['risk_band'].value_counts().to_dict()}")
     print(f"Units flagged for review: {int(units['needs_review'].sum())}\n")
     with pd.option_context("display.width", 200, "display.max_colwidth", 60):
-        print(table.head(15).to_string(index=False))
+        print(table.head(15).to_string(index=False))  # show top 15 highest-risk units
 
     out = REPORTS_DIR / "latest_predictions.csv"  # overwritten on each run
     out.parent.mkdir(parents=True, exist_ok=True)
