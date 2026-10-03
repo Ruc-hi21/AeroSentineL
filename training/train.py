@@ -127,3 +127,30 @@ def evaluate_test(health, sensors, rul, risk):
         "predicted_band": [RISK_BANDS[c] for c in proba.argmax(axis=1)],
     })
     return metrics, predictions
+
+
+def write_reports(metrics, test_predictions, sensor_scores, train, val, X_val):
+    artifacts = load_artifacts()
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    figures = REPORTS_DIR / "figures"
+    (REPORTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    test_predictions.to_csv(REPORTS_DIR / "test_predictions.csv", index=False)
+    sensor_scores.round(4).to_csv(REPORTS_DIR / "sensor_scores.csv")
+
+    plots.sensor_trends(train, artifacts.sensors, figures / "sensor_trends.png")
+    plots.health_scores(val, artifacts.health.threshold, figures / "health_scores.png")
+    plots.rul_predictions(test_predictions["true_rul"].to_numpy(),
+                          test_predictions["predicted_rul"].to_numpy(),
+                          test_predictions["rul_low"].to_numpy(),
+                          test_predictions["rul_high"].to_numpy(),
+                          figures / "rul_test_predictions.png")
+    plots.confusion(metrics["validation"]["risk"]["xgboost"]["confusion_matrix"],
+                    figures / "risk_confusion_validation.png", "Risk bands: validation units")
+
+    sample = X_val.sample(min(2000, len(X_val)), random_state=SEED)
+    rul_shap = artifacts.rul_explainer.sensor_contributions(sample).abs().mean()
+    plots.sensor_importance(rul_shap, figures / "shap_rul.png", "What drives the RUL prediction")
+    codes = artifacts.risk.predict_proba(sample).argmax(axis=1)
+    risk_shap = artifacts.risk_explainer.sensor_contributions(sample, class_index=codes).abs().mean()
+    plots.sensor_importance(risk_shap, figures / "shap_risk.png", "What drives the risk band")
+    log.info("Reports written to %s", REPORTS_DIR)
