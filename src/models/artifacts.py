@@ -36,7 +36,7 @@ class Artifacts:
 
 def save_artifacts(health, rul, risk, metadata, version=MODEL_VERSION):
     folder = MODELS_DIR / version
-    folder.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=True)  # create parent dirs if this is the first run
     for key, obj in {"health": health, "rul": rul, "risk": risk}.items():
         joblib.dump(obj, folder / FILES[key])
     (folder / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
