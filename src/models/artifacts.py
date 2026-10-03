@@ -42,7 +42,7 @@ def save_artifacts(health, rul, risk, metadata, version=MODEL_VERSION):
     return folder
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=4)  # cache up to 4 versions in memory simultaneously
 def load_artifacts(version=MODEL_VERSION):
     """Load a trained model version. Only loads local files written by training."""
     folder = MODELS_DIR / version
