@@ -22,6 +22,7 @@ def validate_dataset(df, sensors):
         raise InvalidDataError(f"Columns with no numeric values: {', '.join(empty_cols)}")
 
     warnings = []
+    # Difference: coerced NaNs that were not originally NaN = non-numeric cell count
     bad_values = int(numeric.isna().sum().sum() - df[required].isna().sum().sum())
     if bad_values:
         warnings.append(f"{bad_values} non-numeric values will be treated as missing.")
