@@ -17,7 +17,7 @@ def _suggest(trial):
         "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.2, log=True),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
-        "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),  # regularisation
     }
 
 
