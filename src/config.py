@@ -20,8 +20,8 @@ SENSOR_COLS = [f"sensor_{i}" for i in range(1, 22)]
 RAW_COLUMNS = ID_COLS + SETTING_COLS + SENSOR_COLS
 
 # Labeling & split
-RUL_CAP = 125
-TEST_SIZE = 0.2
+RUL_CAP = 125  # early-life cycles treated as equally healthy (piecewise-linear target)
+TEST_SIZE = 0.2  # fraction of engine units held out for validation
 
 # Sensor selection
 CONSTANT_STD_THRESHOLD = 0.01
