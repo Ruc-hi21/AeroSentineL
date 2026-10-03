@@ -45,3 +45,12 @@ class HealthAnalyzer:
         readings = df[self.sensors]  # extract once for both low/high comparisons
         df["out_of_range"] = ((readings < self.low) | (readings > self.high)).any(axis=1)
         return df
+
+
+def compute_fleet_health_distribution(scores: pd.Series) -> dict:
+    """Categorize health scores into critical, degraded, and normal distribution counts."""
+    return {
+        "critical": int((scores < 0.3).sum()),
+        "degraded": int(((scores >= 0.3) & (scores < 0.7)).sum()),
+        "normal": int((scores >= 0.7).sum()),
+    }
