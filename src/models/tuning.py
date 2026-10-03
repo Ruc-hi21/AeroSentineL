@@ -7,7 +7,7 @@ from sklearn.model_selection import GroupKFold
 
 from src.config import CV_FOLDS, OPTUNA_TRIALS, SEED
 
-optuna.logging.set_verbosity(optuna.logging.WARNING)
+optuna.logging.set_verbosity(optuna.logging.WARNING)  # suppress per-trial progress spam
 
 
 def _suggest(trial):
