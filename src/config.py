@@ -41,6 +41,8 @@ RISK_LIMITS = {"FAILURE_LIKELY": 15, "HIGH_RISK": 30, "AT_RISK": 60}
 LOW_CONFIDENCE = 0.6  # risk predictions with lower probability are flagged for review
 
 # Training
+# 0 = use default XGBoost params (~20 s). On FD001, 20 Optuna trials took ~4 min
+# and changed validation RMSE by < 0.1, so tuning is opt-in: --trials 20
 OPTUNA_TRIALS = 0
 CV_FOLDS = 3
 RUL_INTERVAL = (0.1, 0.9)
