@@ -71,7 +71,7 @@ def test_explanations_name_sensors_for_both_models():  # TEST-M-007
     rul = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
     risk = FailureRiskClassifier({"n_estimators": 30, "max_depth": 3}).fit(X, rul_to_band(y))
 
-    rul_top = Explainer(rul.model).explain(X.head(3), top_k=2)
+    rul_top = Explainer(rul.model).explain(X.head(3), top_k=2)  # small top_k speeds up test
     codes, _ = risk.classify_band(X.head(3))
     risk_top = Explainer(risk.model).explain(X.head(3), class_index=codes, top_k=2)
 
