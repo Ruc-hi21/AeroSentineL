@@ -30,7 +30,7 @@ CONSTANT_STD_THRESHOLD = 0.01  # sensors with lower std carry no signal
 BASELINE_CYCLES = 30  # first N cycles of each training engine = healthy reference
 HEALTH_SMOOTHING = 5  # rolling window used to smooth the health score
 ABNORMAL_QUANTILE = 0.99  # health score above this baseline quantile = abnormal
-RANGE_MARGIN = 0.1
+RANGE_MARGIN = 0.1  # readings beyond training min/max by this share of the range are flagged
 
 # Feature engineering
 ROLLING_WINDOW = 30  # chosen on validation units: 5/10/20/30 tried, 30 lowest RMSE
