@@ -14,7 +14,7 @@ INTERVAL_PARAMS = {"n_estimators": 200, "max_depth": 3, "learning_rate": 0.05,
 
 class RULRegressor:
     def __init__(self, params=None):
-        self.params = params or {}
+        self.params = params or {}  # merge with BASE_PARAMS at model construction
         self.model = XGBRegressor(**BASE_PARAMS, **self.params)
         self.interval_model = XGBRegressor(
             **BASE_PARAMS, **INTERVAL_PARAMS,
