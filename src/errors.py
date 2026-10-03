@@ -2,6 +2,7 @@
 
 
 class AeroSentinelError(Exception):
+    """Base class for all AeroSentinel errors. code is a stable string the UI can switch on."""
     code = "INTERNAL_ERROR"
 
     def __init__(self, message):
