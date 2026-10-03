@@ -21,6 +21,7 @@ FILES = {
 class Artifacts:
     version: str
     metadata: dict
+    # Convenience: artifacts.sensors mirrors metadata['sensors']
     health: object
     rul: object
     risk: object
