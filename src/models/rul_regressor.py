@@ -33,6 +33,7 @@ class RULRegressor:
         """(low, high) bounds, widened if needed so they always contain the point prediction."""
         bounds = np.clip(self.interval_model.predict(X), 0, RUL_CAP)
         point = self.predict(X)
+        # Widen so the interval always contains the point prediction (avoids visual confusion).
         low = np.minimum.reduce([bounds[:, 0], bounds[:, 1], point])
         high = np.maximum.reduce([bounds[:, 0], bounds[:, 1], point])
         return low, high
