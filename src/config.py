@@ -46,7 +46,7 @@ LOW_CONFIDENCE = 0.6  # risk predictions with lower probability are flagged for 
 # and changed validation RMSE by < 0.1, so tuning is opt-in: --trials 20
 OPTUNA_TRIALS = 0
 CV_FOLDS = 3  # GroupKFold splits; more folds slower with no accuracy gain on FD001
-RUL_INTERVAL = (0.1, 0.9)
+RUL_INTERVAL = (0.1, 0.9)  # quantile pair yielding the 80% prediction interval
 
 # Explainability
 TOP_K_FACTORS = 5
