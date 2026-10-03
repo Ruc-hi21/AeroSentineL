@@ -1,4 +1,7 @@
-"""End-to-end pipeline on the trained model (skipped until `python -m training.train` has run)."""
+"""Integration tests: end-to-end pipeline on the trained model.
+
+Skipped until `python -m training.train` has run.
+"""
 
 import io
 
