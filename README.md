@@ -15,6 +15,12 @@
 
 ---
 
+## 🖥️ Dashboard UI
+
+The dashboard is a React app built with Vite. Use Node.js 20.19+ and run `npm install`, then `npm run dev` to start it. Run `npm run build` to create a production bundle. The dashboard currently presents sample values and UI interactions; dataset upload and analysis are not connected to the FastAPI service yet.
+
+---
+
 
 ## 🔍 Problem
 
