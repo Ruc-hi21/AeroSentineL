@@ -37,7 +37,7 @@ def tune(make_model, X, y, groups, task, n_trials=OPTUNA_TRIALS):
                 scores.append(f1_score(y[test_idx], pred, average="macro"))
         return float(np.mean(scores))
 
-    direction = "minimize" if task == "regression" else "maximize"
+    direction = "minimize" if task == "regression" else "maximize"  # regression: minimize RMSE; classification: maximize F1
     study = optuna.create_study(
         direction=direction,
         sampler=optuna.samplers.TPESampler(seed=SEED),  # reproducible Bayesian search
