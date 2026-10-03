@@ -50,7 +50,7 @@ def prepare_data():
     validate_dataset(raw, SENSOR_COLS)
     df, _ = clean_data(raw)
     train, val = split_by_unit(add_rul(df))
-    sensors, sensor_scores = select_sensors(train)
+    sensors, sensor_scores = select_sensors(train)  # chosen on training units only
     health = HealthAnalyzer().fit(train, sensors)
     return health.transform(train), health.transform(val), sensors, sensor_scores, health
 
