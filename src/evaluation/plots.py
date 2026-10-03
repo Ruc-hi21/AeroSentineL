@@ -11,7 +11,7 @@ from src.config import RISK_BANDS  # noqa: E402
 
 def _save(fig, path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout()
+    fig.tight_layout()  # prevents label/title overlap across subplots
     fig.savefig(path, dpi=120)  # 120 dpi balances readability and file size
     plt.close(fig)
 
