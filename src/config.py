@@ -35,7 +35,8 @@ RANGE_MARGIN = 0.1
 # Feature engineering
 ROLLING_WINDOW = 30  # chosen on validation units: 5/10/20/30 tried, 30 lowest RMSE
 
-# Risk bands
+# Risk bands, most severe first: a unit falls in the first band whose RUL limit it is <= to.
+# These limits are a design choice, not a validated standard.
 RISK_BANDS = ["NORMAL", "AT_RISK", "HIGH_RISK", "FAILURE_LIKELY"]
 RISK_LIMITS = {"FAILURE_LIKELY": 15, "HIGH_RISK": 30, "AT_RISK": 60}
 LOW_CONFIDENCE = 0.6  # risk predictions with lower probability are flagged for review
