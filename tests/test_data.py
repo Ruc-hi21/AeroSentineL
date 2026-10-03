@@ -1,4 +1,7 @@
-"""Loading, validation, cleaning, RUL labels and the engine-unit split."""
+"""Loading, validation, cleaning, RUL labels and the engine-unit split.
+
+All tests run on synthetic data so no disk files are required.
+"""
 
 import io
 
