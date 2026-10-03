@@ -35,7 +35,7 @@ def test_empty_file_is_rejected():  # TEST-D-003
         read_sensor_file(io.StringIO("   "))
 
 
-def test_missing_columns_are_reported(engines):
+def test_missing_columns_are_reported(engines):  # TEST-D-004
     with pytest.raises(InvalidDataError, match="sensor_11"):
         validate_dataset(engines.drop(columns=["sensor_11"]), SENSOR_COLS)
 
