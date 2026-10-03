@@ -37,3 +37,12 @@ def clean_data(df):
         "filled_values": filled,
     }
     return df, report
+
+
+def summarize_fleet_data(df: pd.DataFrame) -> dict:
+    """Compute fleet summary metrics including unit count, cycle bounds, and record volume."""
+    return {
+        "total_records": len(df),
+        "unique_units": int(df["unit"].nunique()) if "unit" in df.columns else 0,
+        "max_cycles": int(df["cycle"].max()) if "cycle" in df.columns else 0,
+    }
