@@ -27,7 +27,7 @@ TEST_SIZE = 0.2  # fraction of engine units held out for validation
 CONSTANT_STD_THRESHOLD = 0.01  # sensors with lower std carry no signal
 
 # Component health analysis
-BASELINE_CYCLES = 30
+BASELINE_CYCLES = 30  # first N cycles of each training engine = healthy reference
 HEALTH_SMOOTHING = 5
 ABNORMAL_QUANTILE = 0.99
 RANGE_MARGIN = 0.1
