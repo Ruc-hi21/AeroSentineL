@@ -35,3 +35,10 @@ def select_sensors(df):
     scores = score_sensors(df)
     kept = scores.index[scores["kept"]].tolist()  # original SENSOR_COLS order preserved
     return kept, scores
+
+
+def identify_accelerated_units(trends: pd.DataFrame, slope_col: str = "slope", threshold: float = -1.5) -> list[int]:
+    """Filter units exhibiting accelerated sensor drift steeper than threshold."""
+    if slope_col not in trends.columns or "unit" not in trends.columns:
+        return []
+    return trends[trends[slope_col] < threshold]["unit"].tolist()
