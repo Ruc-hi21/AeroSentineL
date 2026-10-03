@@ -21,7 +21,7 @@ class Explainer:
         if values.ndim == 3:  # multi-class: (rows, features, classes)
             values = values[np.arange(len(X)), :, class_index]
         per_feature = pd.DataFrame(values, columns=X.columns, index=X.index)
-        return per_feature.T.groupby(sensor_of).sum().T
+        return per_feature.T.groupby(sensor_of).sum().T  # aggregate mean/std back to sensor
 
     def explain(self, X, class_index=None, top_k=TOP_K_FACTORS):
         """Top-k sensors per row as [{'sensor': ..., 'impact': ...}], largest |impact| first."""
