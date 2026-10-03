@@ -53,3 +53,26 @@ def _run_stage(result, name, fn):
     except Exception as exc:  # noqa: BLE001 - one stage failing must not kill the others
         logger.exception("job=%s stage=%s failed", result.job_id, name)
         result.stages[name] = f"failed: {type(exc).__name__}"
+
+
+def _review_reasons(units, history):
+    """Why each unit needs a human look. Empty list = no flag."""
+    out_of_range = history.groupby("unit")["out_of_range"].any()
+    cycles_seen = history.groupby("unit").size()
+    reasons = []
+    for _, row in units.iterrows():
+        r = []
+        if row.get("risk_band") in ("HIGH_RISK", "FAILURE_LIKELY"):
+            r.append("high risk")
+        if row.get("risk_probability", 1.0) < LOW_CONFIDENCE:
+            r.append("low confidence")
+        if "predicted_rul" in row and "risk_band" in row:
+            gap = abs(rul_to_band([row["predicted_rul"]])[0] - RISK_BANDS.index(row["risk_band"]))
+            if gap > 1:
+                r.append("RUL and risk band disagree")
+        if out_of_range[row["unit"]]:
+            r.append("readings outside training range")
+        if cycles_seen[row["unit"]] < ROLLING_WINDOW:
+            r.append(f"short history (<{ROLLING_WINDOW} cycles)")
+        reasons.append(r)
+    return reasons
