@@ -76,3 +76,31 @@ def _review_reasons(units, history):
             r.append(f"short history (<{ROLLING_WINDOW} cycles)")
         reasons.append(r)
     return reasons
+
+
+def analyze(source, version=MODEL_VERSION):
+    """Analyze a file path, uploaded file or DataFrame of C-MAPSS sensor data."""
+    result = AnalysisResult(job_id=f"job_{uuid.uuid4().hex[:8]}")
+    start = time.perf_counter()
+
+    # 1. Load models, validate, clean, health analysis, features. Any failure here is fatal.
+    try:
+        artifacts = load_artifacts(version)
+        result.model_version = version
+        df = source if isinstance(source, pd.DataFrame) else read_sensor_file(source)
+        result.validation = validate_dataset(df, artifacts.sensors)
+        df, result.cleaning = clean_data(df)
+        df = artifacts.health.transform(df)
+        X = build_features(df, artifacts.sensors)
+    except AeroSentinelError as exc:
+        return _fail(result, exc)
+    except Exception:  # noqa: BLE001 - never expose a stack trace to the user
+        logger.exception("job=%s preprocessing failed", result.job_id)
+        return _fail(result, ProcessingError("The dataset could not be processed."))
+    result.stages["preprocessing"] = "ok"
+
+    history = df[["unit", "cycle", "health_score", "health_condition", "out_of_range"]].copy()
+    last = df.groupby("unit")["cycle"].idxmax().to_numpy()
+    X_last = X.loc[last]
+    units = history.loc[last, ["unit", "cycle", "health_condition", "health_score"]].reset_index(drop=True)
+    band_codes = None
