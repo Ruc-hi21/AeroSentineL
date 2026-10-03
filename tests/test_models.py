@@ -19,7 +19,7 @@ def test_constant_sensors_are_dropped(engines):  # TEST-M-001
     assert not scores.loc["sensor_1", "kept"]
 
 
-def test_health_score_rises_with_wear():
+def test_health_score_rises_with_wear():  # TEST-M-002
     df = add_rul(make_engines(n_units=6, cycles=60))
     health = HealthAnalyzer().fit(df, ["sensor_2", "sensor_3", "sensor_5"])
     out = health.transform(df)
