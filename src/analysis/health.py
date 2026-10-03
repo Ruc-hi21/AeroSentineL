@@ -16,7 +16,7 @@ class HealthAnalyzer:
         self.sensors = list(sensors)
         baseline = train_df[train_df["cycle"] <= BASELINE_CYCLES]
         self.mean = baseline[self.sensors].mean()
-        self.std = baseline[self.sensors].std().replace(0, 1)
+        self.std = baseline[self.sensors].std().replace(0, 1)  # avoid zero division for constant sensors
         # +1 if the sensor rises as RUL falls, -1 if it drops.
         self.direction = -np.sign(train_df[self.sensors].corrwith(train_df["rul"]))
 
@@ -42,6 +42,6 @@ class HealthAnalyzer:
         df = df.copy()
         df["health_score"] = self.health_score(df)
         df["health_condition"] = np.where(df["health_score"] > self.threshold, "abnormal", "normal")
-        readings = df[self.sensors]
+        readings = df[self.sensors]  # extract once for both low/high comparisons
         df["out_of_range"] = ((readings < self.low) | (readings > self.high)).any(axis=1)
         return df
