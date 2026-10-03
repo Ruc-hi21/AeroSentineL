@@ -42,7 +42,7 @@ def test_sensor_of_maps_features_back():
     assert sensor_of("cycle") == "cycle"
 
 
-def test_risk_bands_cover_every_rul_with_no_gaps():
+def test_risk_bands_cover_every_rul_with_no_gaps():  # TEST-M-005
     rul = np.arange(0, 400)
     codes = rul_to_band(rul)
     assert set(codes) == set(range(len(RISK_BANDS)))
