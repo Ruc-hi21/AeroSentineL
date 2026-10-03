@@ -33,6 +33,7 @@ class FailureRiskClassifier:
         return self
 
     def predict_proba(self, X):
+        """Returns class probability matrix (n_samples, 4)."""
         return self.model.predict_proba(X)
 
     def classify_band(self, X):
