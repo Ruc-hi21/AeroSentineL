@@ -22,6 +22,7 @@ def _suggest(trial):
 
 
 def tune(make_model, X, y, groups, task, n_trials=OPTUNA_TRIALS):
+    """Return the best params. task='regression' minimises RMSE, 'classification' maximises macro F1."""
     folds = list(GroupKFold(n_splits=CV_FOLDS).split(X, y, groups))
 
     def objective(trial):
