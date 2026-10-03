@@ -20,7 +20,7 @@ def test_constant_sensors_are_dropped(engines):  # TEST-M-001
 
 
 def test_health_score_rises_with_wear():  # TEST-M-002
-    df = add_rul(make_engines(n_units=6, cycles=60))
+    df = add_rul(make_engines(n_units=6, cycles=60))  # 6 units; enough for all 4 risk bands
     health = HealthAnalyzer().fit(df, ["sensor_2", "sensor_3", "sensor_5"])
     out = health.transform(df)
     early = out[out["cycle"] <= 10]["health_score"].mean()
