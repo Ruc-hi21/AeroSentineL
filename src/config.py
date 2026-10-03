@@ -33,7 +33,7 @@ ABNORMAL_QUANTILE = 0.99
 RANGE_MARGIN = 0.1
 
 # Feature engineering
-ROLLING_WINDOW = 30
+ROLLING_WINDOW = 30  # chosen on validation units: 5/10/20/30 tried, 30 lowest RMSE
 
 # Risk bands
 RISK_BANDS = ["NORMAL", "AT_RISK", "HIGH_RISK", "FAILURE_LIKELY"]
