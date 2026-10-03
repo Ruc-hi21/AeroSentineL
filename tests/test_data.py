@@ -40,7 +40,7 @@ def test_missing_columns_are_reported(engines):  # TEST-D-004
         validate_dataset(engines.drop(columns=["sensor_11"]), SENSOR_COLS)
 
 
-def test_validation_warns_about_fixable_problems(engines):
+def test_validation_warns_about_fixable_problems(engines):  # TEST-D-006
     engines = engines.astype({"sensor_2": object})
     engines.loc[0, "sensor_2"] = "bad"
     report = validate_dataset(engines, SENSOR_COLS)
