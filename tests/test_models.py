@@ -58,7 +58,7 @@ def _small_training_set():
     return build_features(df, sensors), df["rul"].to_numpy()
 
 
-def test_rul_interval_contains_prediction():
+def test_rul_interval_contains_prediction():  # TEST-M-006
     X, y = _small_training_set()
     model = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
     low, high = model.predict_interval(X)
