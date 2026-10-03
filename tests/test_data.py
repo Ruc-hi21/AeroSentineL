@@ -48,7 +48,7 @@ def test_validation_warns_about_fixable_problems(engines):  # TEST-D-006
     assert any("non-numeric" in w for w in report["warnings"])
 
 
-def test_cleaning_handles_duplicates_missing_and_bad_types(engines):
+def test_cleaning_handles_duplicates_missing_and_bad_types(engines):  # TEST-D-008
     dirty = engines.astype({"sensor_2": object})
     dirty.loc[3, "sensor_2"] = "not a number"
     dirty.loc[5, "sensor_3"] = np.nan
