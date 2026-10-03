@@ -36,3 +36,10 @@ class AnalysisResult:
     validation: dict | None = None
     cleaning: dict | None = None
     error: dict | None = None
+
+
+def _fail(result, exc):
+    result.status = "FAILED"
+    result.error = {"code": exc.code, "message": exc.message, "requestId": result.job_id}
+    logger.warning("job=%s failed code=%s", result.job_id, exc.code)
+    return result
