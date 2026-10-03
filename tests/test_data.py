@@ -20,7 +20,7 @@ from tests.conftest import make_engines
 
 def test_reads_raw_text_and_csv(engines):  # TEST-D-001
     raw_text = engines.to_csv(sep=" ", header=False, index=False)
-    assert list(read_sensor_file(io.StringIO(raw_text)).columns) == RAW_COLUMNS
+    assert list(read_sensor_file(io.StringIO(raw_text)).columns) == RAW_COLUMNS  # column order matters
     csv_bytes = io.BytesIO(engines.to_csv(index=False).encode())
     assert read_sensor_file(csv_bytes).shape == engines.shape
 
