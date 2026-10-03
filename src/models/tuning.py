@@ -38,6 +38,9 @@ def tune(make_model, X, y, groups, task, n_trials=OPTUNA_TRIALS):
         return float(np.mean(scores))
 
     direction = "minimize" if task == "regression" else "maximize"
-    study = optuna.create_study(direction=direction, sampler=optuna.samplers.TPESampler(seed=SEED))
+    study = optuna.create_study(
+        direction=direction,
+        sampler=optuna.samplers.TPESampler(seed=SEED),  # reproducible Bayesian search
+    )
     study.optimize(objective, n_trials=n_trials)
     return study.best_params, study.best_value
