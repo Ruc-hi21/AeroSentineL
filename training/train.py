@@ -159,7 +159,7 @@ def write_reports(metrics, test_predictions, sensor_scores, train, val, X_val):
 
 def main(trials):
     start = time.perf_counter()
-    np.random.seed(SEED)
+    np.random.seed(SEED)  # fix numpy global seed for reproducibility
 
     train, val, sensors, sensor_scores, health = prepare_data()
     log.info("Units: %d train / %d validation. Sensors kept: %d of %d",
