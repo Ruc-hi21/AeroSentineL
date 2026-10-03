@@ -58,7 +58,7 @@ def load_artifacts(version=MODEL_VERSION):
     loaded = {key: joblib.load(folder / name) for key, name in FILES.items()}
     return Artifacts(
         version=version,
-        metadata=json.loads((folder / "metadata.json").read_text()),
+        metadata=json.loads((folder / "metadata.json").read_text(encoding="utf-8")),
         **loaded,
         rul_explainer=Explainer(loaded["rul"].model),
         risk_explainer=Explainer(loaded["risk"].model),
