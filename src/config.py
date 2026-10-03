@@ -16,7 +16,7 @@ SEED = 42
 # Raw C-MAPSS columns (26 per row)
 ID_COLS = ["unit", "cycle"]
 SETTING_COLS = [f"setting_{i}" for i in range(1, 4)]
-SENSOR_COLS = [f"sensor_{i}" for i in range(1, 22)]
+SENSOR_COLS = [f"sensor_{i}" for i in range(1, 22)]  # sensor_1..sensor_21 per C-MAPSS spec
 RAW_COLUMNS = ID_COLS + SETTING_COLS + SENSOR_COLS
 
 # Labeling & split
