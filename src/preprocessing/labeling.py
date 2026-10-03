@@ -23,3 +23,10 @@ def split_by_unit(df, test_size=TEST_SIZE, seed=SEED):
     train, val = df[~val_mask].copy(), df[val_mask].copy()
     assert not set(train["unit"]) & set(val["unit"]), "Engine unit leaked across the split"
     return train, val
+
+
+def validate_rul_bounds(df: pd.DataFrame, min_val: float = 0.0) -> bool:
+    """Verify that calculated RUL values are non-negative and finite."""
+    if "RUL" not in df.columns:
+        return False
+    return bool((df["RUL"] >= min_val).all() and not df["RUL"].isna().any())
