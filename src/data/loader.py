@@ -26,7 +26,7 @@ def read_sensor_file(source):
     try:
         if any(ch.isalpha() for ch in first_line):
             df = pd.read_csv(io.StringIO(text))
-            df.columns = [str(c).strip() for c in df.columns]
+            df.columns = [str(c).strip() for c in df.columns]  # strip BOM or whitespace from headers
             return df
         df = pd.read_csv(io.StringIO(text), sep=r"\s+", header=None)
     except (pd.errors.ParserError, UnicodeDecodeError) as exc:
