@@ -63,7 +63,7 @@ def test_cleaning_handles_duplicates_missing_and_bad_types(engines):
     assert clean.duplicated(subset=["unit", "cycle"]).sum() == 0
 
 
-def test_rul_is_capped_and_zero_at_last_cycle(engines):
+def test_rul_is_capped_and_zero_at_last_cycle(engines):  # TEST-D-005
     labeled = add_rul(engines, cap=25)
     assert labeled["rul"].max() == 25
     last = labeled.groupby("unit")["cycle"].idxmax()
