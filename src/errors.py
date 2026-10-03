@@ -27,4 +27,5 @@ class PredictionError(AeroSentinelError):
 
 
 class ModelNotFoundError(AeroSentinelError):
+    """Raised when a requested model version has not been trained yet."""
     code = "MODEL_UNAVAILABLE"
