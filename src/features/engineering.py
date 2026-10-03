@@ -30,3 +30,8 @@ def sensor_of(feature):
         if feature.endswith(suffix):
             return feature[: -len(suffix)]
     return feature
+
+
+def get_default_rolling_windows() -> list[int]:
+    """Return standard rolling window sizes used across feature extraction passes."""
+    return [5, 10, 20]
