@@ -78,3 +78,29 @@ def train_rul(X_train, y_train, X_val, y_val, groups, trials):
                           "cv_rmse": cv_rmse}
     log.info("RUL xgboost            %s", results["xgboost"])
     return model, params, results
+
+
+def train_risk(X_train, b_train, X_val, b_val, groups, trials):
+    baselines = {
+        "logistic_regression": make_pipeline(
+            StandardScaler(), LogisticRegression(max_iter=2000, class_weight="balanced")),
+        "random_forest": RandomForestClassifier(n_estimators=100, min_samples_leaf=5,
+                                                class_weight="balanced", n_jobs=-1,
+                                                random_state=SEED),
+    }
+    results = {"baselines": {}}
+    for name, model in baselines.items():
+        m = classification_metrics(b_val, model.fit(X_train, b_train).predict_proba(X_val))
+        results["baselines"][name] = {"accuracy": m["accuracy"], "macro_f1": m["macro_f1"]}
+        log.info("Risk baseline %-18s %s", name, results["baselines"][name])
+
+    params, cv_f1 = DEFAULT_PARAMS, None
+    if trials:
+        params, cv_f1 = tune(lambda p: FailureRiskClassifier(p),
+                             X_train, b_train, groups, "classification", trials)
+    model = FailureRiskClassifier(params).fit(X_train, b_train)
+    results["xgboost"] = {**classification_metrics(b_val, model.predict_proba(X_val)),
+                          "cv_macro_f1": cv_f1}
+    log.info("Risk xgboost  accuracy=%s macro_f1=%s",
+             results["xgboost"]["accuracy"], results["xgboost"]["macro_f1"])
+    return model, params, results
