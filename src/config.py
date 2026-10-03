@@ -49,4 +49,4 @@ CV_FOLDS = 3  # GroupKFold splits; more folds slower with no accuracy gain on FD
 RUL_INTERVAL = (0.1, 0.9)  # quantile pair yielding the 80% prediction interval
 
 # Explainability
-TOP_K_FACTORS = 5
+TOP_K_FACTORS = 5  # top SHAP sensors returned per unit in the dashboard
