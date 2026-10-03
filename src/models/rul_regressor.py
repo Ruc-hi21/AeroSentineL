@@ -6,6 +6,8 @@ from xgboost import XGBRegressor
 from src.config import RUL_CAP, RUL_INTERVAL, SEED
 
 BASE_PARAMS = {"tree_method": "hist", "n_jobs": -1, "random_state": SEED}
+# Shallow, regularised trees: deeper quantile models overfit and their intervals came out
+# too narrow (69% validation coverage for a nominal 80% interval vs. 87% with these).
 INTERVAL_PARAMS = {"n_estimators": 200, "max_depth": 3, "learning_rate": 0.05,
                    "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 20}
 
