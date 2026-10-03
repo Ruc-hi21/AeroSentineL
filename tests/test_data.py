@@ -30,7 +30,7 @@ def test_wrong_column_count_is_rejected():  # TEST-D-002
         read_sensor_file(io.StringIO("1 2 3\n4 5 6\n"))
 
 
-def test_empty_file_is_rejected():
+def test_empty_file_is_rejected():  # TEST-D-003
     with pytest.raises(InvalidDataError):
         read_sensor_file(io.StringIO("   "))
 
