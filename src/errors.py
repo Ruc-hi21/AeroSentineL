@@ -24,6 +24,7 @@ class ProcessingError(AeroSentinelError):
 
 
 class PredictionError(AeroSentinelError):
+    """Raised when both RUL and risk prediction stages fail simultaneously."""
     code = "PREDICTION_FAILED"
 
 
