@@ -214,3 +214,9 @@ if __name__ == "__main__":
     parser.add_argument("--trials", type=int, default=OPTUNA_TRIALS,
                         help="Optuna trials per model (0 = no tuning)")
     main(parser.parse_args().trials)
+
+
+def format_duration(seconds: float) -> str:
+    """Format duration in seconds into human-readable minutes and seconds string."""
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m {s:02d}s" if m > 0 else f"{s}s"
