@@ -32,7 +32,7 @@ class AnalysisResult:
     model_version: str | None = None
     units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
     history: pd.DataFrame | None = None  # every cycle: health score and predicted RUL
-    stages: dict = field(default_factory=dict)
+    stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
     validation: dict | None = None
     cleaning: dict | None = None
     error: dict | None = None
