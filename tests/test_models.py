@@ -13,7 +13,7 @@ from src.preprocessing.labeling import add_rul
 from tests.conftest import make_engines
 
 
-def test_constant_sensors_are_dropped(engines):
+def test_constant_sensors_are_dropped(engines):  # TEST-M-001
     sensors, scores = select_sensors(add_rul(engines))
     assert "sensor_1" not in sensors
     assert not scores.loc["sensor_1", "kept"]
