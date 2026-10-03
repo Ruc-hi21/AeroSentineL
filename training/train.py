@@ -40,7 +40,7 @@ from src.pipeline import analyze
 from src.preprocessing.cleaning import clean_data
 from src.preprocessing.labeling import add_rul, split_by_unit
 
-log = logging.getLogger("aerosentinel.train")
+log = logging.getLogger("aerosentinel.train")  # child of the root aerosentinel logger
 DEFAULT_PARAMS = {"n_estimators": 400, "max_depth": 5, "learning_rate": 0.05,
                   "subsample": 0.8, "colsample_bytree": 0.8}
 
