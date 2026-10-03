@@ -38,7 +38,7 @@ ROLLING_WINDOW = 30  # chosen on validation units: 5/10/20/30 tried, 30 lowest R
 # Risk bands
 RISK_BANDS = ["NORMAL", "AT_RISK", "HIGH_RISK", "FAILURE_LIKELY"]
 RISK_LIMITS = {"FAILURE_LIKELY": 15, "HIGH_RISK": 30, "AT_RISK": 60}
-LOW_CONFIDENCE = 0.6
+LOW_CONFIDENCE = 0.6  # risk predictions with lower probability are flagged for review
 
 # Training
 OPTUNA_TRIALS = 0
