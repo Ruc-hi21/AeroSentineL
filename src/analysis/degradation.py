@@ -33,5 +33,5 @@ def score_sensors(df):
 def select_sensors(df):
     """Drop sensors that never change; return (kept sensor names, score table)."""
     scores = score_sensors(df)
-    kept = scores.index[scores["kept"]].tolist()  # preserves original sensor column order
+    kept = scores.index[scores["kept"]].tolist()  # original SENSOR_COLS order preserved
     return kept, scores
