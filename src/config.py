@@ -10,7 +10,7 @@ REPORTS_DIR = ROOT / "reports"
 
 # Dataset & reproducibility
 DATASET = "FD001"
-MODEL_VERSION = "v1"
+MODEL_VERSION = "v1.1"
 SEED = 42
 
 # Raw C-MAPSS columns (26 per row)
