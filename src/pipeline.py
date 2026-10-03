@@ -22,7 +22,7 @@ from src.models.artifacts import load_artifacts
 from src.models.risk_classifier import rul_to_band
 from src.preprocessing.cleaning import clean_data
 
-logger = logging.getLogger("aerosentinel")
+logger = logging.getLogger("aerosentinel")  # root logger for all pipeline events
 
 
 @dataclass

@@ -17,7 +17,7 @@ from src.config import RISK_BANDS
 
 def regression_metrics(y_true, y_pred):
     return {
-        "rmse": round(float(root_mean_squared_error(y_true, y_pred)), 3),
+        "rmse": round(float(root_mean_squared_error(y_true, y_pred)), 3),  # primary metric
         "mae": round(float(mean_absolute_error(y_true, y_pred)), 3),
         "r2": round(float(r2_score(y_true, y_pred)), 3),
     }
@@ -54,5 +54,5 @@ def classification_metrics(y_true, proba):
         "accuracy": round(float(accuracy_score(y_true, y_pred)), 3),
         "macro_f1": round(float(f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)), 3),
         "per_band": per_band,
-        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
+        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),  # nested list for JSON
     }

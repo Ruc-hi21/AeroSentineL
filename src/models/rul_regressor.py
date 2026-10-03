@@ -5,7 +5,7 @@ from xgboost import XGBRegressor
 
 from src.config import RUL_CAP, RUL_INTERVAL, SEED
 
-BASE_PARAMS = {"tree_method": "hist", "n_jobs": -1, "random_state": SEED}
+BASE_PARAMS = {"tree_method": "hist", "n_jobs": -1, "random_state": SEED}  # shared by point and interval models
 # Shallow, regularised trees: deeper quantile models overfit and their intervals came out
 # too narrow (69% validation coverage for a nominal 80% interval vs. 87% with these).
 INTERVAL_PARAMS = {"n_estimators": 200, "max_depth": 3, "learning_rate": 0.05,
@@ -33,6 +33,7 @@ class RULRegressor:
         """(low, high) bounds, widened if needed so they always contain the point prediction."""
         bounds = np.clip(self.interval_model.predict(X), 0, RUL_CAP)
         point = self.predict(X)
+        # Widen so the interval always contains the point prediction (avoids visual confusion).
         low = np.minimum.reduce([bounds[:, 0], bounds[:, 1], point])
         high = np.maximum.reduce([bounds[:, 0], bounds[:, 1], point])
         return low, high

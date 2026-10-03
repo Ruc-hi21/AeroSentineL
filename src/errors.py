@@ -2,6 +2,7 @@
 
 
 class AeroSentinelError(Exception):
+    """Base class for all AeroSentinel errors. code is a stable string the UI can switch on."""
     code = "INTERNAL_ERROR"
 
     def __init__(self, message):
@@ -13,6 +14,7 @@ class AeroSentinelError(Exception):
 
 
 class InvalidDataError(AeroSentinelError):
+    """Raised when the uploaded dataset is missing columns or is unparseable."""
     code = "INVALID_DATASET"
 
 
@@ -25,4 +27,5 @@ class PredictionError(AeroSentinelError):
 
 
 class ModelNotFoundError(AeroSentinelError):
+    """Raised when a requested model version has not been trained yet."""
     code = "MODEL_UNAVAILABLE"

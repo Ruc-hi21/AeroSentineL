@@ -40,10 +40,10 @@ from src.pipeline import analyze
 from src.preprocessing.cleaning import clean_data
 from src.preprocessing.labeling import add_rul, split_by_unit
 
-log = logging.getLogger("aerosentinel.train")  # child of the root aerosentinel logger
+log = logging.getLogger("aerosentinel.train")  # child logger; inherits root aerosentinel handler
 # Fallback when Optuna is disabled; tuned by hand on FD001 validation set
 DEFAULT_PARAMS = {"n_estimators": 400, "max_depth": 5, "learning_rate": 0.05,
-                  "subsample": 0.8, "colsample_bytree": 0.8}
+                  "subsample": 0.8, "colsample_bytree": 0.8}  # moderate regularisation
 
 
 def prepare_data():
@@ -159,7 +159,7 @@ def write_reports(metrics, test_predictions, sensor_scores, train, val, X_val):
 
 def main(trials):
     start = time.perf_counter()
-    np.random.seed(SEED)
+    np.random.seed(SEED)  # fix numpy global seed for reproducibility
 
     train, val, sensors, sensor_scores, health = prepare_data()
     log.info("Units: %d train / %d validation. Sensors kept: %d of %d",

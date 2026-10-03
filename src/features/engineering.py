@@ -18,8 +18,8 @@ def build_features(df, sensors, window=ROLLING_WINDOW):
     """One feature row per input row. Works for units with very few cycles."""
     rolling = df.groupby("unit")[list(sensors)].rolling(window, min_periods=1)
     mean = rolling.mean().reset_index(level=0, drop=True).add_suffix("_mean")
-    std = rolling.std().reset_index(level=0, drop=True).fillna(0).add_suffix("_std")
-    features = pd.concat([df[["cycle"] + list(sensors)], mean, std], axis=1)
+    std = rolling.std().reset_index(level=0, drop=True).fillna(0).add_suffix("_std")  # 0 for 1-row windows
+    features = pd.concat([df[["cycle"] + list(sensors)], mean, std], axis=1)  # column-wise join
     return features[feature_names(sensors)]
 
 
