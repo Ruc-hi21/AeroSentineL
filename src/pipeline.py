@@ -43,3 +43,13 @@ def _fail(result, exc):
     result.error = {"code": exc.code, "message": exc.message, "requestId": result.job_id}
     logger.warning("job=%s failed code=%s", result.job_id, exc.code)
     return result
+
+
+def _run_stage(result, name, fn):
+    """Run one prediction stage; record failure instead of stopping the whole job."""
+    try:
+        fn()
+        result.stages[name] = "ok"
+    except Exception as exc:  # noqa: BLE001 - one stage failing must not kill the others
+        logger.exception("job=%s stage=%s failed", result.job_id, name)
+        result.stages[name] = f"failed: {type(exc).__name__}"
