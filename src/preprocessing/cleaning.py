@@ -20,7 +20,7 @@ def clean_data(df):
     df = df.drop_duplicates(subset=ID_COLS, keep="first")
     dropped_duplicates = before - len(df)
 
-    df = df.sort_values(ID_COLS).reset_index(drop=True)
+    df = df.sort_values(ID_COLS).reset_index(drop=True)  # chronological order within each unit
     value_cols = [c for c in df.columns if c not in ID_COLS]
     filled = int(df[value_cols].isna().sum().sum())  # count NaNs before filling
     df[value_cols] = df.groupby("unit")[value_cols].transform(lambda s: s.ffill().bfill())
