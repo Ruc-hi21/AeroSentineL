@@ -21,7 +21,7 @@ def sensor_trends(df, sensors, path, n_units=5):
     cols = 4
     rows = int(np.ceil(len(sensors) / cols))
     fig, axes = plt.subplots(rows, cols, figsize=(14, 2.6 * rows), squeeze=False)
-    units = df["unit"].unique()[:n_units]
+    units = df["unit"].unique()[:n_units]  # plot a sample of units; all would be unreadable
     for ax, sensor in zip(axes.flat, sensors):
         for unit in units:
             part = df[df["unit"] == unit]
