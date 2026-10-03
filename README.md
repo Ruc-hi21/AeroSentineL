@@ -144,3 +144,11 @@ This project is licensed under the [MIT License](LICENSE).
 ## 🤝 Contributing
 
 Internal OJT capstone project — **not currently accepting external contributions**.
+
+
+## Benchmark & Performance Standards
+
+The predictive models within AeroSentinel adhere to C-MAPSS FD001 standards:
+- **RUL Prediction Target**: RMSE < 18.0 cycles on withheld test units.
+- **Risk Classification Target**: Macro F1 > 0.85 across Critical, High, Medium, Low bands.
+- **Telemetry Latency**: Stream inference under 25ms per engine cycle.
