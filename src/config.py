@@ -29,7 +29,7 @@ CONSTANT_STD_THRESHOLD = 0.01  # sensors with lower std carry no signal
 # Component health analysis
 BASELINE_CYCLES = 30  # first N cycles of each training engine = healthy reference
 HEALTH_SMOOTHING = 5  # rolling window used to smooth the health score
-ABNORMAL_QUANTILE = 0.99
+ABNORMAL_QUANTILE = 0.99  # health score above this baseline quantile = abnormal
 RANGE_MARGIN = 0.1
 
 # Feature engineering
