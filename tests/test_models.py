@@ -66,7 +66,7 @@ def test_rul_interval_contains_prediction():  # TEST-M-006
     assert np.all(low <= pred) and np.all(pred <= high)
 
 
-def test_explanations_name_sensors_for_both_models():
+def test_explanations_name_sensors_for_both_models():  # TEST-M-007
     X, y = _small_training_set()
     rul = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
     risk = FailureRiskClassifier({"n_estimators": 30, "max_depth": 3}).fit(X, rul_to_band(y))
