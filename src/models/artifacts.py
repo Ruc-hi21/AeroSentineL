@@ -39,7 +39,7 @@ def save_artifacts(health, rul, risk, metadata, version=MODEL_VERSION):
     folder.mkdir(parents=True, exist_ok=True)
     for key, obj in {"health": health, "rul": rul, "risk": risk}.items():
         joblib.dump(obj, folder / FILES[key])
-    (folder / "metadata.json").write_text(json.dumps(metadata, indent=2))
+    (folder / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return folder
 
 
