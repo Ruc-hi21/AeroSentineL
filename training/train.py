@@ -154,3 +154,62 @@ def write_reports(metrics, test_predictions, sensor_scores, train, val, X_val):
     risk_shap = artifacts.risk_explainer.sensor_contributions(sample, class_index=codes).abs().mean()
     plots.sensor_importance(risk_shap, figures / "shap_risk.png", "What drives the risk band")
     log.info("Reports written to %s", REPORTS_DIR)
+
+
+def main(trials):
+    start = time.perf_counter()
+    np.random.seed(SEED)
+
+    train, val, sensors, sensor_scores, health = prepare_data()
+    log.info("Units: %d train / %d validation. Sensors kept: %d of %d",
+             train["unit"].nunique(), val["unit"].nunique(), len(sensors), len(SENSOR_COLS))
+
+    X_train, X_val = build_features(train, sensors), build_features(val, sensors)
+    y_train, y_val = train["rul"].to_numpy(), val["rul"].to_numpy()
+    b_train, b_val = rul_to_band(y_train), rul_to_band(y_val)
+    groups = train["unit"].to_numpy()
+
+    rul, rul_params, rul_results = train_rul(X_train, y_train, X_val, y_val, groups, trials)
+    risk, risk_params, risk_results = train_risk(X_train, b_train, X_val, b_val, groups, trials)
+    test_metrics, test_predictions = evaluate_test(health, sensors, rul, risk)
+    log.info("Test RUL %s", test_metrics["rul"])
+    log.info("Test risk accuracy=%s macro_f1=%s",
+             test_metrics["risk"]["accuracy"], test_metrics["risk"]["macro_f1"])
+
+    metrics = {"validation": {"rul": rul_results, "risk": risk_results}, "test": test_metrics}
+    metadata = {
+        "version": MODEL_VERSION,
+        "run_id": uuid.uuid4().hex[:8],
+        "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "dataset": DATASET,
+        "seed": SEED,
+        "train_units": sorted(int(u) for u in train["unit"].unique()),
+        "val_units": sorted(int(u) for u in val["unit"].unique()),
+        "sensors": sensors,
+        "features": feature_names(sensors),
+        "config": {"rul_cap": RUL_CAP, "rolling_window": ROLLING_WINDOW, "risk_bands": RISK_BANDS,
+                   "risk_limits": RISK_LIMITS, "rul_interval": list(RUL_INTERVAL),
+                   "health_threshold": round(health.threshold, 4), "optuna_trials": trials},
+        "params": {"rul": rul_params, "risk": risk_params},
+        "metrics": metrics,
+        "environment": {"python": platform.python_version(), "platform": platform.platform()},
+    }
+    folder = save_artifacts(health, rul, risk, metadata)
+    log.info("Saved model artifacts to %s", folder)
+
+    # End-to-end check: the saved models, run through the real pipeline, give the same answers.
+    load_artifacts.cache_clear()
+    result = analyze(RAW_DATA_DIR / f"test_{DATASET}.txt")
+    assert result.status == "COMPLETED", result.stages
+    assert np.allclose(result.units["predicted_rul"], test_predictions["predicted_rul"], atol=0.1)
+
+    write_reports(metrics, test_predictions, sensor_scores, train, val, X_val)
+    log.info("Done in %.0fs", time.perf_counter() - start)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--trials", type=int, default=OPTUNA_TRIALS,
+                        help="Optuna trials per model (0 = no tuning)")
+    main(parser.parse_args().trials)
