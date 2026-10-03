@@ -24,7 +24,7 @@ RUL_CAP = 125  # early-life cycles treated as equally healthy (piecewise-linear 
 TEST_SIZE = 0.2  # fraction of engine units held out for validation
 
 # Sensor selection
-CONSTANT_STD_THRESHOLD = 0.01
+CONSTANT_STD_THRESHOLD = 0.01  # sensors with lower std carry no signal
 
 # Component health analysis
 BASELINE_CYCLES = 30
