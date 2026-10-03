@@ -6,7 +6,7 @@ import pandas as pd
 from src.config import CONSTANT_STD_THRESHOLD, ROLLING_WINDOW, SENSOR_COLS
 
 
-def _monotonicity(series):
+def _monotonicity(series):  # private helper; call via score_sensors
     """1 = the smoothed signal only moves one way over a unit's life, 0 = no trend."""
     diffs = np.diff(series.rolling(ROLLING_WINDOW, min_periods=1).mean().to_numpy())
     if len(diffs) == 0:
@@ -24,7 +24,7 @@ def score_sensors(df):
             "sensor": sensor,
             "std": std,
             "corr_with_rul": 0.0 if constant else df[sensor].corr(df["rul"]),
-            "monotonicity": 0.0 if constant else df.groupby("unit")[sensor].apply(_monotonicity).mean(),
+            "monotonicity": 0.0 if constant else df.groupby("unit")[sensor].apply(_monotonicity).mean(),  # mean across units
             "kept": not constant,
         })
     return pd.DataFrame(rows).set_index("sensor")
@@ -33,4 +33,5 @@ def score_sensors(df):
 def select_sensors(df):
     """Drop sensors that never change; return (kept sensor names, score table)."""
     scores = score_sensors(df)
-    return scores.index[scores["kept"]].tolist(), scores
+    kept = scores.index[scores["kept"]].tolist()
+    return kept, scores
