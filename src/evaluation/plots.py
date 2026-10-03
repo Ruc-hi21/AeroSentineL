@@ -2,7 +2,7 @@
 
 import matplotlib
 
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # non-interactive backend; must be set before pyplot import
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
@@ -12,7 +12,7 @@ from src.config import RISK_BANDS  # noqa: E402
 def _save(fig, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(path, dpi=120)  # 120 dpi: readable in reports without huge file size
     plt.close(fig)
 
 
