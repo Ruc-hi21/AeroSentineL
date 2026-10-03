@@ -22,6 +22,7 @@ class RULRegressor:
         )
 
     def fit(self, X, y):
+        # X: (n_samples, n_features) DataFrame; y: 1-D RUL array
         self.model.fit(X, y)
         self.interval_model.fit(X, y)
         return self
