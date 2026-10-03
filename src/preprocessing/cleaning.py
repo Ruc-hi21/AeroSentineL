@@ -15,16 +15,16 @@ def clean_data(df):
     df = df[df["cycle"] >= 1]
     dropped_invalid = rows_in - len(df)
 
-    df = df.astype({"unit": int, "cycle": int})
+    df = df.astype({"unit": int, "cycle": int})  # ensure integer keys for groupby consistency
     before = len(df)
     df = df.drop_duplicates(subset=ID_COLS, keep="first")
     dropped_duplicates = before - len(df)
 
     df = df.sort_values(ID_COLS).reset_index(drop=True)
     value_cols = [c for c in df.columns if c not in ID_COLS]
-    filled = int(df[value_cols].isna().sum().sum())
+    filled = int(df[value_cols].isna().sum().sum())  # count NaNs before filling
     df[value_cols] = df.groupby("unit")[value_cols].transform(lambda s: s.ffill().bfill())
-    df[value_cols] = df[value_cols].fillna(df[value_cols].median())
+    df[value_cols] = df[value_cols].fillna(df[value_cols].median())  # global median for leading NaN
 
     if df.empty:
         raise InvalidDataError("No usable rows left after cleaning.")
