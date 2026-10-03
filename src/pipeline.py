@@ -30,12 +30,12 @@ class AnalysisResult:
     job_id: str
     status: str = "PROCESSING"
     model_version: str | None = None
-    units: pd.DataFrame | None = None
-    history: pd.DataFrame | None = None
-    stages: dict = field(default_factory=dict)
+    units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
+    history: pd.DataFrame | None = None  # every cycle: health score and predicted RUL
+    stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
     validation: dict | None = None
     cleaning: dict | None = None
-    error: dict | None = None
+    error: dict | None = None  # {"code", "message", "requestId"}
 
 
 def _fail(result, exc):
@@ -104,3 +104,39 @@ def analyze(source, version=MODEL_VERSION):
     X_last = X.loc[last]
     units = history.loc[last, ["unit", "cycle", "health_condition", "health_score"]].reset_index(drop=True)
     band_codes = None
+
+# 2. Predictions. Each stage can fail on its own.
+def predict_rul():
+    history["predicted_rul"] = artifacts.rul.predict(X)
+    units["predicted_rul"] = history.loc[last, "predicted_rul"].to_numpy()
+    units["rul_low"], units["rul_high"] = artifacts.rul.predict_interval(X_last)
+
+def classify_risk():
+    nonlocal band_codes
+    band_codes, probability = artifacts.risk.classify_band(X_last)
+    units["risk_band"] = [RISK_BANDS[c] for c in band_codes]
+    units["risk_probability"] = np.round(probability, 3)
+
+def explain():
+    if result.stages.get("rul") == "ok":
+        units["rul_factors"] = artifacts.rul_explainer.explain(X_last)
+    if result.stages.get("risk") == "ok":
+        units["risk_factors"] = artifacts.risk_explainer.explain(X_last, class_index=band_codes)
+
+_run_stage(result, "rul", predict_rul)
+_run_stage(result, "risk", classify_risk)
+_run_stage(result, "explain", explain)
+
+if result.stages["rul"] != "ok" and result.stages["risk"] != "ok":
+    return _fail(result, PredictionError("Both RUL and risk prediction failed."))
+
+units["review_reasons"] = _review_reasons(units, history)
+units["needs_review"] = units["review_reasons"].apply(bool)
+result.units = units
+result.history = history
+result.status = "COMPLETED" if all(v == "ok" for v in result.stages.values()) else "PARTIAL"
+logger.info(
+    "job=%s status=%s model=%s units=%d duration_ms=%.0f",
+    result.job_id, result.status, version, len(units), (time.perf_counter() - start) * 1000,
+)
+return result
