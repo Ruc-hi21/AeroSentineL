@@ -19,6 +19,7 @@ class InvalidDataError(AeroSentinelError):
 
 
 class ProcessingError(AeroSentinelError):
+    """Raised when preprocessing (cleaning/health/features) fails unexpectedly."""
     code = "PROCESSING_FAILED"
 
 
