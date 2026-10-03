@@ -70,7 +70,7 @@ def test_rul_is_capped_and_zero_at_last_cycle(engines):
     assert (labeled.loc[last, "rul"] == 0).all()
 
 
-def test_split_never_shares_units():
+def test_split_never_shares_units():  # TEST-D-007
     df = make_engines(n_units=10)
     train, val = split_by_unit(df, test_size=0.2, seed=1)
     assert set(train["unit"]).isdisjoint(val["unit"])
