@@ -24,7 +24,7 @@ def clean_data(df):
     value_cols = [c for c in df.columns if c not in ID_COLS]
     filled = int(df[value_cols].isna().sum().sum())  # count NaNs before filling
     df[value_cols] = df.groupby("unit")[value_cols].transform(lambda s: s.ffill().bfill())
-    df[value_cols] = df[value_cols].fillna(df[value_cols].median())  # global median for leading NaN
+    df[value_cols] = df[value_cols].fillna(df[value_cols].median())  # fallback: dataset-wide median
 
     if df.empty:
         raise InvalidDataError("No usable rows left after cleaning.")
