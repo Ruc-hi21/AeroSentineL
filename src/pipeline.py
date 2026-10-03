@@ -30,7 +30,7 @@ class AnalysisResult:
     job_id: str
     status: str = "PROCESSING"
     model_version: str | None = None
-    units: pd.DataFrame | None = None
+    units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
     history: pd.DataFrame | None = None
     stages: dict = field(default_factory=dict)
     validation: dict | None = None
