@@ -18,7 +18,7 @@ from src.preprocessing.labeling import add_rul, split_by_unit
 from tests.conftest import make_engines
 
 
-def test_reads_raw_text_and_csv(engines):
+def test_reads_raw_text_and_csv(engines):  # TEST-D-001
     raw_text = engines.to_csv(sep=" ", header=False, index=False)
     assert list(read_sensor_file(io.StringIO(raw_text)).columns) == RAW_COLUMNS
     csv_bytes = io.BytesIO(engines.to_csv(index=False).encode())
