@@ -26,7 +26,7 @@ def main(path):
         print(f"Warning: {warning}")
 
     units = result.units.copy()
-    units["severity"] = units["risk_band"].map(RISK_BANDS.index)
+    units["severity"] = units["risk_band"].map(RISK_BANDS.index)  # numeric sort key
     units = units.sort_values(["severity", "predicted_rul"], ascending=[False, True])
 
     table = pd.DataFrame({
