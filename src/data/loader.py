@@ -26,7 +26,7 @@ def read_sensor_file(source):
     try:
         if any(ch.isalpha() for ch in first_line):
             df = pd.read_csv(io.StringIO(text))
-            df.columns = [str(c).strip() for c in df.columns]
+            df.columns = [str(c).strip() for c in df.columns]  # strip BOM or whitespace from headers
             return df
         df = pd.read_csv(io.StringIO(text), sep=r"\s+", header=None)
     except (pd.errors.ParserError, UnicodeDecodeError) as exc:
@@ -51,5 +51,5 @@ def load_test(dataset=DATASET):
 
 def load_test_rul(dataset=DATASET):
     """True RUL at the last cycle of each test unit, indexed by unit number."""
-    values = pd.read_csv(RAW_DATA_DIR / f"RUL_{dataset}.txt", header=None).iloc[:, 0]
+    values = pd.read_csv(RAW_DATA_DIR / f"RUL_{dataset}.txt", header=None).iloc[:, 0]  # one RUL per line
     return pd.Series(values.to_numpy(), index=range(1, len(values) + 1), name="true_rul")

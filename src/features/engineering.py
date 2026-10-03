@@ -6,6 +6,7 @@ from src.config import ROLLING_WINDOW
 
 
 def feature_names(sensors):
+    # Structure: [cycle] + [raw sensors] + [rolling means] + [rolling stds]
     return (
         ["cycle"]
         + list(sensors)

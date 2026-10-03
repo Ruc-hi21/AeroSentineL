@@ -7,7 +7,7 @@ from src.config import RUL_CAP, SEED, TEST_SIZE
 
 def add_rul(df, cap=RUL_CAP):
     """RUL = cycles left until the unit's last recorded cycle, capped at `cap`."""
-    df = df.copy()
+    df = df.copy()  # avoid mutating the caller's DataFrame
     last_cycle = df.groupby("unit")["cycle"].transform("max")
     df["rul"] = (last_cycle - df["cycle"]).clip(upper=cap)
     return df

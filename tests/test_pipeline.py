@@ -1,4 +1,7 @@
-"""End-to-end pipeline on the trained model (skipped until `python -m training.train` has run)."""
+"""Integration tests: end-to-end pipeline on the trained model.
+
+Skipped until `python -m training.train` has run.
+"""
 
 import io
 
@@ -21,7 +24,7 @@ def test_df():
     return read_sensor_file(TEST_FILE)
 
 
-def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005
+def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005  # TEST-001, TEST-005
     result = analyze(test_df)
     assert result.status == "COMPLETED"
     units = result.units
@@ -67,7 +70,7 @@ def test_one_failing_model_gives_partial_result(test_df, monkeypatch):  # TEST-0
     def broken(_):
         raise RuntimeError("simulated model failure")
 
-    monkeypatch.setattr(artifacts.risk, "classify_band", broken)
+    monkeypatch.setattr(artifacts.risk, "classify_band", broken)  # replaces method for this test only
     result = analyze(test_df[test_df["unit"] <= 3])
     assert result.status == "PARTIAL"
     assert result.stages["risk"].startswith("failed")

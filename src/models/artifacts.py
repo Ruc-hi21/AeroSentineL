@@ -66,6 +66,7 @@ def load_artifacts(version=MODEL_VERSION):
 
 
 def model_status(version=MODEL_VERSION):
+    # Does not retry: if loading fails once, the same error is returned to the caller.
     """Readiness check for the dashboard."""
     try:
         artifacts = load_artifacts(version)

@@ -13,14 +13,14 @@ from src.preprocessing.labeling import add_rul
 from tests.conftest import make_engines
 
 
-def test_constant_sensors_are_dropped(engines):
+def test_constant_sensors_are_dropped(engines):  # TEST-M-001
     sensors, scores = select_sensors(add_rul(engines))
     assert "sensor_1" not in sensors
     assert not scores.loc["sensor_1", "kept"]
 
 
-def test_health_score_rises_with_wear():
-    df = add_rul(make_engines(n_units=6, cycles=60))
+def test_health_score_rises_with_wear():  # TEST-M-002
+    df = add_rul(make_engines(n_units=6, cycles=60))  # 6 units; enough for all 4 risk bands
     health = HealthAnalyzer().fit(df, ["sensor_2", "sensor_3", "sensor_5"])
     out = health.transform(df)
     early = out[out["cycle"] <= 10]["health_score"].mean()
@@ -42,7 +42,7 @@ def test_sensor_of_maps_features_back():
     assert sensor_of("cycle") == "cycle"
 
 
-def test_risk_bands_cover_every_rul_with_no_gaps():
+def test_risk_bands_cover_every_rul_with_no_gaps():  # TEST-M-005
     rul = np.arange(0, 400)
     codes = rul_to_band(rul)
     assert set(codes) == set(range(len(RISK_BANDS)))
@@ -58,7 +58,7 @@ def _small_training_set():
     return build_features(df, sensors), df["rul"].to_numpy()
 
 
-def test_rul_interval_contains_prediction():
+def test_rul_interval_contains_prediction():  # TEST-M-006
     X, y = _small_training_set()
     model = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
     low, high = model.predict_interval(X)
@@ -66,12 +66,12 @@ def test_rul_interval_contains_prediction():
     assert np.all(low <= pred) and np.all(pred <= high)
 
 
-def test_explanations_name_sensors_for_both_models():
+def test_explanations_name_sensors_for_both_models():  # TEST-M-007
     X, y = _small_training_set()
     rul = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
     risk = FailureRiskClassifier({"n_estimators": 30, "max_depth": 3}).fit(X, rul_to_band(y))
 
-    rul_top = Explainer(rul.model).explain(X.head(3), top_k=2)
+    rul_top = Explainer(rul.model).explain(X.head(3), top_k=2)  # small top_k speeds up test
     codes, _ = risk.classify_band(X.head(3))
     risk_top = Explainer(risk.model).explain(X.head(3), class_index=codes, top_k=2)
 

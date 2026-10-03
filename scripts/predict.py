@@ -11,7 +11,7 @@ from src.config import DATASET, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS
 from src.pipeline import analyze
 
 
-def _sensors(factors, n=3):
+def _sensors(factors, n=3):  # n=3 keeps table width manageable
     return ", ".join(f["sensor"] for f in factors[:n]) if isinstance(factors, list) else "-"
 
 
@@ -26,7 +26,7 @@ def main(path):
         print(f"Warning: {warning}")
 
     units = result.units.copy()
-    units["severity"] = units["risk_band"].map(RISK_BANDS.index)
+    units["severity"] = units["risk_band"].map(RISK_BANDS.index)  # numeric sort key
     units = units.sort_values(["severity", "predicted_rul"], ascending=[False, True])
 
     table = pd.DataFrame({
@@ -43,9 +43,9 @@ def main(path):
     print(f"\n{len(units)} units. Band counts: {units['risk_band'].value_counts().to_dict()}")
     print(f"Units flagged for review: {int(units['needs_review'].sum())}\n")
     with pd.option_context("display.width", 200, "display.max_colwidth", 60):
-        print(table.head(15).to_string(index=False))
+        print(table.head(15).to_string(index=False))  # show top 15 highest-risk units
 
-    out = REPORTS_DIR / "latest_predictions.csv"
+    out = REPORTS_DIR / "latest_predictions.csv"  # overwritten on each run
     out.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(out, index=False)
     print(f"\nFull table saved to {out}")
