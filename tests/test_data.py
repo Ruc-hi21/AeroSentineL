@@ -25,7 +25,7 @@ def test_reads_raw_text_and_csv(engines):  # TEST-D-001
     assert read_sensor_file(csv_bytes).shape == engines.shape
 
 
-def test_wrong_column_count_is_rejected():
+def test_wrong_column_count_is_rejected():  # TEST-D-002
     with pytest.raises(InvalidDataError, match="Expected 26 columns"):
         read_sensor_file(io.StringIO("1 2 3\n4 5 6\n"))
 
