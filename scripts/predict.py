@@ -11,7 +11,7 @@ from src.config import DATASET, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS
 from src.pipeline import analyze
 
 
-def _sensors(factors, n=3):
+def _sensors(factors, n=3):  # n=3 keeps table width manageable
     return ", ".join(f["sensor"] for f in factors[:n]) if isinstance(factors, list) else "-"
 
 
