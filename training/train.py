@@ -104,3 +104,26 @@ def train_risk(X_train, b_train, X_val, b_val, groups, trials):
     log.info("Risk xgboost  accuracy=%s macro_f1=%s",
              results["xgboost"]["accuracy"], results["xgboost"]["macro_f1"])
     return model, params, results
+
+
+def evaluate_test(health, sensors, rul, risk):
+    """Official test set: score the last cycle of each engine against RUL_FD001.txt."""
+    df = health.transform(clean_data(load_test())[0])
+    X = build_features(df, sensors)
+    last = df.groupby("unit")["cycle"].idxmax().to_numpy()
+    true = load_test_rul().loc[df.loc[last, "unit"]].to_numpy()
+
+    pred = rul.predict(X.loc[last])
+    low, high = rul.predict_interval(X.loc[last])
+    proba = risk.predict_proba(X.loc[last])
+    metrics = {
+        "rul": {**regression_metrics(true, pred), "interval_coverage": interval_coverage(true, low, high)},
+        "risk": classification_metrics(rul_to_band(true), proba),
+    }
+    predictions = pd.DataFrame({
+        "unit": df.loc[last, "unit"].to_numpy(), "true_rul": true,
+        "predicted_rul": pred.round(1), "rul_low": low.round(1), "rul_high": high.round(1),
+        "true_band": [RISK_BANDS[c] for c in rul_to_band(true)],
+        "predicted_band": [RISK_BANDS[c] for c in proba.argmax(axis=1)],
+    })
+    return metrics, predictions
