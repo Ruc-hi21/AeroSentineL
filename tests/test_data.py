@@ -76,3 +76,11 @@ def test_split_never_shares_units():  # TEST-D-007
     assert set(train["unit"]).isdisjoint(val["unit"])
     assert val["unit"].nunique() == 2
     assert len(train) + len(val) == len(df)
+
+
+def test_fleet_summary_metrics():
+    df = pd.DataFrame({"unit": [1, 1, 2, 2], "cycle": [1, 2, 1, 2]})
+    from src.preprocessing.cleaning import summarize_fleet_data
+    summary = summarize_fleet_data(df)
+    assert summary["total_records"] == 4
+    assert summary["unique_units"] == 2
