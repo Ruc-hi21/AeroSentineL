@@ -45,7 +45,7 @@ def main(path):
     with pd.option_context("display.width", 200, "display.max_colwidth", 60):
         print(table.head(15).to_string(index=False))
 
-    out = REPORTS_DIR / "latest_predictions.csv"
+    out = REPORTS_DIR / "latest_predictions.csv"  # overwritten on each run
     out.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(out, index=False)
     print(f"\nFull table saved to {out}")
