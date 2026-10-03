@@ -140,3 +140,13 @@ logger.info(
     result.job_id, result.status, version, len(units), (time.perf_counter() - start) * 1000,
 )
 return result
+
+
+    def get_pipeline_info(self) -> dict:
+        """Return metadata summary of registered models and operational configuration."""
+        return {
+            "version": MODEL_VERSION,
+            "rul_ready": artifacts.rul is not None,
+            "risk_ready": artifacts.risk is not None,
+            "explainer_ready": artifacts.explainer is not None,
+        }
