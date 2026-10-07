@@ -1,29 +1,66 @@
 [server]
 maxUploadSize = 50  # MB, bounded upload size
+enableStaticServing = true  # serves app/static (self-hosted IBM Plex fonts)
 
 [browser]
 gatherUsageStats = false
 
+# Design tokens mirror app/theme.py (TOKENS). Carbon-inspired Gray-100 dark theme.
 [theme]
 base = "dark"
-primaryColor = "#00e5ff"
-backgroundColor = "#040a18"
-secondaryBackgroundColor = "#0b1630"
-textColor = "#dbe8ff"
-linkColor = "#00e5ff"
-borderColor = "rgba(0, 229, 255, 0.18)"
-baseRadius = "12px"
-# "<quoted family>:<url>" only — a trailing fallback list would invalidate the URL.
-font = "'Exo 2':https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&display=swap"
-headingFont = "'Orbitron':https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap"
-codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"
-greenColor = "#19f5a0"
-yellowColor = "#ffd23f"
-orangeColor = "#ff8a1f"
-redColor = "#ff2e4d"
-blueColor = "#3d8bff"
-violetColor = "#9b6bff"
+primaryColor = "#78a9ff"
+backgroundColor = "#0e1013"
+secondaryBackgroundColor = "#16191d"
+textColor = "#e6e8eb"
+linkColor = "#78a9ff"
+linkUnderline = false
+borderColor = "#262b31"
+dataframeBorderColor = "#262b31"
+dataframeHeaderBackgroundColor = "#16191d"
+baseRadius = "2px"
+buttonRadius = "2px"
+baseFontSize = 14
+font = "IBM Plex Sans"
+headingFont = "IBM Plex Sans"
+codeFont = "IBM Plex Mono"
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+headingFontSizes = ["1.43rem", "1.14rem", "1rem", "0.93rem", "0.86rem", "0.86rem"]
+metricValueFontSize = "1.7rem"
+metricValueFontWeight = 500
+greenColor = "#42be65"
+yellowColor = "#f1c21b"
+orangeColor = "#ff832b"
+redColor = "#fa4d56"
+blueColor = "#78a9ff"
+grayColor = "#8d8d8d"
+codeBackgroundColor = "#16191d"
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-400-normal.woff2"
+weight = 400
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-500-normal.woff2"
+weight = 500
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-600-normal.woff2"
+weight = 600
+
+[[theme.fontFaces]]
+family = "IBM Plex Mono"
+url = "app/static/fonts/ibm-plex-mono-latin-400-normal.woff2"
+weight = 400
+
+[[theme.fontFaces]]
+family = "IBM Plex Mono"
+url = "app/static/fonts/ibm-plex-mono-latin-500-normal.woff2"
+weight = 500
 
 [theme.sidebar]
-backgroundColor = "#06102a"
-secondaryBackgroundColor = "#0b1630"
+backgroundColor = "#121418"
+secondaryBackgroundColor = "#16191d"
+borderColor = "#262b31"

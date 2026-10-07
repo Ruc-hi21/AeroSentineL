@@ -1,28 +1,28 @@
-"""Upload & Analyze. States: empty, file loaded (preview), processing, success, partial, invalid, failure."""
+"""Ingest data. States: empty, file loaded (preview), processing, success, partial, invalid, failure."""
 
 import io
 
 import streamlit as st
 
-from app import fx, theme
-from app.components import SAMPLE, band_label, require_model, run_analysis
+from app import insights, theme
+from app.components import SAMPLE, fleet, require_model, run_analysis
 from app.engine3d import engine_twin, twin_payload
-from app.theme import CYAN
-from src.config import RISK_BANDS
+from app.theme import STATES, esc
 from src.data.loader import read_sensor_file
 from src.errors import InvalidDataError
 
-theme.page_header("Telemetry uplink · ingest & analyse", "Upload & Analyze",
-                  "Drop engine sensor data in NASA C-MAPSS format — the raw <code>.txt</code> (26 space-separated columns, "
-                  "no header) or a <code>.csv</code> with <code>unit</code>, <code>cycle</code>, <code>setting_1..3</code>, "
-                  "<code>sensor_1..21</code>. One row = one operating cycle of one engine.")
+theme.page_head("Ingest data", "Upload engine sensor data in NASA C-MAPSS format. Each row is one operating cycle of one engine.")
 artifacts = require_model()
 
-left, right = st.columns([2, 1], vertical_alignment="bottom")
+left, right = st.columns([1.6, 1], gap="large")
 with left:
-    uploaded = st.file_uploader("Sensor data file", type=["txt", "csv"])
+    uploaded = st.file_uploader("Sensor data file (.txt or .csv)", type=["txt", "csv"])
 with right:
-    use_sample = SAMPLE.exists() and st.button(f"…or use the sample: {SAMPLE.name} (100 test engines)", width="stretch")
+    st.html("""<dl class="as-kv" style="margin-top:4px">
+<dt>Raw .txt</dt><dd>26 space-separated columns, no header</dd>
+<dt>.csv</dt><dd><code>unit</code>, <code>cycle</code>, <code>setting_1..3</code>, <code>sensor_1..21</code></dd>
+<dt>Minimum</dt><dd>30 cycles per engine for a reliable prediction</dd></dl>""")
+    use_sample = SAMPLE.exists() and st.button(f"Use the sample file ({SAMPLE.name}, 100 engines)")
 if use_sample:
     st.session_state["pending"] = (SAMPLE.name, SAMPLE.read_bytes())
 elif uploaded is not None:
@@ -30,29 +30,35 @@ elif uploaded is not None:
 
 pending = st.session_state.get("pending")
 if pending is None:
-    st.info("No file selected yet.", icon=":material/satellite_alt:")  # empty state
-    st.stop()
+    current = st.session_state.get("result")
+    if current is not None and current.units is not None:
+        theme.note(f"Currently loaded: {esc(st.session_state.get('source_name', ''))}, {len(current.units)} engines "
+                   f"(job {esc(current.job_id)}). Uploading a new file replaces it.")
+        st.page_link("views/overview.py", label="Back to fleet overview", icon=":material/grid_view:")
+    st.stop()  # empty state: the uploader and format notes above are the guidance
 
 name, content = pending
 try:
     df = read_sensor_file(io.BytesIO(content))
 except InvalidDataError as exc:  # invalid-file state, before running anything
-    st.error(f"**Invalid file — {exc.code}.** {exc.message}")
+    st.error(f"Invalid file ({exc.code}). {exc.message}")
     st.stop()
 
-n_units = df["unit"].nunique() if "unit" in df else "?"
-theme.kpi_row([
-    theme.kpi("File", 0, "📄", f"{len(content) / 1024:,.0f} KB", CYAN, text=name, compact=True),
-    theme.kpi("Rows", len(df), "🧾", "operating cycles", theme.VIOLET),
-    theme.kpi("Engines", n_units if isinstance(n_units, int) else 0, "🛩️", "distinct units", "#19f5a0",
-              text=None if isinstance(n_units, int) else "?"),
-    theme.kpi("Columns", df.shape[1], "🧬", "settings + sensors", "#ffd23f"),
+theme.section("File", name)
+n_units = df["unit"].nunique() if "unit" in df else None
+cycles = df.groupby("unit")["cycle"].max() if {"unit", "cycle"} <= set(df.columns) else None
+theme.stats([
+    theme.stat("Rows", f"{len(df):,}"),
+    theme.stat("Engines", n_units if n_units is not None else "unknown"),
+    theme.stat("Cycles per engine", f"{cycles.min()} to {cycles.max()}" if cycles is not None else "unknown"),
+    theme.stat("Columns", df.shape[1]),
+    theme.stat("Size", f"{len(content) / 1024:,.0f}", "KB"),
 ])
-with st.expander("Preview first rows"):
+with st.expander("Preview first 20 rows"):
     st.dataframe(df.head(20), width="stretch")
 
-if st.button("⚡  Run analysis", type="primary"):
-    with st.spinner("Uplinking telemetry · running XGBoost + SHAP…"):
+if st.button("Run analysis", type="primary"):
+    with st.spinner("Validating, cleaning and running the RUL and risk models"):
         run_analysis(name, content)
 
 result = st.session_state.get("last_run")
@@ -62,50 +68,42 @@ if result is None:
 if result.status == "FAILED":
     error = result.error
     title = "Invalid data" if error["code"] == "INVALID_DATASET" else "Analysis failed"
-    st.error(f"**{title} — {error['code']}.** {error['message']}  \nRequest ID: `{error['requestId']}`")
+    st.error(f"{title} ({error['code']}). {error['message']}  \nRequest ID: `{error['requestId']}`")
     st.stop()
 
 if result.status == "PARTIAL":
     failed = [k for k, v in result.stages.items() if v != "ok"]
-    st.warning(f"**Partial result.** These stages failed: {', '.join(failed)}. The other results are still shown.")
+    st.warning(f"Partial result. These stages failed: {', '.join(failed)}. The other results are still shown.")
 else:
-    st.success(f"Analysis complete — {len(result.units)} units. Job `{result.job_id}`, "
-               f"model {result.model_version}, {result.duration_ms:.0f} ms.")
+    st.success(f"Analysis complete: {len(result.units)} engines in {result.duration_ms:.0f} ms. "
+               f"Job {result.job_id}, model {result.model_version}.")
 
-for warning in result.validation["warnings"]:
-    st.caption(f"⚠️ {warning}")
-
-fx.analysis_sequence(result, st.session_state.get("source_name", name))
-
-cards = [
-    theme.kpi("Rows cleaned", result.cleaning["rows_out"], "🧹", f"{result.cleaning['rows_in']:,} in", CYAN),
-    theme.kpi("Duplicates removed", result.cleaning["dropped_duplicates"], "🧬", "(unit, cycle) pairs", theme.VIOLET),
-    theme.kpi("Values filled", result.cleaning["filled_values"], "🩹", "per-unit forward/back fill", "#ffd23f"),
-    theme.kpi("Flagged for review", int(result.units["needs_review"].sum()), "👀", "need a human look", "#ff8a1f"),
+# Processing report: what each stage did, with this run's numbers.
+v, c, units = result.validation, result.cleaning, result.units
+steps = [
+    ("Validate", f"{v['rows']:,} rows", f"{v['units']} engines, {len(v['warnings'])} warnings", "ok"),
+    ("Clean", f"{c['rows_out']:,} kept", f"{c['dropped_duplicates']} duplicates, {c['filled_values']} filled", "ok"),
+    ("Health", f"{int((units['health_condition'] == 'abnormal').sum())} abnormal", "drift from healthy baseline", "ok"),
+    ("Features", f"{len(artifacts.metadata['features'])} per cycle", "rolling stats, trends, drift", result.stages.get("preprocessing", "ok")),
+    ("RUL model", "XGBoost", "with 80% range", result.stages.get("rul", "n/a")),
+    ("Risk model", "XGBoost", "four risk bands", result.stages.get("risk", "n/a")),
+    ("Explain", "SHAP", "top sensors per engine", result.stages.get("explain", "n/a")),
 ]
-theme.kpi_row(cards)
-if "risk_band" in result.units:
-    counts = result.units["risk_band"].value_counts()
-    st.html(" ".join(theme.band_pill(b, f" · {counts.get(b, 0)}") for b in RISK_BANDS))
+theme.section("Processing report")
+st.html('<div class="as-steps">' + "".join(
+    f'<div class="st" style="--c:{"#42be65" if s == "ok" else "#fa4d56"}"><div class="n"><i></i>{esc(n)}</div>'
+    f'<div class="v">{esc(val)}</div><div class="d">{esc(d if s == "ok" else s)}</div></div>'
+    for n, val, d, s in steps) + "</div>")
+for warning in v["warnings"]:
+    st.caption(f"Data warning: {warning}")
 
-# ---------------------------------------------------------------- straight into the twin
-units = result.units
-if "risk_band" in units:
-    worst = units.assign(_s=units["risk_band"].map(RISK_BANDS.index),
-                         _r=units.get("predicted_rul", 0)).sort_values(["_s", "_r"], ascending=[False, True]).iloc[0]
-else:
-    worst = units.iloc[0]
-unit = int(worst["unit"])
-band = worst.get("risk_band")
-theme.section("Digital twin", f"most critical · unit {unit:03d}")
-if isinstance(band, str):
-    st.caption(f"Unit {unit:03d} is the most urgent engine in this upload ({band_label(band)}). "
-               "Pick any other unit on the 3D Digital Twin page.")
-engine_twin(twin_payload(result, unit, artifacts.health, st.session_state.get("source_name", name)),
-            height=800, key="upload_twin")
+ranked = fleet(result)
+theme.distribution(insights.state_counts(ranked))
 
-left, right = st.columns(2)
-with left:
-    st.page_link("views/twin.py", label="Open the full 3D Digital Twin", icon=":material/view_in_ar:")
-with right:
-    st.page_link("views/overview.py", label="Back to Mission Control", icon=":material/radar:")
+top = ranked.iloc[0]
+unit = int(top["unit"])
+theme.section("Most urgent engine", f"Engine {unit:03d}, {STATES[top['state']]['label'].lower()}")
+engine_twin(twin_payload(result, unit, artifacts.health, st.session_state.get("source_name", name)), height=760, key="upload_twin")
+links = st.columns([1, 1, 3])
+links[0].page_link("views/overview.py", label="Open fleet overview", icon=":material/grid_view:")
+links[1].page_link("views/engine.py", label="Open engine status", icon=":material/speed:")

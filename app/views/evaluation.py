@@ -1,95 +1,94 @@
+"""Evaluation: how well the models perform on engines they never saw."""
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from app import theme
 from app.components import band_label, confusion_chart, get_result, require_model
-from app.theme import CYAN, VIOLET, esc
+from app.theme import MONO, TOKENS, esc
 
 artifacts = require_model()
 meta = artifacts.metadata
 metrics = meta["metrics"]
-theme.page_header("Model performance · verified", "Model Evaluation",
-                  f"Model <b>{esc(meta['version'])}</b> · trained {esc(meta['trained_at'])} · dataset {esc(meta['dataset'])} · "
-                  f"{len(meta['train_units'])} training / {len(meta['val_units'])} validation engines (split by engine, "
-                  "no engine in both). Final models are refit on all training engines, then scored once on the official test set.")
+theme.page_head("Evaluation", "Engines are split by unit, so no engine appears in both training and evaluation. Final "
+                "models are refit on all training engines, then scored once on the NASA test set.",
+                f"model <b>{esc(meta['version'])}</b><br>trained {esc(meta['trained_at'][:10])}<br>"
+                f"{len(meta['train_units'])} train / {len(meta['val_units'])} validation engines")
 
 result = get_result()
 if result is not None and result.duration_ms is not None:
-    st.caption(f"Latest analysis took **{result.duration_ms:.0f} ms** for {len(result.units)} units.")
+    st.caption(f"Latest analysis took {result.duration_ms:.0f} ms for {len(result.units)} engines.")
 
 val_rul, test_rul = metrics["validation"]["rul"]["xgboost"], metrics["test"]["rul"]
 val_risk, test_risk = metrics["validation"]["risk"]["xgboost"], metrics["test"]["risk"]
 
-
-def tone(ok):
-    return "#19f5a0" if ok else "#ffd23f"
-
-
-theme.section("Risk-band classification", "4 bands")
-gauges = [
-    theme.gauge("Test accuracy", test_risk["accuracy"], f"{test_risk['accuracy']:.1%}", tone(test_risk["accuracy"] >= 0.9),
-                "official test set · last cycle"),
-    theme.gauge("Validation accuracy", val_risk["accuracy"], f"{val_risk['accuracy']:.1%}", tone(val_risk["accuracy"] >= 0.9),
-                "20 held-out engines · every cycle"),
-]
+theme.section("Risk band classification", "four bands: normal, at risk, high risk, failure likely")
+items = [theme.stat("Accuracy, NASA test", f"{test_risk['accuracy']:.1%}", foot="100 engines, last cycle each"),
+         theme.stat("Accuracy, validation", f"{val_risk['accuracy']:.1%}", foot="20 unseen engines, every cycle")]
 if val_risk.get("cv_accuracy") is not None:
-    gauges.append(theme.gauge("CV accuracy", val_risk["cv_accuracy"], f"{val_risk['cv_accuracy']:.1%}",
-                              tone(val_risk["cv_accuracy"] >= 0.9), "5-fold by engine"))
-gauges += [
-    theme.gauge("Test macro-F1", test_risk["macro_f1"], f"{test_risk['macro_f1']:.2f}", VIOLET, "balanced over 4 bands"),
-    theme.gauge("Validation macro-F1", val_risk["macro_f1"], f"{val_risk['macro_f1']:.2f}", VIOLET, "every cycle"),
-]
-theme.gauge_row(gauges)
+    items.append(theme.stat("Accuracy, 5-fold CV", f"{val_risk['cv_accuracy']:.1%}", foot="grouped by engine"))
+items += [theme.stat("Macro-F1, NASA test", f"{test_risk['macro_f1']:.2f}", foot="bands weighted equally"),
+          theme.stat("Macro-F1, validation", f"{val_risk['macro_f1']:.2f}")]
+theme.stats(items)
 
 theme.section("RUL regression", "cycles")
-theme.gauge_row([
-    theme.gauge("Test RMSE", 1 - min(1, test_rul["rmse"] / 40), f"{test_rul['rmse']:.1f}", CYAN, "lower is better"),
-    theme.gauge("Test MAE", 1 - min(1, test_rul["mae"] / 40), f"{test_rul['mae']:.1f}", CYAN, "lower is better"),
-    theme.gauge("Test R²", max(0, test_rul["r2"]), f"{test_rul['r2']:.2f}", "#19f5a0", "variance explained"),
-    theme.gauge("80% range coverage", test_rul["interval_coverage"], f"{test_rul['interval_coverage']:.0%}", VIOLET,
-                "true RUL inside the range"),
-    theme.gauge("Validation RMSE", 1 - min(1, val_rul["rmse"] / 40), f"{val_rul['rmse']:.1f}", CYAN, "held-out engines"),
+theme.stats([
+    theme.stat("RMSE, NASA test", f"{test_rul['rmse']:.1f}", "cycles"),
+    theme.stat("MAE, NASA test", f"{test_rul['mae']:.1f}", "cycles"),
+    theme.stat("R², NASA test", f"{test_rul['r2']:.2f}"),
+    theme.stat("80% range coverage", f"{test_rul['interval_coverage']:.0%}", foot="target 80%"),
+    theme.stat("RMSE, validation", f"{val_rul['rmse']:.1f}", "cycles"),
 ])
 
-theme.section("XGBoost vs. baselines", "validation engines")
-left, right = st.columns(2)
+theme.section("Compared with baselines", "validation engines")
+left, right = st.columns(2, gap="large")
+
+
+def dot_plot(rows, metric, title, better, fmt, x_range):
+    """One dot per model; the shipped model is the only coloured one."""
+    names = list(rows)
+    vals = [rows[n][metric] for n in names]
+    colors = [TOKENS["accent"] if n.startswith("xgboost") and "only" not in n else TOKENS["text_3"] for n in names]
+    fig = go.Figure(go.Scatter(x=vals, y=[n.replace("_", " ") for n in names], mode="markers+text", text=[fmt(v) for v in vals],
+                               textposition="middle right", textfont=dict(family=MONO, size=11, color=TOKENS["text_2"]),
+                               marker=dict(size=10, color=colors), cliponaxis=False,
+                               hovertemplate="%{y}<br>%{x:.3f}<extra></extra>"))
+    fig.update_layout(height=60 + 46 * len(names), margin=dict(t=8, b=40, l=8, r=60), xaxis_title=f"{title} ({better})",
+                      xaxis_range=x_range, yaxis=dict(ticks="", showgrid=False, tickfont=dict(size=12, color=TOKENS["text_2"])))
+    return fig
+
+
 with left:
     risk_rows = {**metrics["validation"]["risk"]["baselines"],
-                 "xgboost ensemble": {"accuracy": val_risk["accuracy"], "macro_f1": val_risk["macro_f1"]}}
-    names = list(risk_rows)
-    fig = go.Figure()
-    for metric, color in [("accuracy", CYAN), ("macro_f1", VIOLET)]:
-        fig.add_trace(go.Bar(y=names, x=[risk_rows[n][metric] for n in names], orientation="h", name=metric,
-                             marker_color=color, text=[f"{risk_rows[n][metric]:.3f}" for n in names], textposition="outside"))
-    fig.update_layout(height=340, barmode="group", xaxis_range=[0.5, 1.02], legend=dict(orientation="h", y=1.1),
-                      title=dict(text="Risk band — higher is better", font=dict(size=13)))
-    theme.chart(fig, key="risk_baselines")
+                 "xgboost_ensemble": {"accuracy": val_risk["accuracy"], "macro_f1": val_risk["macro_f1"]}}
+    theme.chart(dot_plot(risk_rows, "accuracy", "risk accuracy", "higher is better", lambda v: f"{v:.1%}", [0.85, 1.0]),
+                key="risk_baselines")
 with right:
     rul_rows = {**metrics["validation"]["rul"]["baselines"], "xgboost": val_rul}
-    names = list(rul_rows)
-    fig = go.Figure(go.Bar(y=names, x=[rul_rows[n]["rmse"] for n in names], orientation="h",
-                           marker_color=[CYAN if n == "xgboost" else "rgba(127,149,189,.55)" for n in names],
-                           text=[f"{rul_rows[n]['rmse']:.2f}" for n in names], textposition="outside"))
-    fig.update_layout(height=340, title=dict(text="RUL RMSE (cycles) — lower is better", font=dict(size=13)))
-    theme.chart(fig, key="rul_baselines")
+    theme.chart(dot_plot(rul_rows, "rmse", "RUL RMSE, cycles", "lower is better", lambda v: f"{v:.2f}", [0, 20]),
+                key="rul_baselines")
 
 if val_risk.get("blend_scores"):
-    blend = val_risk.get("blend", 0)
-    theme.card("How the risk ensemble was chosen", f"<p>The risk band blends the XGBoost classifier with band probabilities "
-               f"implied by the XGBoost RUL regressor. The weight on the regressor was picked by 5-fold CV accuracy on the "
-               f"training engines only: <b>{blend:g}</b>.</p><p class='as-mono' style='color:#7f95bd'>"
-               + " · ".join(f"w={k}: {v:.3f}" for k, v in val_risk["blend_scores"].items()) + "</p>")
+    theme.note(f"The risk band blends the XGBoost classifier with band probabilities implied by the XGBoost RUL regressor. "
+               f"The regressor weight ({val_risk.get('blend', 0):g}) was chosen by 5-fold CV accuracy on training engines: "
+               + ", ".join(f"weight {k} gives {v:.1%}" for k, v in val_risk["blend_scores"].items()) + ".")
 
-theme.section("Per-band detail")
-tab_val, tab_test = st.tabs(["Validation engines (every cycle)", "Test set (last cycle per engine)"])
+theme.section("Per band")
+tab_val, tab_test = st.tabs(["Validation engines, every cycle", "NASA test set, last cycle per engine"])
 for tab, m, key in [(tab_val, val_risk, "val"), (tab_test, test_risk, "test")]:
     with tab:
-        left, right = st.columns([1, 1])
+        left, right = st.columns([1, 1], gap="large")
         per_band = pd.DataFrame(m["per_band"]).T
         per_band.index = per_band.index.map(band_label)
         with left:
-            st.dataframe(per_band, width="stretch")
+            st.dataframe(per_band, width="stretch", column_config={
+                "precision": st.column_config.NumberColumn("Precision", format="%.3f"),
+                "recall": st.column_config.NumberColumn("Recall", format="%.3f"),
+                "f1": st.column_config.NumberColumn("F1", format="%.3f"),
+                "roc_auc": st.column_config.NumberColumn("ROC AUC", format="%.3f"),
+                "support": st.column_config.NumberColumn("Support", format="%d")})
+            theme.note("Recall on failure likely matters most: it is the share of engines close to failure that were caught.")
         with right:
             theme.chart(confusion_chart(m["confusion_matrix"]), key=f"cm_{key}")
 
