@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AeroSentinel instruments</title>
+<style>
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; src: url("/app/static/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; src: url("/app/static/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; src: url("/app/static/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("/app/static/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; src: url("/app/static/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
+:root {
+  --bg: #0e1013; --surface: #16191d; --line: #262b31; --line-strong: #353b43;
+  --text-1: #e6e8eb; --text-2: #a6adb6; --text-3: #7f8790; --c: #8d8d8d;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; color: var(--text-1); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 2px; opacity: 0; }
+.main { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.7fr) minmax(190px, .85fr); }
+.main > section { padding: 16px 20px 14px; min-width: 0; }
+.main > section + section { border-left: 1px solid var(--line); }
+.lbl { font-size: 12px; color: var(--text-2); display: flex; justify-content: space-between; gap: 12px; }
+.lbl span { color: var(--text-3); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.state { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 26px; font-weight: 600; color: var(--c); line-height: 1.15; }
+.state i { width: 12px; height: 12px; background: var(--c); border-radius: 1px; flex: none; }
+.reason { font-size: 13px; color: var(--text-2); margin-top: 8px; line-height: 1.45; max-width: 46ch; }
+.rul { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+.rul b { font-family: var(--mono); font-size: 38px; font-weight: 500; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.rul small { font-size: 13px; color: var(--text-3); }
+.rul .rng { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text-2); text-align: right; white-space: nowrap; }
+.scale { position: relative; height: 38px; margin-top: 10px; }
+.track { position: absolute; left: 0; right: 0; top: 6px; height: 12px; background: #1b1f24; overflow: hidden; }
+.zone { position: absolute; top: 0; bottom: 0; opacity: .16; }
+.tick { position: absolute; top: 4px; width: 1px; height: 16px; background: var(--line-strong); }
+.tick em { position: absolute; top: 18px; transform: translateX(-50%); font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.tick.first em { transform: none; } .tick.last em { transform: translateX(-100%); }
+.range { position: absolute; left: 0; top: 8px; width: 100%; height: 8px; background: var(--c); opacity: .45; transform-origin: 0 50%; }
+.marker { position: absolute; left: -1px; top: 0; width: 3px; height: 24px; background: var(--text-1); }
+.conf { font-size: 22px; font-weight: 600; margin-top: 10px; line-height: 1.15; }
+.sub { font-size: 13px; color: var(--text-2); margin-top: 8px; }
+.sub b { font-weight: 500; color: var(--bandc, var(--text-1)); }
+.flags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+.flags span { font-size: 12px; color: var(--text-2); border: 1px solid var(--line-strong); border-radius: 2px; padding: 1px 6px; }
+.act { display: flex; align-items: baseline; gap: 14px; padding: 10px 20px 11px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.act .k { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.act b { font-weight: 500; font-size: 14px; }
+.act .w { font-size: 13px; color: var(--text-3); }
+.muted { color: var(--text-3); }
+@media (max-width: 760px) {
+  .main { grid-template-columns: 1fr; }
+  .main > section + section { border-left: 0; border-top: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+  <div class="main">
+    <section aria-labelledby="l-cond">
+      <div class="lbl" id="l-cond">Condition<span id="unit"></span></div>
+      <div class="state" id="state-row"><i></i><span id="state"></span></div>
+      <div class="reason" id="reason"></div>
+    </section>
+    <section aria-labelledby="l-rul">
+      <div class="lbl" id="l-rul">Remaining useful life<span id="window"></span></div>
+      <div class="rul"><b id="rul">0</b><small>cycles</small><span class="rng" id="rng"></span></div>
+      <div class="scale" id="scale" role="img" aria-label="">
+        <div class="track" id="track"></div>
+        <div class="range" id="range"></div>
+        <div class="marker" id="marker"></div>
+      </div>
+    </section>
+    <section aria-labelledby="l-conf">
+      <div class="lbl" id="l-conf">Model confidence</div>
+      <div class="conf" id="conf"></div>
+      <div class="sub" id="band"></div>
+      <div class="flags" id="flags"></div>
+    </section>
+  </div>
+  <div class="act" id="act-row"><span class="k">Suggested action</span><b id="act"></b><span class="w" id="why"></span></div>
+</div>
+<script src="./vendor/gsap.min.js"></script>
+<script src="./instruments.js?v=1.0.0"></script>
+</body>
+</html>

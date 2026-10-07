@@ -15,11 +15,13 @@
 
 ---
 
-## 🖥️ Dashboard UI — Mission Control
+## 🖥️ Dashboard UI
 
-A Streamlit "mission control" dashboard that calls the Python pipeline directly:
+A Streamlit dashboard that calls the Python pipeline directly:
 
-![3D Digital Twin — every sensor pinned to its engine station](assets/screenshot_digital_twin.png)
+![Engine status page](assets/screenshot_engine_status.png)
+
+![3D model page with sensors at their engine stations](assets/screenshot_digital_twin.png)
 
 ```bash
 pip install -r requirements.txt
@@ -28,16 +30,26 @@ python -m training.train               # trains model v2 (~6 min), writes report
 streamlit run app/streamlit_app.py
 ```
 
-| Page | What you get |
-|---|---|
-| **Mission Control** | Live 3D engine hologram, one-click sample launch, fleet threat radar (distance from centre = predicted RUL), animated KPIs, AI insights, 3D degradation surface |
-| **Upload & Analyze** | Scanning drop zone, pipeline animation replaying each stage with the run's real numbers, then the uploaded data straight into the 3D twin |
-| **3D Digital Twin** | Procedural Three.js turbofan (fan, LPC, HPC, combustor, HPT, LPT, nozzle) with all 21 sensors pinned to their engine stations, airflow particles, bloom, exploded view, diagnostic scan and a cycle-by-cycle **life replay**: sensors drift, modules heat up, the risk band escalates with alerts. Click any sensor for a deep-dive chart |
-| Component Health · RUL & Risk · Explainability | Animated gauges, neon charts, SHAP drivers per unit |
-| Model Evaluation · Error Analysis · Export | Verified metrics vs. baselines, per-band detail, forensics, CSV/JSON downloads |
+The interface is organised around the operator's questions: which engines need attention, then for one
+engine its condition, what is changing, how long it has, the risk, and the suggested next step.
 
-Keyboard on the twin: `Space` play/pause · `E` exploded view · `S` scan · `C` cinema mode · `Esc` reset camera.
-The 3D engine ships with a vendored Three.js r186 bundle (MIT), so it works offline.
+| Page | Purpose |
+|---|---|
+| **Fleet overview** | Condition distribution, RUL forecast with 80% ranges ranked by urgency, attention queue, health-trend heatmap, fleet drivers. Click an engine to open it. |
+| **Engine status** | Condition state (healthy, degrading, warning, critical, insufficient data), RUL on a banded scale, end-of-life window in cycles, model confidence, suggested actions, trend, sensor drift and SHAP drivers. |
+| Degradation, RUL and risk, Explanations | Detail views for one engine, one click from Engine status. |
+| **3D model** | Sectioned Three.js turbofan with all 21 sensors at their stations, drift per sensor, module condition and a replay of the recorded history. |
+| Ingest data, Evaluation, Error analysis, Export | Upload and processing report, verified model metrics against baselines, test-set forensics, CSV/JSON downloads. |
+
+Design system: IBM Plex Sans and Mono (self-hosted), Carbon-inspired Gray-100 dark tokens, 2px radii, hairline
+separators, semantic status colours always paired with text. Motion (GSAP) is used only for state changes, such as
+the status panel tweening between engines or camera moves in the 3D model, and respects reduced-motion settings.
+
+Keyboard on the 3D model: `Space` replay or pause, `E` exploded view, `H` hide panels, `Esc` reset camera.
+Three.js r186 (MIT), GSAP 3.15 (standard no-charge license) and IBM Plex (OFL) are vendored, so the UI works offline.
+
+The earlier cinematic "mission control" interface is kept on the `ui-streamlit` branch. It uses the same
+models and pipeline; run `git checkout ui-streamlit` and start Streamlit the same way.
 
 ---
 
@@ -100,7 +112,7 @@ Full design rationale lives in `docs/` — see [Documentation](#-documentation) 
 | Technology | Purpose |
 |---|---|
 | Streamlit | Multi-page dashboard, custom component host |
-| Three.js (vendored r186) | 3D digital twin: procedural turbofan, bloom, particles |
+| Three.js (vendored r186) | 3D model: sectioned turbofan with sensor stations and airflow |
 | Plotly | Neon-themed charts, 3D degradation surface |
 
 ---

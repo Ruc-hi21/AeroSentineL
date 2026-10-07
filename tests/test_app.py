@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(
     not (MODELS_DIR / MODEL_VERSION / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
-PAGES = ["overview", "upload", "twin", "health", "rul_risk", "explainability", "evaluation",
+PAGES = ["overview", "upload", "engine", "twin", "health", "rul_risk", "explainability", "evaluation",
          "error_analysis", "export"]
 
 
@@ -44,7 +44,7 @@ def test_page_renders_with_results(page, result):
 
 def test_upload_sample_and_analyze():
     at = run_page("upload")
-    at.button[0].click().run()  # "use the sample" button
+    next(b for b in at.button if "Use the sample" in b.label).click().run()
     run = next(b for b in at.button if "Run analysis" in b.label)
     run.click().run()
     assert not at.exception, at.exception
@@ -54,7 +54,15 @@ def test_upload_sample_and_analyze():
 
 def test_empty_page_launches_sample():
     at = run_page("twin")
-    launch = next(b for b in at.button if "Launch" in b.label)
+    launch = next(b for b in at.button if "Load NASA sample" in b.label)
     launch.click().run()
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
+
+
+def test_engine_page_steps_through_units(result):
+    at = run_page("engine", result)
+    first = at.session_state["selected_unit"]
+    next(b for b in at.button if b.label == "Next").click().run()
+    assert not at.exception, at.exception
+    assert at.session_state["selected_unit"] != first
