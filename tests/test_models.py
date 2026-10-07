@@ -1,6 +1,7 @@
 """Sensor selection, health analysis, features, risk bands and explanations."""
 
 import numpy as np
+import pandas as pd
 
 from src.analysis.degradation import select_sensors
 from src.analysis.health import HealthAnalyzer
@@ -37,9 +38,37 @@ def test_features_work_for_a_unit_with_one_cycle(engines):
 
 
 def test_sensor_of_maps_features_back():
-    assert sensor_of("sensor_11_mean") == "sensor_11"
-    assert sensor_of("sensor_11_std") == "sensor_11"
+    assert sensor_of("sensor_11__slope30") == "sensor_11"
+    assert sensor_of("sensor_11__ewm0.1") == "sensor_11"
+    assert sensor_of("sensor_11_mean") == "sensor_11"  # v1 names still map
     assert sensor_of("cycle") == "cycle"
+
+
+def test_features_are_causal():
+    """A feature at cycle t must not change when the engine's later cycles are removed."""
+    df = make_engines(n_units=3, cycles=60)
+    sensors = ["sensor_2", "sensor_3"]
+    full = build_features(df, sensors)
+    cut = df[df["cycle"] <= 35]
+    early = build_features(cut, sensors)
+    assert np.allclose(full.loc[cut.index].to_numpy(), early.to_numpy())
+    assert not full.isna().any().any()
+
+
+def test_rul_band_proba_is_a_distribution_centred_on_the_band():
+    from src.models.risk_classifier import rul_band_proba
+    proba = rul_band_proba(np.array([5.0, 22.0, 45.0, 110.0]), sigma=4.0)
+    assert np.allclose(proba.sum(axis=1), 1.0)
+    assert proba.argmax(axis=1).tolist() == [3, 2, 1, 0]
+
+
+def test_blended_risk_probabilities_sum_to_one():
+    X, y = _small_training_set()
+    rul = RULRegressor({"n_estimators": 30, "max_depth": 3}).fit(X, y)
+    risk = FailureRiskClassifier({"n_estimators": 30, "max_depth": 3}, blend=0.5).fit(X, rul_to_band(y), rul_model=rul.model)
+    proba = risk.predict_proba(X)
+    assert proba.shape == (len(X), 4)
+    assert np.allclose(proba.sum(axis=1), 1.0)
 
 
 def test_risk_bands_cover_every_rul_with_no_gaps():  # TEST-M-005
@@ -87,3 +116,11 @@ def test_rul_bounds_validation():
     assert validate_rul_bounds(df) is True
     df_invalid = pd.DataFrame({"RUL": [10.0, -1.0, 0.0]})
     assert validate_rul_bounds(df_invalid) is False
+
+
+def test_fleet_health_distribution_counts_higher_scores_as_worse():
+    from src.analysis.health import compute_fleet_health_distribution
+    scores = pd.Series([0.0, 0.5, 1.5, 3.0])  # threshold 1.0 -> critical above 2.0
+    assert compute_fleet_health_distribution(scores, threshold=1.0) == {
+        "normal": 2, "degraded": 1, "critical": 1,
+    }

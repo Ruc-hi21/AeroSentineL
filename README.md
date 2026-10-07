@@ -15,12 +15,31 @@
 
 ---
 
-## 🖥️ Dashboard UI
+## 🖥️ Dashboard UI — Mission Control
 
-The dashboard is a React app built with Vite. Use Node.js 20.19+ and run `npm install`, then `npm run dev` to start it. Run `npm run build` to create a production bundle. The dashboard currently presents sample values and UI interactions; dataset upload and analysis are not connected to the FastAPI service yet.
+A Streamlit "mission control" dashboard that calls the Python pipeline directly:
+
+![3D Digital Twin — every sensor pinned to its engine station](assets/screenshot_digital_twin.png)
+
+```bash
+pip install -r requirements.txt
+python -m scripts.download_data        # NASA C-MAPSS FD001 into data/raw/
+python -m training.train               # trains model v2 (~6 min), writes reports/
+streamlit run app/streamlit_app.py
+```
+
+| Page | What you get |
+|---|---|
+| **Mission Control** | Live 3D engine hologram, one-click sample launch, fleet threat radar (distance from centre = predicted RUL), animated KPIs, AI insights, 3D degradation surface |
+| **Upload & Analyze** | Scanning drop zone, pipeline animation replaying each stage with the run's real numbers, then the uploaded data straight into the 3D twin |
+| **3D Digital Twin** | Procedural Three.js turbofan (fan, LPC, HPC, combustor, HPT, LPT, nozzle) with all 21 sensors pinned to their engine stations, airflow particles, bloom, exploded view, diagnostic scan and a cycle-by-cycle **life replay**: sensors drift, modules heat up, the risk band escalates with alerts. Click any sensor for a deep-dive chart |
+| Component Health · RUL & Risk · Explainability | Animated gauges, neon charts, SHAP drivers per unit |
+| Model Evaluation · Error Analysis · Export | Verified metrics vs. baselines, per-band detail, forensics, CSV/JSON downloads |
+
+Keyboard on the twin: `Space` play/pause · `E` exploded view · `S` scan · `C` cinema mode · `Esc` reset camera.
+The 3D engine ships with a vendored Three.js r186 bundle (MIT), so it works offline.
 
 ---
-
 
 ## 🔍 Problem
 
@@ -30,7 +49,7 @@ Maintenance teams need to detect abnormal component conditions early and predict
 
 ## 💡 Solution
 
-AeroSentinel is a machine learning pipeline trained on the **NASA C-MAPSS FD001** turbofan engine degradation dataset. It cleans and analyzes sensor telemetry, predicts RUL via regression, classifies failure risk into four actionable bands, and explains which sensors drove each prediction — served through a FastAPI backend and a React dashboard.
+AeroSentinel is a machine learning pipeline trained on the **NASA C-MAPSS FD001** turbofan engine degradation dataset. It cleans and analyzes sensor telemetry, predicts RUL via regression, classifies failure risk into four actionable bands, and explains which sensors drove each prediction — served through a Streamlit mission-control dashboard with a 3D digital twin.
 
 ---
 
@@ -57,7 +76,7 @@ Dataset Upload → Validation → Cleaning → Component Health Analysis
        ↓
 Feature Engineering → RUL Regressor + Failure-Risk Classifier
        ↓
-Explainability (SHAP) → FastAPI → React Dashboard
+Explainability (SHAP) → Streamlit dashboard + Three.js digital twin
 ```
 
 Full design rationale lives in `docs/` — see [Documentation](#-documentation) below.
@@ -75,15 +94,14 @@ Full design rationale lives in `docs/` — see [Documentation](#-documentation) 
 | scikit-learn | Baselines, preprocessing, metrics |
 | XGBoost | RUL regression, failure-risk classification |
 | SHAP | Explainability |
-| FastAPI | REST API |
 
-### Frontend
+### Dashboard
 
 | Technology | Purpose |
 |---|---|
-| React | UI framework |
-| Vite | Build tooling |
-| Recharts | Degradation curves, health timeline charts |
+| Streamlit | Multi-page dashboard, custom component host |
+| Three.js (vendored r186) | 3D digital twin: procedural turbofan, bloom, particles |
+| Plotly | Neon-themed charts, 3D degradation surface |
 
 ---
 
@@ -100,14 +118,26 @@ Full design rationale lives in `docs/` — see [Documentation](#-documentation) 
 
 ---
 
-## 📊 Evaluation Metrics
+## 📊 Evaluation Metrics (model v2)
 
-| Category | Metrics | Status |
+| | Old model (v1) | **Model v2** |
 |---|---|---|
-| **Regression** | RMSE, MAE | 🔜 TBD — not yet measured |
-| **Classification** | Accuracy, Precision, Recall, F1-Score, ROC-AUC per risk band | 🔜 TBD — not yet measured |
+| Risk accuracy · 5-fold CV over training engines | 0.889 | **0.943** |
+| Risk accuracy · 20 held-out engines, every cycle | 0.883 | **0.941** |
+| Risk macro-F1 · held-out engines | 0.798 | **0.880** |
+| Risk accuracy · official test set (100 engines, last cycle) | 0.870 | **0.890** |
+| RUL RMSE · held-out engines (cycles) | 15.07 | **8.62** |
+| RUL RMSE · official test set (cycles) | 17.09 | **12.31** |
+| RUL R² · official test set | 0.831 | **0.912** |
 
-> Numbers will be filled in once both models are trained — see `docs/10_Model_Card.md` for the same discipline applied in full.
+What changed: causal multi-scale features (rolling mean/std over 5/15/30 cycles, exponentially weighted means,
+15/30/50-cycle trend slopes and drift from each engine's own early-life baseline — 197 features per cycle), and a risk
+model that blends the XGBoost classifier with band probabilities implied by the XGBoost RUL regressor. Every choice was
+made with GroupKFold CV on training engines only; the test set was scored once at the end.
+
+On the 100-engine test set every risk-band miss is an adjacent band (8 of the 11 within 5 cycles of a band limit), and no
+truly high-risk or failure-likely engine is predicted Normal. With one prediction per engine, test accuracy has a
+standard error of about ±3 points.
 
 ---
 
@@ -149,6 +179,7 @@ Internal OJT capstone project — **not currently accepting external contributio
 ## Benchmark & Performance Standards
 
 The predictive models within AeroSentinel adhere to C-MAPSS FD001 standards:
-- **RUL Prediction Target**: RMSE < 18.0 cycles on withheld test units.
-- **Risk Classification Target**: Macro F1 > 0.85 across Critical, High, Medium, Low bands.
+- **RUL Prediction Target**: RMSE < 18.0 cycles on withheld test units — v2 achieves 12.3.
+- **Risk Classification Target**: Macro F1 > 0.85 across the four bands — v2 achieves 0.88 on held-out
+  engines and 0.83 on the official test set.
 - **Telemetry Latency**: Stream inference under 25ms per engine cycle.

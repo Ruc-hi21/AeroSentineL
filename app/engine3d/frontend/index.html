@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AeroSentinel Digital Twin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css?v=2.0.1" />
+</head>
+<body>
+  <div id="app" class="mode-twin">
+    <canvas id="gl"></canvas>
+    <canvas id="lines"></canvas>
+
+    <div id="hud">
+      <div class="frame-corners"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+
+      <header class="hud-top">
+        <div class="brand">
+          <div class="brand-mark">◢</div>
+          <div>
+            <div class="brand-title">AEROSENTINEL <span>// DIGITAL TWIN</span></div>
+            <div class="brand-sub" id="unit-line">AWAITING TELEMETRY</div>
+          </div>
+        </div>
+        <div class="cycle-box">
+          <div class="cycle-label">OPERATING CYCLE</div>
+          <div class="cycle-value"><span id="cycle-now">0000</span><em>/</em><span id="cycle-max">0000</span></div>
+        </div>
+        <div class="status-box">
+          <div class="caution" id="caution">MASTER CAUTION</div>
+          <div class="band-badge" id="band-badge"><b id="band-name">—</b><span id="band-prob"></span></div>
+        </div>
+      </header>
+
+      <aside class="col left" id="col-left"></aside>
+      <aside class="col right" id="col-right"></aside>
+
+      <div class="modules" id="modules"></div>
+
+      <footer class="hud-bottom">
+        <div class="gauges">
+          <div class="gauge" id="g-health">
+            <svg viewBox="0 0 120 120">
+              <circle class="g-track" cx="60" cy="60" r="50" />
+              <circle class="g-arc" id="g-health-arc" cx="60" cy="60" r="50" />
+              <circle class="g-tick" cx="60" cy="60" r="56" />
+            </svg>
+            <div class="g-text"><b id="g-health-val">0.00</b><span>HEALTH IDX</span></div>
+          </div>
+          <div class="rul-box">
+            <div class="rul-label">PREDICTED RUL</div>
+            <div class="rul-value"><b id="rul-val">—</b><span>CYC</span></div>
+            <div class="rul-range" id="rul-range">80% RANGE —</div>
+          </div>
+        </div>
+        <div class="timeline">
+          <canvas id="timeline"></canvas>
+          <div class="controls">
+            <button id="btn-play" class="btn primary" title="Play / pause life replay">▶ PLAY</button>
+            <button id="btn-replay" class="btn" title="Replay this engine's life from cycle 1">⟲ REPLAY</button>
+            <div class="seg" id="speed">
+              <button data-speed="0.5">½×</button><button data-speed="1" class="on">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button>
+            </div>
+            <span class="sep"></span>
+            <button id="btn-explode" class="btn" title="Exploded view of engine modules">⇔ EXPLODE</button>
+            <button id="btn-scan" class="btn" title="Run a diagnostic scan sweep">◎ SCAN</button>
+            <button id="btn-orbit" class="btn on" title="Auto-orbit camera">↻ ORBIT</button>
+            <button id="btn-cinema" class="btn" title="Hide sensor panels">▣ CINEMA</button>
+          </div>
+        </div>
+      </footer>
+
+      <div class="alert" id="alert"><div class="alert-inner"><b id="alert-title"></b><span id="alert-sub"></span></div></div>
+      <div class="toasts" id="toasts"></div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <div class="hero-overlay" id="hero-overlay">
+      <div class="hero-tag">LIVE HOLOGRAPHIC MODEL · CFM-CLASS HIGH-BYPASS TURBOFAN</div>
+    </div>
+
+    <div class="vignette" id="vignette"></div>
+    <div class="scanlines"></div>
+    <div class="flash" id="flash"></div>
+
+    <div id="boot">
+      <div class="boot-box">
+        <div class="boot-logo">◢ AEROSENTINEL</div>
+        <pre id="boot-log"></pre>
+        <div class="boot-bar"><i id="boot-bar"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./engine.js?v=2.0.3"></script>
+</body>
+</html>

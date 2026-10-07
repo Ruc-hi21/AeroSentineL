@@ -6,9 +6,12 @@ from functools import lru_cache
 
 import joblib
 
+from src.analysis.health import HealthAnalyzer
 from src.config import MODELS_DIR, MODEL_VERSION
 from src.errors import ModelNotFoundError
 from src.explainability.explainer import Explainer
+from src.models.risk_classifier import FailureRiskClassifier
+from src.models.rul_regressor import RULRegressor
 
 # Stable filenames; changing them breaks backward-compatible model loading
 FILES = {
@@ -23,9 +26,9 @@ class Artifacts:
     version: str
     metadata: dict
     # Convenience: artifacts.sensors mirrors metadata['sensors']
-    health: object
-    rul: object
-    risk: object
+    health: HealthAnalyzer
+    rul: RULRegressor
+    risk: FailureRiskClassifier
     rul_explainer: Explainer
     risk_explainer: Explainer
 

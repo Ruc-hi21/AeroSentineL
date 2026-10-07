@@ -1,7 +1,7 @@
 {
   "version": "v1",
-  "run_id": "e71c72d9",
-  "trained_at": "2026-10-03T13:43:35+00:00",
+  "run_id": "347d2fe3",
+  "trained_at": "2026-10-03T15:43:10+00:00",
   "dataset": "FD001",
   "seed": 42,
   "train_units": [
@@ -188,22 +188,24 @@
       0.9
     ],
     "health_threshold": 1.0151,
-    "optuna_trials": 0
+    "optuna_trials": 20
   },
   "params": {
     "rul": {
-      "n_estimators": 400,
-      "max_depth": 5,
-      "learning_rate": 0.05,
-      "subsample": 0.8,
-      "colsample_bytree": 0.8
+      "n_estimators": 350,
+      "max_depth": 8,
+      "learning_rate": 0.024485724661948545,
+      "subsample": 0.6697007730868241,
+      "colsample_bytree": 0.6354529920235552,
+      "min_child_weight": 10
     },
     "risk": {
-      "n_estimators": 400,
-      "max_depth": 5,
-      "learning_rate": 0.05,
-      "subsample": 0.8,
-      "colsample_bytree": 0.8
+      "n_estimators": 350,
+      "max_depth": 4,
+      "learning_rate": 0.08182441148887568,
+      "subsample": 0.6557975442608167,
+      "colsample_bytree": 0.6460723242676091,
+      "min_child_weight": 8
     }
   },
   "metrics": {
@@ -222,11 +224,11 @@
           }
         },
         "xgboost": {
-          "rmse": 15.062,
-          "mae": 10.562,
+          "rmse": 15.07,
+          "mae": 10.685,
           "r2": 0.869,
-          "interval_coverage": 0.882,
-          "cv_rmse": null
+          "interval_coverage": 0.878,
+          "cv_rmse": 16.208062489827473
         }
       },
       "risk": {
@@ -241,125 +243,125 @@
           }
         },
         "xgboost": {
-          "accuracy": 0.884,
-          "macro_f1": 0.792,
+          "accuracy": 0.883,
+          "macro_f1": 0.798,
           "per_band": {
             "NORMAL": {
-              "precision": 0.968,
-              "recall": 0.939,
-              "f1": 0.953,
-              "roc_auc": 0.983,
+              "precision": 0.974,
+              "recall": 0.929,
+              "f1": 0.951,
+              "roc_auc": 0.985,
               "support": 3021
             },
             "AT_RISK": {
-              "precision": 0.625,
-              "recall": 0.693,
-              "f1": 0.657,
-              "roc_auc": 0.937,
+              "precision": 0.616,
+              "recall": 0.725,
+              "f1": 0.666,
+              "roc_auc": 0.941,
               "support": 600
             },
             "HIGH_RISK": {
-              "precision": 0.637,
-              "recall": 0.66,
-              "f1": 0.648,
-              "roc_auc": 0.974,
+              "precision": 0.642,
+              "recall": 0.7,
+              "f1": 0.67,
+              "roc_auc": 0.976,
               "support": 300
             },
             "FAILURE_LIKELY": {
-              "precision": 0.892,
-              "recall": 0.925,
-              "f1": 0.908,
+              "precision": 0.893,
+              "recall": 0.916,
+              "f1": 0.904,
               "roc_auc": 0.998,
               "support": 320
             }
           },
           "confusion_matrix": [
             [
-              2837,
-              184,
+              2805,
+              216,
               0,
               0
             ],
             [
-              95,
-              416,
-              89,
+              75,
+              435,
+              90,
               0
             ],
             [
               0,
-              66,
-              198,
-              36
+              55,
+              210,
+              35
             ],
             [
               0,
               0,
-              24,
-              296
+              27,
+              293
             ]
           ],
-          "cv_macro_f1": null
+          "cv_macro_f1": 0.8076440805325845
         }
       }
     },
     "test": {
       "rul": {
-        "rmse": 16.789,
-        "mae": 12.654,
-        "r2": 0.837,
-        "interval_coverage": 0.78
+        "rmse": 17.093,
+        "mae": 12.515,
+        "r2": 0.831,
+        "interval_coverage": 0.77
       },
       "risk": {
-        "accuracy": 0.86,
-        "macro_f1": 0.813,
+        "accuracy": 0.87,
+        "macro_f1": 0.845,
         "per_band": {
           "NORMAL": {
-            "precision": 0.933,
-            "recall": 0.918,
-            "f1": 0.926,
-            "roc_auc": 0.966,
+            "precision": 0.947,
+            "recall": 0.885,
+            "f1": 0.915,
+            "roc_auc": 0.973,
             "support": 61
           },
           "AT_RISK": {
-            "precision": 0.562,
-            "recall": 0.643,
-            "f1": 0.6,
-            "roc_auc": 0.902,
+            "precision": 0.579,
+            "recall": 0.786,
+            "f1": 0.667,
+            "roc_auc": 0.925,
             "support": 14
           },
           "HIGH_RISK": {
-            "precision": 0.857,
-            "recall": 0.8,
-            "f1": 0.828,
-            "roc_auc": 0.983,
+            "precision": 0.929,
+            "recall": 0.867,
+            "f1": 0.897,
+            "roc_auc": 0.986,
             "support": 15
           },
           "FAILURE_LIKELY": {
             "precision": 0.9,
             "recall": 0.9,
             "f1": 0.9,
-            "roc_auc": 0.994,
+            "roc_auc": 0.993,
             "support": 10
           }
         },
         "confusion_matrix": [
           [
-            56,
-            5,
+            54,
+            7,
             0,
             0
           ],
           [
-            4,
-            9,
+            3,
+            11,
+            0,
+            0
+          ],
+          [
+            0,
             1,
-            0
-          ],
-          [
-            0,
-            2,
-            12,
+            13,
             1
           ],
           [
