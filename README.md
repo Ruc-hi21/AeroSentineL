@@ -9,130 +9,175 @@
   <img src="https://img.shields.io/badge/Dataset-NASA%20C--MAPSS-0B3D91?style=for-the-badge&logo=nasa&logoColor=white" alt="NASA C-MAPSS" />
 </p>
 
-# ✈️ AeroSentinel
+<h1 align="center">AeroSentinel</h1>
 
-> **Predicts Remaining Useful Life (RUL) and classifies failure risk — *Normal / At Risk / High Risk / Failure Likely* — for turbofan engine components, with explainable predictions behind every result.**
+<p align="center">
+  <b>Which engine needs attention next, how many cycles it has left, and which sensors are saying so.</b>
+</p>
+
+<p align="center">
+  Predictive maintenance for turbofan engines: remaining-useful-life forecasts, four-band failure risk and
+  sensor-level explanations, trained on NASA C-MAPSS and delivered through an engineering console with a 3D engine model.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#inside-the-console">Inside the console</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#results">Results</a> ·
+  <a href="#limitations-and-responsible-use">Limitations</a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center"><h2>12.3</h2>cycles of RUL error<br/><sub>RMSE · NASA test set</sub></td>
+    <td align="center"><h2>0.912</h2>R² for RUL<br/><sub>NASA test set</sub></td>
+    <td align="center"><h2>94%</h2>risk bands correct<br/><sub>held-out engines · every cycle</sub></td>
+    <td align="center"><h2>89%</h2>risk bands correct<br/><sub>NASA test set · 100 engines</sub></td>
+    <td align="center"><h2>2.2 s</h2>to score a fleet<br/><sub>100 engines · SHAP included</sub></td>
+  </tr>
+</table>
 
 ---
 
-## 🖥️ Dashboard UI
+## Why it exists
 
-A Streamlit dashboard that calls the Python pipeline directly:
+A turbofan rarely fails without warning. As its high-pressure compressor wears, temperatures creep up, spool
+speeds shift and fuel flow drifts: a little every cycle, spread across 21 sensor channels. Fixed maintenance
+schedules ignore those signals. They pull healthy engines off the wing early and can still miss the one that is
+degrading fast, and reading raw telemetry by hand stops working after a handful of engines.
+
+AeroSentinel reads the full recorded history of every engine in a fleet and answers four questions for each one:
+
+| Question | What you get |
+|---|---|
+| **How long has it got?** | Remaining useful life (RUL) in cycles, an 80% range around it, and the end-of-life window that range implies |
+| **How worried should I be?** | One of four risk bands, *Normal*, *At risk*, *High risk* or *Failure likely*, with the model's probability |
+| **What is changing?** | A health score measured against healthy engines, and the drift of every sensor, module by module |
+| **Why does the model think so?** | The sensors that pushed this prediction up or down, ranked by SHAP |
+
+---
+
+## Inside the console
 
 ![Engine status page](assets/screenshot_engine_status.png)
 
+**Engine status** puts everything about one engine on a single screen: its condition, RUL on a banded scale, the
+end-of-life window in cycles, how confident the model is, the trend, which sensors are drifting, suggested next
+steps and the SHAP drivers. Step through the fleet with *Previous* and *Next*; the status panel animates from one
+engine's values to the next, so you see exactly what changed.
+
 ![3D model page with sensors at their engine stations](assets/screenshot_digital_twin.png)
 
+**3D model** places all 21 sensors at their real stations on a sectioned turbofan, from fan inlet to exhaust.
+Each module takes the colour of its most-drifted sensor, the hot section warms as turbine outlet temperature drifts,
+and *Replay* plays back the engine's recorded life while an event log notes every escalation.
+Keys: `Space` replay or pause, `E` exploded view, `H` hide panels, `Esc` reset the camera.
+
+### Five condition states
+
+Every engine is in exactly one state, always shown as a word and never by colour alone.
+
+| State | Meaning |
+|---|---|
+| **Critical** | Predicted band is *Failure likely*: 15 cycles or fewer left |
+| **Warning** | Predicted band is *High risk*: 16 to 30 cycles left |
+| **Degrading** | Predicted band is *At risk* (31 to 60 cycles), or the health score is already abnormal |
+| **Healthy** | *Normal* band and normal health |
+| **Insufficient data** | Fewer than 30 cycles recorded, so trends are not yet reliable. It never hides a Critical or Warning result. |
+
+<details>
+<summary><b>Every page in the console</b></summary>
+<br/>
+
+| Section | Page | What it is for |
+|---|---|---|
+| Fleet | **Fleet overview** | Engines ranked by urgency: condition mix, RUL forecast with 80% ranges, attention queue, health-trend heatmap and fleet-wide drivers. Click any engine to open it. |
+| Fleet | **Ingest data** | Upload a C-MAPSS-format file, or use the NASA sample, and get a processing report with data warnings. |
+| Engine | **Engine status** | The single-engine summary shown above. |
+| Engine | **Degradation** | Health score over time, the full sensor-drift table, and any sensor plotted against its healthy baseline. |
+| Engine | **RUL and risk** | RUL history across the risk bands, the 80% range, review flags and a filterable fleet table. |
+| Engine | **Explanations** | SHAP drivers behind the RUL and the risk prediction. |
+| Engine | **3D model** | The sectioned engine shown above, with a deep-dive chart for any sensor you click. |
+| Model | **Evaluation** | Verified metrics against baselines, per-band results and confusion matrices. |
+| Model | **Error analysis** | Where the model is wrong on NASA's test engines, and by how much. |
+| Output | **Export** | Engine results and cycle history as CSV, and the full result as JSON. |
+
+The look is deliberately calm: IBM Plex type, a dark neutral palette with one blue accent, status colours reserved
+for status, and motion only when something actually changes. Three.js, GSAP and the fonts ship with the repo, so the
+console works offline.
+</details>
+
+---
+
+## Quick start
+
+You need Python 3.10 or newer. Trained models ship in `models/v2`, so there is nothing to train before you start.
+
 ```bash
+git clone https://github.com/Ruc-hi21/AeroSentineL.git
+cd AeroSentineL
 pip install -r requirements.txt
-python -m scripts.download_data        # NASA C-MAPSS FD001 into data/raw/
-python -m training.train               # trains model v2 (~6 min), writes reports/
-streamlit run app/streamlit_app.py
+python -m scripts.download_data              # NASA C-MAPSS FD001 into data/raw/
+python -m streamlit run app/streamlit_app.py
 ```
 
-The interface is organised around the operator's questions: which engines need attention, then for one
-engine its condition, what is changing, how long it has, the risk, and the suggested next step.
+Open **http://localhost:8501** and press **Load NASA sample fleet**. To try your own data, use *Ingest data* with
+any file in the C-MAPSS layout (unit, cycle, 3 settings, 21 sensors).
 
-| Page | Purpose |
+| Also useful | Command |
 |---|---|
-| **Fleet overview** | Condition distribution, RUL forecast with 80% ranges ranked by urgency, attention queue, health-trend heatmap, fleet drivers. Click an engine to open it. |
-| **Engine status** | Condition state (healthy, degrading, warning, critical, insufficient data), RUL on a banded scale, end-of-life window in cycles, model confidence, suggested actions, trend, sensor drift and SHAP drivers. |
-| Degradation, RUL and risk, Explanations | Detail views for one engine, one click from Engine status. |
-| **3D model** | Sectioned Three.js turbofan with all 21 sensors at their stations, drift per sensor, module condition and a replay of the recorded history. |
-| Ingest data, Evaluation, Error analysis, Export | Upload and processing report, verified model metrics against baselines, test-set forensics, CSV/JSON downloads. |
-
-Design system: IBM Plex Sans and Mono (self-hosted), Carbon-inspired Gray-100 dark tokens, 2px radii, hairline
-separators, semantic status colours always paired with text. Motion (GSAP) is used only for state changes, such as
-the status panel tweening between engines or camera moves in the 3D model, and respects reduced-motion settings.
-
-Keyboard on the 3D model: `Space` replay or pause, `E` exploded view, `H` hide panels, `Esc` reset camera.
-Three.js r186 (MIT), GSAP 3.15 (standard no-charge license) and IBM Plex (OFL) are vendored, so the UI works offline.
-
-The earlier cinematic "mission control" interface is kept on the `ui-streamlit` branch. It uses the same
-models and pipeline; run `git checkout ui-streamlit` and start Streamlit the same way.
+| Retrain model v2 from scratch (about 6 minutes, rewrites `reports/`) | `python -m training.train` |
+| Rank the NASA test engines by risk in the terminal | `python -m scripts.predict` |
+| Run the 52 tests (data, models, pipeline and every console page) | `python -m pytest` |
 
 ---
 
-## 🔍 Problem
+## How it works
 
-Maintenance teams need to detect abnormal component conditions early and predict failure likelihood, so they can act **preventively** instead of relying on fixed maintenance schedules. Reading raw sensor telemetry manually is slow and easy to get wrong.
-
----
-
-## 💡 Solution
-
-AeroSentinel is a machine learning pipeline trained on the **NASA C-MAPSS FD001** turbofan engine degradation dataset. It cleans and analyzes sensor telemetry, predicts RUL via regression, classifies failure risk into four actionable bands, and explains which sensors drove each prediction — served through a Streamlit mission-control dashboard with a 3D digital twin.
-
----
-
-## 📦 Dataset
-
-| Property | Details |
-|---|---|
-| **Name** | NASA C-MAPSS FD001 |
-| **Source** | [NASA Prognostics Data Repository](https://data.nasa.gov/dataset/C-MAPSS-Aircraft-Engine-Simulator-Data/xaut-bemq) |
-| **Domain** | Turbofan engine degradation simulation |
-| **Training units** | 100 engines — run-to-failure trajectories |
-| **Test units** | 100 engines — partial trajectories |
-| **Sensors** | 21 sensor channels + 3 operational settings per cycle |
-| **Fault mode** | Single (HPC degradation) |
-| **Operating condition** | Single (sea level) |
-| **Target variable** | Remaining Useful Life (RUL) — cycles until failure |
-
----
-
-## 🏗️ Architecture
-
-```
-Dataset Upload → Validation → Cleaning → Component Health Analysis
-       ↓
-Feature Engineering → RUL Regressor + Failure-Risk Classifier
-       ↓
-Explainability (SHAP) → Streamlit dashboard + Three.js digital twin
+```mermaid
+flowchart LR
+    A["Sensor file<br/>21 sensors · 3 settings"] --> B["Validate<br/>and clean"]
+    B --> C["Health score<br/>vs healthy engines"]
+    C --> D["197 causal features<br/>per cycle"]
+    D --> E["XGBoost RUL<br/>+ 80% range"]
+    D --> F["XGBoost risk<br/>classifier"]
+    E --> G["Blended<br/>4-band risk"]
+    F --> G
+    E --> H["SHAP<br/>drivers"]
+    G --> H
+    H --> I["Console<br/>+ 3D model"]
 ```
 
-Full design rationale lives in `docs/` — see [Documentation](#-documentation) below.
+1. **Validate and clean.** Checks the 26-column C-MAPSS layout, drops rows that cannot be tied to an engine and
+   cycle, and flags readings outside the range seen in training.
+2. **Keep the sensors that matter.** Seven of the 21 FD001 sensors are flat for the whole run; the 14 that move are kept.
+3. **Score health.** Each sensor is compared with a healthy baseline from the first 30 cycles of the training
+   engines. An engine is *abnormal* above the 99th percentile of healthy behaviour and *critical* at twice that.
+4. **Engineer features.** 197 features per cycle, all causal, so a cycle only ever sees its own past: rolling means
+   and spreads over 5, 15 and 30 cycles, exponentially weighted means, 15/30/50-cycle trend slopes, and drift from
+   the engine's own first 15 cycles.
+5. **Predict RUL.** An XGBoost regressor learns RUL capped at 125 cycles (early life counts as fully healthy), and
+   10th and 90th percentile quantile models give the 80% range.
+6. **Classify risk.** The classifier's band probabilities are blended 25/75 with the bands implied by the RUL
+   forecast. The 75% weight came from 5-fold cross-validation on training engines only.
+7. **Explain.** SHAP ranks the five sensors with the most influence on each RUL and risk prediction.
 
----
-
-## 🛠️ Tech Stack
-
-### Backend / ML
-
-| Technology | Purpose |
+| Risk band | Predicted RUL |
 |---|---|
-| Python 3.10+ | Core language |
-| pandas, numpy | Data handling |
-| scikit-learn | Baselines, preprocessing, metrics |
-| XGBoost | RUL regression, failure-risk classification |
-| SHAP | Explainability |
-
-### Dashboard
-
-| Technology | Purpose |
-|---|---|
-| Streamlit | Multi-page dashboard, custom component host |
-| Three.js (vendored r186) | 3D model: sectioned turbofan with sensor stations and airflow |
-| Plotly | Neon-themed charts, 3D degradation surface |
+| **Failure likely** | 15 cycles or fewer |
+| **High risk** | 16 to 30 cycles |
+| **At risk** | 31 to 60 cycles |
+| **Normal** | more than 60 cycles |
 
 ---
 
-## ✨ Features
+## Results
 
-- **Dataset upload & validation** — ingest raw sensor telemetry with schema checks
-- **Data cleaning** — handle missing values, duplicates, type errors
-- **Component health analysis** — classify components as normal or abnormal
-- **Degradation curve visualization** — track sensor drift over engine cycles
-- **RUL regression** — predict cycles remaining until failure
-- **4-band failure-risk classification** — Normal / At Risk / High Risk / Failure Likely
-- **Explainability** — surface top contributing sensors per prediction via SHAP
-- **Model evaluation dashboard** — interactive metrics and performance views
+Every modelling choice was made with GroupKFold cross-validation on the 100 training engines, so no engine
+appears on both sides of a split. NASA's official test set was scored once, at the very end.
 
----
-
-## 📊 Evaluation Metrics (model v2)
-
-| | Old model (v1) | **Model v2** |
+| | Model v1 | **Model v2** |
 |---|---|---|
 | Risk accuracy · 5-fold CV over training engines | 0.889 | **0.943** |
 | Risk accuracy · 20 held-out engines, every cycle | 0.883 | **0.941** |
@@ -142,56 +187,116 @@ Full design rationale lives in `docs/` — see [Documentation](#-documentation) 
 | RUL RMSE · official test set (cycles) | 17.09 | **12.31** |
 | RUL R² · official test set | 0.831 | **0.912** |
 
-What changed: causal multi-scale features (rolling mean/std over 5/15/30 cycles, exponentially weighted means,
-15/30/50-cycle trend slopes and drift from each engine's own early-life baseline — 197 features per cycle), and a risk
-model that blends the XGBoost classifier with band probabilities implied by the XGBoost RUL regressor. Every choice was
-made with GroupKFold CV on training engines only; the test set was scored once at the end.
+**Against simpler models** on the same 20 held-out engines:
 
-On the 100-engine test set every risk-band miss is an adjacent band (8 of the 11 within 5 cycles of a band limit), and no
-truly high-risk or failure-likely engine is predicted Normal. With one prediction per engine, test accuracy has a
-standard error of about ±3 points.
+| Model | RUL RMSE (cycles) | Risk accuracy |
+|---|---|---|
+| Linear / logistic regression | 15.5 | 0.930 |
+| Random forest | 9.9 | 0.917 |
+| XGBoost classifier on its own | n/a | 0.937 |
+| **AeroSentinel v2** | **8.6** | **0.941** |
 
----
+**When it is wrong, it is wrong by a little.** All 11 risk-band misses on the test set land in the neighbouring
+band, and 8 of them are within 5 cycles of a band limit. No engine that is truly *High risk* or *Failure likely*
+is ever called *Normal*. The 80% RUL range contains the true RUL for 85% of held-out cycles and 77% of test engines.
+With one prediction per test engine, test accuracy carries a standard error of about ±3 points.
 
-## 📚 Documentation
-
-Full design documentation lives in `docs/`:
-
-> BRD · PRD · TRD · HLD · LLD · Database Design · API Specification · UX Requirements · Data Science Architecture · Model Card · Security · Testing Strategy · CI/CD · Observability · Deployment · Roadmap
-
----
-
-## ⚠️ Limitations
-
-- Trained and evaluated on **FD001 only** — a single operating condition and single fault mode, not the full C-MAPSS complexity.
-- **Simulated data**, not real operational aircraft telemetry.
-- Small engine count (**100 training units**) — meaningful overfitting risk.
-- Risk-band thresholds are a **design choice**, not a validated regulatory standard.
+| Target | Goal | Achieved |
+|---|---|---|
+| RUL RMSE on test engines | below 18 cycles | **12.3** |
+| Risk macro-F1 across the four bands | above 0.85 | **0.88** on held-out engines; **0.83** on the test set, just short |
+| Scoring latency | under 25 ms per engine cycle | **about 0.2 ms per cycle**: 13,096 cycles from 100 engines in 2.2 s, SHAP included, on a laptop |
 
 ---
 
-## 🛡️ Responsible Use
+## Two interfaces, one model
+
+| Branch | Interface |
+|---|---|
+| `main` | The engineering console shown above: calm, dense and built for maintenance review. |
+| `ui-streamlit` | The earlier cinematic "mission control" interface, with neon styling and a glowing 3D engine. |
+
+Both run the same pipeline and the same trained models. Switch with `git checkout ui-streamlit`, then start
+Streamlit as usual.
+
+---
+
+## Under the hood
+
+<details>
+<summary><b>Dataset</b></summary>
+<br/>
+
+| | |
+|---|---|
+| **Name** | NASA C-MAPSS FD001, turbofan engine degradation simulation |
+| **Source** | [NASA Prognostics Data Repository](https://data.nasa.gov/dataset/C-MAPSS-Aircraft-Engine-Simulator-Data/xaut-bemq) |
+| **Training** | 100 engines, each run until failure |
+| **Test** | 100 engines stopped before failure, with their true RUL provided |
+| **Per cycle** | 21 sensor channels and 3 operational settings |
+| **Scenario** | One operating condition (sea level) and one fault mode (HPC degradation) |
+</details>
+
+<details>
+<summary><b>Repository layout</b></summary>
+<br/>
+
+```text
+app/                    Streamlit console
+  views/                one file per page
+  engine3d/             Three.js engine model (custom component)
+  instruments/          GSAP engine status panel (custom component)
+  insights.py           condition states, confidence, sensor drift, suggested actions
+  theme.py              design tokens and shared UI pieces
+src/                    the pipeline: data, preprocessing, analysis, features, models, explainability, evaluation
+training/train.py       trains and evaluates model v2, writes reports/
+scripts/                download_data.py, predict.py
+models/v2/              trained models and metadata (v1 kept for comparison)
+reports/                metrics.json, test-set predictions, training figures
+tests/                  pytest suite
+```
+
+`index.html`, `package.json` and `vite.config.js` at the root are an early web prototype and are not used by the
+Streamlit console.
+</details>
+
+<details>
+<summary><b>Tech stack</b></summary>
+<br/>
+
+| Layer | Tools |
+|---|---|
+| Data and ML | Python 3.10+, pandas, NumPy, scikit-learn, XGBoost, SHAP |
+| Console | Streamlit, Plotly, Three.js r186, GSAP 3.15, IBM Plex Sans and Mono |
+</details>
+
+---
+
+## Limitations and responsible use
+
+- Trained and evaluated on **FD001 only**: one operating condition and one fault mode, not the full C-MAPSS range.
+- The data is **simulated**, not telemetry from real aircraft.
+- **100 training engines** is a small sample, so overfitting remains a real risk.
+- The risk-band limits are a **design choice**, not a validated regulatory standard.
+- Suggested actions in the console are rules built on the model's outputs and are labelled as guidance.
 
 > [!CAUTION]
-> AeroSentinel is a **decision-support tool**. It is **not** a certified airworthiness determination, must **not** be used for real-time in-flight safety decisions, and does **not** replace certified maintenance procedures. Predictions inform human review — they do not trigger autonomous maintenance action.
+> AeroSentinel is a **decision-support tool**. It is **not** a certified airworthiness determination, must **not**
+> be used for real-time in-flight safety decisions, and does **not** replace certified maintenance procedures.
+> Predictions inform human review; they never trigger maintenance action on their own.
 
 ---
 
-## 📄 License
+## Team
 
-This project is licensed under the [MIT License](LICENSE).
+Built by **Group 88** as an OJT capstone project:
 
----
+- **Aarohi Ruchita**
+- **Prem Singh**
 
-## 🤝 Contributing
+The project is not accepting external contributions at the moment.
 
-Internal OJT capstone project — **not currently accepting external contributions**.
+## License
 
-
-## Benchmark & Performance Standards
-
-The predictive models within AeroSentinel adhere to C-MAPSS FD001 standards:
-- **RUL Prediction Target**: RMSE < 18.0 cycles on withheld test units — v2 achieves 12.3.
-- **Risk Classification Target**: Macro F1 > 0.85 across the four bands — v2 achieves 0.88 on held-out
-  engines and 0.83 on the official test set.
-- **Telemetry Latency**: Stream inference under 25ms per engine cycle.
+Released under the [MIT License](LICENSE). Three.js (MIT), GSAP (standard no-charge license) and IBM Plex
+(SIL Open Font License) are bundled under their own licences.
