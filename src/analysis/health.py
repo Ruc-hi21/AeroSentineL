@@ -6,8 +6,11 @@ degradation pushes each sensor. 0 = like a new engine, higher = more degraded.
 """
 
 import numpy as np
+import pandas as pd
 
-from src.config import ABNORMAL_QUANTILE, BASELINE_CYCLES, HEALTH_SMOOTHING, RANGE_MARGIN
+from src.config import (
+    ABNORMAL_QUANTILE, BASELINE_CYCLES, CRITICAL_HEALTH_MULTIPLE, HEALTH_SMOOTHING, RANGE_MARGIN,
+)
 
 
 class HealthAnalyzer:
@@ -47,10 +50,16 @@ class HealthAnalyzer:
         return df
 
 
-def compute_fleet_health_distribution(scores: pd.Series) -> dict:
-    """Categorize health scores into critical, degraded, and normal distribution counts."""
+def compute_fleet_health_distribution(scores: pd.Series, threshold: float) -> dict:
+    """Count units as normal / degraded / critical from their health scores.
+
+    Higher score = more degraded. `threshold` is the trained abnormal threshold
+    (HealthAnalyzer.threshold): normal <= threshold < degraded <= CRITICAL_HEALTH_MULTIPLE
+    x threshold < critical.
+    """
+    critical_limit = CRITICAL_HEALTH_MULTIPLE * threshold
     return {
-        "critical": int((scores < 0.3).sum()),
-        "degraded": int(((scores >= 0.3) & (scores < 0.7)).sum()),
-        "normal": int((scores >= 0.7).sum()),
+        "normal": int((scores <= threshold).sum()),
+        "degraded": int(((scores > threshold) & (scores <= critical_limit)).sum()),
+        "critical": int((scores > critical_limit).sum()),
     }

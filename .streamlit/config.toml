@@ -1,0 +1,29 @@
+[server]
+maxUploadSize = 50  # MB, bounded upload size
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#00e5ff"
+backgroundColor = "#040a18"
+secondaryBackgroundColor = "#0b1630"
+textColor = "#dbe8ff"
+linkColor = "#00e5ff"
+borderColor = "rgba(0, 229, 255, 0.18)"
+baseRadius = "12px"
+# "<quoted family>:<url>" only — a trailing fallback list would invalidate the URL.
+font = "'Exo 2':https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&display=swap"
+headingFont = "'Orbitron':https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"
+greenColor = "#19f5a0"
+yellowColor = "#ffd23f"
+orangeColor = "#ff8a1f"
+redColor = "#ff2e4d"
+blueColor = "#3d8bff"
+violetColor = "#9b6bff"
+
+[theme.sidebar]
+backgroundColor = "#06102a"
+secondaryBackgroundColor = "#0b1630"

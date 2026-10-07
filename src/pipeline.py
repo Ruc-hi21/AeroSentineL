@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from src.config import LOW_CONFIDENCE, MODEL_VERSION, RISK_BANDS, ROLLING_WINDOW
+from src.config import LOW_CONFIDENCE, MODEL_VERSION, RISK_BANDS, ROLLING_WINDOW, SENSOR_COLS
 from src.data.loader import read_sensor_file
 from src.data.validation import validate_dataset
 from src.errors import AeroSentinelError, PredictionError, ProcessingError
@@ -31,11 +31,12 @@ class AnalysisResult:
     status: str = "PROCESSING"
     model_version: str | None = None
     units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
-    history: pd.DataFrame | None = None  # every cycle: health score and predicted RUL
+    history: pd.DataFrame | None = None  # every cycle: sensors, health score, predicted RUL
     stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
     validation: dict | None = None
     cleaning: dict | None = None
     error: dict | None = None  # {"code", "message", "requestId"}
+    duration_ms: float | None = None
 
 
 def _fail(result, exc):
@@ -99,7 +100,9 @@ def analyze(source, version=MODEL_VERSION):
         return _fail(result, ProcessingError("The dataset could not be processed."))
     result.stages["preprocessing"] = "ok"
 
-    history = df[["unit", "cycle", "health_score", "health_condition", "out_of_range"]].copy()
+    # Every sensor is kept (not only the modelled ones) so the 3D twin can show all 21 readings.
+    history = df[["unit", "cycle", "health_score", "health_condition", "out_of_range"]
+                 + [c for c in SENSOR_COLS if c in df]].copy()
     last = df.groupby("unit")["cycle"].idxmax().to_numpy()
     X_last = X.loc[last]
     units = history.loc[last, ["unit", "cycle", "health_condition", "health_score"]].reset_index(drop=True)
@@ -113,9 +116,13 @@ def analyze(source, version=MODEL_VERSION):
 
     def classify_risk():
         nonlocal band_codes
-        band_codes, probability = artifacts.risk.classify_band(X_last)
-        units["risk_band"] = [RISK_BANDS[c] for c in band_codes]
-        units["risk_probability"] = np.round(probability, 3)
+        # Classify every cycle (cheap) so a unit's band can be replayed over its life.
+        codes, probability = artifacts.risk.classify_band(X)
+        history["risk_band"] = [RISK_BANDS[c] for c in codes]
+        history["risk_probability"] = np.round(probability, 3)
+        band_codes = codes[X.index.get_indexer(last)]
+        units["risk_band"] = history.loc[last, "risk_band"].to_numpy()
+        units["risk_probability"] = history.loc[last, "risk_probability"].to_numpy()
 
     def explain():
         if result.stages.get("rul") == "ok":
@@ -135,9 +142,10 @@ def analyze(source, version=MODEL_VERSION):
     result.units = units
     result.history = history
     result.status = "COMPLETED" if all(v == "ok" for v in result.stages.values()) else "PARTIAL"
+    result.duration_ms = round((time.perf_counter() - start) * 1000, 1)
     logger.info(
         "job=%s status=%s model=%s units=%d duration_ms=%.0f",
-        result.job_id, result.status, version, len(units), (time.perf_counter() - start) * 1000,
+        result.job_id, result.status, version, len(units), result.duration_ms,
     )
     return result
 
