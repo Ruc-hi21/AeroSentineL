@@ -4,10 +4,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app import insights, theme
-from app.components import fleet, get_result, health_heatmap, ladder_chart, sample_button, sensor_label, show_table
+from app.components import (
+    FAULT_TEXT, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec, require_model, sample_button,
+    sample_choice, sensor_label, show_table,
+)
 from app.engine3d import engine_twin
 from app.theme import MONO, SANS, TOKENS, esc
-from src.config import CRITICAL_HEALTH_MULTIPLE
+from src.config import CRITICAL_HEALTH_MULTIPLE, DATASET, SUBSETS
 from src.models.artifacts import load_artifacts, model_status
 
 
@@ -27,20 +30,32 @@ if result is None or result.units is None:
 <h1 style="font-size:28px;font-weight:600;margin:0 0 10px;padding:0;line-height:1.2">Turbofan health, remaining life and failure risk</h1>
 <p style="font-size:15px;color:#a6adb6;margin:0;line-height:1.55">Load engine sensor data to see which engines need attention,
 how long each has left and why the model thinks so.</p></div>""")
+        choice = sample_choice("hero_choice")
         b1, b2, _ = st.columns([1.3, 1.1, 1])
         with b1:
-            sample_button(key="hero_sample")
+            sample_button(key="hero_sample", subset=choice)
         with b2:
             st.page_link("views/upload.py", label="Upload a file", icon=":material/upload:")
-        if status["ready"]:
+        bench = load_benchmark()
+        if bench and bench.get("subsets"):
+            rows = bench["subsets"].values()
+            acc = [r["test_accuracy"] for r in rows]
+            rmse = [r["test_rmse_capped"] for r in rows if r.get("test_rmse_capped") is not None]
+            theme.stats([
+                theme.stat("Engines trained on", f"{sum(r['train_engines'] for r in rows)}",
+                           foot=f"{len(bench['subsets'])} NASA subsets, 1 or 6 conditions"),
+                theme.stat("Risk accuracy, NASA test", f"{min(acc):.0%} to {max(acc):.0%}", foot="per subset"),
+                theme.stat("RUL error, NASA test", f"{min(rmse):.1f} to {max(rmse):.1f}", "cycles", foot="RMSE, capped at 125"),
+            ])
+        elif status["ready"]:
             m = load_artifacts().metadata["metrics"]
             theme.stats([
                 theme.stat("Risk accuracy, unseen engines", f"{m['validation']['risk']['xgboost']['accuracy']:.1%}"),
                 theme.stat("Risk accuracy, NASA test", f"{m['test']['risk']['accuracy']:.1%}"),
                 theme.stat("RUL error, NASA test", f"{m['test']['rul']['rmse']:.1f}", "cycles RMSE"),
             ])
-        theme.note("Input: NASA C-MAPSS format, one row per engine cycle with 21 sensors. Output per engine: condition, "
-                   "RUL with an 80% range, a four-level risk band and the sensors that drove the prediction.")
+        theme.note("Input: NASA C-MAPSS format, one row per engine cycle with 21 sensors and 3 operating settings. Output "
+                   "per engine: condition, RUL with an 80% range, a four-level risk band and the sensors that drove it.")
     with right:
         engine_twin(mode="hero", height=440, key="hero_engine")
     st.stop()
@@ -51,6 +66,7 @@ source = st.session_state.get("source_name", "")
 theme.page_head("Fleet overview", "Engines ranked by urgency. Select an engine in the chart or the queue to open it.",
                 f"<b>{esc(source)}</b><br>{len(units)} engines, {len(result.history):,} cycles<br>"
                 f"job {esc(result.job_id)}, {result.duration_ms:.0f} ms")
+theme.spec(profile_spec(result))
 theme.distribution(insights.state_counts(units))
 
 has_rul = "predicted_rul" in units
@@ -81,7 +97,7 @@ with right:
 left, right = st.columns([1.3, 1], gap="large")
 with left:
     theme.section("Health trend", "health score over the last 60 cycles, 20 most urgent engines")
-    threshold = load_artifacts().health.threshold if status["ready"] else 1.0
+    threshold = require_model().health.threshold
     theme.chart(health_heatmap(units, result.history, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="fleet_heat")
     theme.note(f"Grey is within the healthy baseline. Colour starts at the abnormal threshold ({threshold:.2f}) "
                f"and reaches red at the critical level ({CRITICAL_HEALTH_MULTIPLE * threshold:.2f}).")
@@ -101,7 +117,12 @@ with right:
         fig.update_layout(height=320, margin=dict(t=8, b=40, l=8, r=40), xaxis_title="mean |SHAP| (cycles)",
                           yaxis=dict(ticks="", tickfont=dict(family=SANS, size=12, color=TOKENS["text_2"])))
         theme.chart(fig, key="fleet_drivers")
-        theme.note("FD001 has a single fault mode, high-pressure compressor degradation, so HPC pressure and "
-                   "temperature channels are expected to lead.")
+        faults = SUBSETS.get(result.subset or DATASET, SUBSETS[DATASET])["fault_modes"]
+        if "Fan" in faults:
+            theme.note(f"{esc(result.subset)} has two fault modes, {FAULT_TEXT['HPC']} and {FAULT_TEXT['Fan']}, so fan speed "
+                       "and bypass channels can lead alongside the compressor pressures and temperatures.")
+        else:
+            theme.note(f"{esc(result.subset)} has a single fault mode, high-pressure compressor degradation, so HPC "
+                       "pressure and temperature channels are expected to lead.")
     else:
         st.info("Explanations are unavailable for this analysis.")

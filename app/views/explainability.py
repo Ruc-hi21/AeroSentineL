@@ -39,8 +39,8 @@ with right:
     else:
         st.warning("No risk explanation available for this analysis.")
 
-with st.expander("Average influence across training engines (training report figures)"):
-    figures = REPORTS_DIR / "figures"
+with st.expander(f"Average influence across {result.subset} training engines (training report figures)"):
+    figures = REPORTS_DIR / (result.subset or "") / "figures"
     cols = st.columns(2)
     for col, name, caption in [(cols[0], "shap_rul.png", "Average influence on RUL"),
                                (cols[1], "shap_risk.png", "Average influence on the risk band")]:

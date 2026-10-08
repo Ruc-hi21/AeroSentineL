@@ -2,14 +2,15 @@
 
 import pytest
 
-from src.config import DATASET, MODEL_VERSION, MODELS_DIR, RAW_DATA_DIR, ROOT
+from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, ROOT
+from src.models.artifacts import model_dir
 from src.pipeline import analyze
 
 streamlit_testing = pytest.importorskip("streamlit.testing.v1")
 APP = str(ROOT / "app" / "streamlit_app.py")
 TEST_FILE = RAW_DATA_DIR / f"test_{DATASET}.txt"
 pytestmark = pytest.mark.skipif(
-    not (MODELS_DIR / MODEL_VERSION / "metadata.json").exists() or not TEST_FILE.exists(),
+    not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
 PAGES = ["overview", "upload", "engine", "twin", "health", "rul_risk", "explainability", "evaluation",
@@ -44,11 +45,12 @@ def test_page_renders_with_results(page, result):
 
 def test_upload_sample_and_analyze():
     at = run_page("upload")
-    next(b for b in at.button if "Use the sample" in b.label).click().run()
+    next(b for b in at.button if "test fleet" in b.label).click().run()
     run = next(b for b in at.button if "Run analysis" in b.label)
     run.click().run()
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
+    assert at.session_state["result"].subset == DATASET
     assert any("Analysis complete" in s.value for s in at.success)
 
 

@@ -570,6 +570,7 @@ function applyState(tsec) {
   const idx = clamp(Math.round(S.t), 0, S.N - 1);
   const state = stateAt(idx);
   $('cycle').innerHTML = `Cycle ${d.cycles[idx]} <em>of ${d.cycles[S.N - 1]}</em>`;
+  if (d.flight) $('flight').textContent = `${Math.round(d.flight.alt[idx])} kft  M${d.flight.mach[idx].toFixed(2)}  TRA ${Math.round(d.flight.tra[idx])}`;
   app.style.setProperty('--state', STATE[state].color);
   $('state').textContent = STATE[state].label;
   const band = d.band ? d.band[idx] : null;
@@ -651,7 +652,9 @@ function loadPayload(p) {
   Object.values(markers).forEach((m) => { m.group.visible = false; });
   buildRows(); refreshSelection(); $('events').innerHTML = '';
   $('unit-name').textContent = `Engine ${pad(p.unit)}`;
-  $('unit-meta').textContent = [p.source, p.model ? `model ${p.model}` : null].filter(Boolean).join(', ');
+  $('unit-meta').textContent = [p.source, p.model ? `model ${p.model}` : null, p.corrected ? 'readings corrected to sea level' : null]
+    .filter(Boolean).join(', ');
+  $('flight').textContent = '';
   syncPlay();
   if (first) intro();
 }

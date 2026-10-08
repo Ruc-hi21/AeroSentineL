@@ -46,3 +46,36 @@ def status_payload(row, drift=None):
 
 def engine_status(payload, key=None, height=214):
     return _component(kind="engine_status", data=payload, height=height, key=key, default=None)
+
+
+GAS_PATH_MODULES = ["fan", "lpc", "hpc", "comb", "hpt", "lpt", "noz", "byp"]
+DRIFT_STATUS_COLORS = {"Critical": STATES["CRITICAL"]["color"], "Warning": STATES["WARNING"]["color"],
+                       "Elevated": STATES["DEGRADING"]["color"]}
+
+
+def gas_path_payload(row, drift, unit_history, profile=None):
+    """Module condition along the gas path for one engine, plus the operating condition of its latest cycle."""
+    modules = []
+    for key in GAS_PATH_MODULES:
+        part = drift[drift["sensor"].map(insights.SENSOR_MODULE) == key] if len(drift) else drift
+        worst = part.iloc[0] if len(part) else None  # drift is sorted, strongest first
+        modules.append({
+            "key": key, "name": insights.MODULE_NAMES[key],
+            "status": worst["status"] if worst is not None else None,
+            "color": DRIFT_STATUS_COLORS.get(worst["status"]) if worst is not None else None,
+            "drift": float(worst["drift"]) if worst is not None else None,
+            "sensors": [{"code": r["code"], "drift": float(r["drift"]), "status": r["status"]} for _, r in part.iterrows()],
+        })
+    last = unit_history.iloc[-1]
+    condition = None
+    if {"setting_1", "setting_2", "setting_3"} <= set(unit_history.columns):
+        condition = {"id": int(last["condition"]) if "condition" in last else None,
+                     "altitude": round(float(last["setting_1"]), 1), "mach": round(float(last["setting_2"]), 2),
+                     "throttle": round(float(last["setting_3"])),
+                     "known": bool(last.get("condition_known", True)),
+                     "corrected": bool((profile or {}).get("corrected"))}
+    return {"unit": int(row["unit"]), "cycle": int(row["cycle"]), "modules": modules, "condition": condition}
+
+
+def gas_path(payload, key=None, height=300):
+    return _component(kind="gas_path", data=payload, height=height, key=key, default=None)

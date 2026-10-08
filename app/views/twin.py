@@ -56,8 +56,8 @@ with right:
                   ("Latest reading", f"{hist[sensor].iloc[-1]:.2f} {esc(unit_label)}"),
                   ("Healthy baseline", f"{artifacts.health.mean[sensor]:.2f} {esc(unit_label)}")])
     else:
-        theme.empty("Constant channel", f"{esc(describe(sensor))} does not change in FD001 (single operating condition), "
-                    "so the model does not use it. It is shown for completeness.")
+        theme.empty("Not modelled", f"{esc(describe(sensor))} carries no wear signal in {esc(result.subset)} once readings "
+                    "are taken at a single operating condition, so the model does not use it. It is shown for completeness.")
     impact = next((f["impact"] for f in factors if f["sensor"] == sensor), None)
     theme.note(f"SHAP: this sensor changed the predicted RUL by {impact:+.1f} cycles." if impact is not None
                else "Not among this engine's top five RUL drivers.")

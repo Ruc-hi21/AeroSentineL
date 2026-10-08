@@ -165,18 +165,25 @@ button:focus-visible, a:focus-visible, [role="tab"]:focus-visible { outline: 2px
 .as-actions .a { font-size: 14px; color: var(--text-1); font-weight: 500; }
 .as-actions .w { font-size: 13px; color: var(--text-2); margin-top: 2px; }
 .as-note { font-size: 12px; color: var(--text-3); margin-top: 6px; max-width: 90ch; }
+/* spec strip: one line of engineering facts, like the title block of a drawing */
+.as-spec { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 2px; margin: 2px 0 14px; }
+.as-spec > div { padding: 7px 14px; border-right: 1px solid var(--line); }
+.as-spec > div:last-child { border-right: 0; }
+.as-spec i { display: block; font-style: normal; font-size: 11px; color: var(--text-3); }
+.as-spec b { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--text-1); white-space: nowrap; }
 .as-empty { border: 1px dashed var(--line-strong); padding: 20px 22px; margin: 12px 0; max-width: 760px; }
 .as-empty h3 { font-size: 15px !important; font-weight: 600; margin: 0 0 6px; padding: 0; }
 .as-empty p { font-size: 13px; color: var(--text-2); margin: 0; }
 
 /* processing report */
-.as-steps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.as-steps { display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .as-steps .st { padding: 12px 12px 12px 0; }
 .as-steps .st + .st { padding-left: 12px; border-left: 1px solid var(--line); }
 .as-steps .n { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
 .as-steps .n i { width: 7px; height: 7px; border-radius: 1px; background: var(--c, var(--s-ok)); }
 .as-steps .v { font-family: var(--mono); font-size: 14px; color: var(--text-1); margin-top: 4px; }
 .as-steps .d { font-size: 12px; color: var(--text-3); }
+.as-steps .ms { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-top: 6px; white-space: nowrap; }
 
 /* figure frame for the static training-report images (rendered light by matplotlib) */
 [data-testid="stImage"] img { border: 1px solid var(--line); border-radius: 2px; }
@@ -280,6 +287,11 @@ def distribution(counts):
     keys = "".join(f'<div class="k" style="--c:{STATES[k]["color"]}"><div class="n">{n}</div>'
                    f'<div class="t">{esc(STATES[k]["label"])} ({n / total:.0%})</div></div>' for k, n in counts.items())
     st.html(f'<div class="as-dist"><div class="bar">{bar}</div><div class="keys">{keys}</div></div>')
+
+
+def spec(items):
+    """Spec strip from [(label, value), ...]: compact engineering facts in one bordered row."""
+    st.html('<div class="as-spec">' + "".join(f"<div><i>{esc(k)}</i><b>{esc(v)}</b></div>" for k, v in items) + "</div>")
 
 
 def kv(rows):

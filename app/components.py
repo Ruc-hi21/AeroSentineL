@@ -1,6 +1,7 @@
 """Reusable UI pieces: session state, pickers, tables and charts. Display only: numbers come from src/."""
 
 import io
+import json
 
 import numpy as np
 import pandas as pd
@@ -10,13 +11,15 @@ from plotly.subplots import make_subplots
 
 from app import insights
 from app.theme import BAND_COLORS, BAND_TEXT, MONO, STATES, TOKENS, esc
-from src.config import DATASET, RAW_DATA_DIR, RISK_BANDS, RISK_LIMITS, RUL_CAP
+from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS, RISK_LIMITS, RUL_CAP, SUBSETS
 from src.data.loader import read_sensor_file
 from src.explainability.sensor_names import SENSOR_INFO, describe
-from src.models.artifacts import load_artifacts, model_status
+from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
 
-SAMPLE = RAW_DATA_DIR / f"test_{DATASET}.txt"
+SAMPLES = {s: RAW_DATA_DIR / f"test_{s}.txt" for s in SUBSETS}  # NASA test fleets, one per subset
+SAMPLE = SAMPLES[DATASET]
+FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation"}
 T = TOKENS
 STATE_COLOR = {s: v["color"] for s, v in STATES.items()}
 STATE_LABEL = {s: v["label"] for s, v in STATES.items()}
@@ -31,9 +34,9 @@ def get_result():
     return st.session_state.get("result")
 
 
-def run_analysis(name, content):
-    """Analyze uploaded bytes and store the result for every page. Returns the AnalysisResult."""
-    result = analyze(read_sensor_file(io.BytesIO(content)))
+def run_analysis(name, content, subset=None):
+    """Analyze uploaded bytes and store the result for every page. subset None = pick automatically."""
+    result = analyze(read_sensor_file(io.BytesIO(content)), subset=subset, name=name)
     st.session_state["last_run"] = result
     if result.status != "FAILED":
         st.session_state["result"] = result
@@ -42,11 +45,30 @@ def run_analysis(name, content):
     return result
 
 
-def sample_button(key, primary=True):
-    """Load the bundled NASA test fleet in one click."""
-    if SAMPLE.exists() and st.button("Load NASA sample fleet", type="primary" if primary else "secondary", key=key):
-        with st.spinner("Analyzing 100 engines"):
-            run_analysis(SAMPLE.name, SAMPLE.read_bytes())
+def subset_summary(subset):
+    """'6 operating conditions, HPC and fan degradation' style description of a subset."""
+    info = SUBSETS[subset]
+    conditions = "1 operating condition" if info["conditions"] == 1 else f"{info['conditions']} operating conditions"
+    return f"{conditions}, {' and '.join(FAULT_TEXT[f] for f in info['fault_modes'])}"
+
+
+def sample_choice(key, label="NASA sample fleet"):
+    """Pick one of the four NASA test fleets. Only subsets with a trained model and data are offered."""
+    options = [s for s in available_subsets() if SAMPLES[s].exists()] or [DATASET]
+    choice = st.segmented_control(label, options, default=options[0], key=key,
+                                  help="FD001 and FD003 run at one operating condition, FD002 and FD004 at six. "
+                                       "FD003 and FD004 add fan degradation to compressor degradation.")
+    return choice or options[0]
+
+
+def sample_button(key, primary=True, subset=None):
+    """Load a bundled NASA test fleet in one click."""
+    subset = subset or DATASET
+    path = SAMPLES[subset]
+    label = "Load NASA sample fleet" if subset == DATASET else f"Load NASA {subset} fleet"
+    if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key):
+        with st.spinner(f"Analyzing {SUBSETS[subset]['test_engines']} engines"):
+            run_analysis(path.name, path.read_bytes(), subset=subset)
         st.rerun()
 
 
@@ -56,7 +78,7 @@ def require_result():
     if result is None or result.units is None:
         from app.theme import empty
         empty("No engine data loaded",
-              "Upload a C-MAPSS sensor file, or load the NASA FD001 test fleet (100 engines) to populate this view.")
+              "Upload a C-MAPSS sensor file, or load one of the NASA test fleets to populate this view.")
         left, right, _ = st.columns([1, 1, 3])
         with left:
             sample_button(key="empty_sample")
@@ -66,12 +88,37 @@ def require_result():
     return result
 
 
-def require_model():
-    status = model_status()
+def load_benchmark():
+    """reports/benchmark.json written by training (every model on every subset), or None."""
+    path = REPORTS_DIR / "benchmark.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def profile_spec(result):
+    """Spec-strip facts for the loaded file: model, conditions, fault modes, size."""
+    prof = result.profile or {}
+    subset = result.subset or DATASET
+    seen = prof.get("conditions_seen", 1)
+    return [("Model", f"{result.model_version} {subset}"),
+            ("Operating conditions", f"{seen}" + (", corrected to sea level" if prof.get("corrected") else "")),
+            ("Fault modes", " and ".join(FAULT_TEXT[f] for f in prof.get("fault_modes", SUBSETS[subset]["fault_modes"]))),
+            ("Engines", f"{len(result.units)}"), ("Cycles", f"{len(result.history):,}"),
+            ("Processing", f"{result.duration_ms:,.0f} ms")]
+
+
+def active_subset():
+    """The subset whose model scored the loaded data (the default subset before any analysis)."""
+    result = get_result()
+    return getattr(result, "subset", None) or DATASET
+
+
+def require_model(subset=None):
+    subset = subset or active_subset()
+    status = model_status(MODEL_VERSION, subset)
     if not status["ready"]:
         st.error(f"Model unavailable. {status['message']}")
         st.stop()
-    return load_artifacts()
+    return load_artifacts(MODEL_VERSION, subset)
 
 
 def fleet(result):
@@ -85,14 +132,18 @@ def fleet(result):
 
 def sidebar_status():
     with st.sidebar:
-        status = model_status()
+        subset = active_subset()
+        status = model_status(MODEL_VERSION, subset)
         rows = []
         if status["ready"]:
-            m = load_artifacts().metadata["metrics"]
-            rows += [("Model", esc(status["version"])), ("Trained", esc(str(status["trained_at"])[:10])),
+            m = load_artifacts(MODEL_VERSION, subset).metadata["metrics"]
+            conditions = SUBSETS[subset]["conditions"]
+            rows += [("Model", f"{esc(status['version'])} {esc(subset)}"),
+                     ("Conditions", "1" if conditions == 1 else f"{conditions}, corrected"),
+                     ("Trained", esc(str(status["trained_at"])[:10])),
                      ("Accuracy, unseen engines", f"{m['validation']['risk']['xgboost']['accuracy']:.1%}"),
                      ("Accuracy, NASA test", f"{m['test']['risk']['accuracy']:.1%}"),
-                     ("RUL RMSE, NASA test", f"{m['test']['rul']['rmse']:.1f}")]
+                     ("RUL RMSE, test, capped", f"{m['test']['rul'].get('rmse_capped', m['test']['rul']['rmse']):.1f}")]
         else:
             rows.append(("Model", '<span style="color:#fa4d56">unavailable</span>'))
         result = get_result()
@@ -251,10 +302,10 @@ def health_chart(unit_history, threshold, critical, height=300):
                   annotation_font=dict(color=STATE_COLOR["CRITICAL"]))
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["health_score"], mode="lines", name="Health score",
                              line=dict(color=T["accent_2"], width=2),
-                             hovertemplate="cycle %{x}<br>health %{y:.2f}<extra></extra>"))
+                             hovertemplate="health %{y:.2f}<extra></extra>"))
     fig.update_layout(height=height, showlegend=False, xaxis_title="cycle", yaxis_title="health score (0 = new engine)",
                       yaxis_range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), top])
-    return fig
+    return crosshair(fig)
 
 
 def sensor_chart(unit_history, sensors):
@@ -383,7 +434,7 @@ def trend_chart(unit_history, row, threshold, critical, height=430):
     _band_zones(fig, row=1, col=1)
     if "predicted_rul" in unit_history:
         fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name="Predicted RUL",
-                                 line=dict(color=T["accent"], width=2), hovertemplate="cycle %{x}<br>RUL %{y:.0f}<extra></extra>"),
+                                 line=dict(color=T["accent"], width=2), hovertemplate="RUL %{y:.0f} cycles<extra></extra>"),
                       row=1, col=1)
     if "rul_low" in row:
         fig.add_trace(go.Scatter(
@@ -391,20 +442,21 @@ def trend_chart(unit_history, row, threshold, critical, height=430):
             marker=dict(color=T["accent"], size=8, line=dict(color=T["bg"], width=2)),
             error_y=dict(type="data", symmetric=False, array=[row["rul_high"] - row["predicted_rul"]],
                          arrayminus=[row["predicted_rul"] - row["rul_low"]], color=T["accent"], thickness=1.5, width=8),
-            hovertemplate="latest %{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
+            hovertemplate="latest reading, 80%% range %s<extra></extra>" % (
+                f"{row['rul_low']:.0f} to {row['rul_high']:.0f}")), row=1, col=1)
     fig.add_hline(y=threshold, line=dict(color=STATE_COLOR["DEGRADING"], width=1, dash="dash"), row=2, col=1, exclude_empty_subplots=False,
                   annotation_text="abnormal", annotation_position="top left", annotation_font=dict(color=STATE_COLOR["DEGRADING"]))
     fig.add_hline(y=critical, line=dict(color=STATE_COLOR["CRITICAL"], width=1, dash="dash"), row=2, col=1, exclude_empty_subplots=False,
                   annotation_text="critical", annotation_position="top left", annotation_font=dict(color=STATE_COLOR["CRITICAL"]))
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["health_score"], mode="lines", name="Health score",
-                             line=dict(color=T["accent_2"], width=1.6), hovertemplate="cycle %{x}<br>health %{y:.2f}<extra></extra>"),
+                             line=dict(color=T["accent_2"], width=1.6), hovertemplate="health %{y:.2f}<extra></extra>"),
                   row=2, col=1)
     fig.update_yaxes(title_text="RUL (cycles)", range=[0, RUL_CAP + 5], row=1, col=1)
     fig.update_yaxes(title_text="health score", row=2, col=1,
                      range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), max(critical * 1.3, float(unit_history["health_score"].max()) * 1.1)])
     fig.update_xaxes(title_text="cycle", row=2, col=1)
     fig.update_layout(height=height, margin=dict(t=30, b=40, l=56, r=12))
-    return fig
+    return crosshair(fig)
 
 
 DRIFT_COLORS = {"Critical": STATE_COLOR["CRITICAL"], "Warning": STATE_COLOR["WARNING"], "Elevated": STATE_COLOR["DEGRADING"],
@@ -425,3 +477,65 @@ def drift_table(drift, rows=None, height="auto", compact=False):
         "Trend": st.column_config.NumberColumn("Trend", format="%+.2f", help="Change in drift per 10 cycles, last 20 cycles"),
         "Last 60 cycles": st.column_config.LineChartColumn("Last 60 cycles", y_min=-2, y_max=6, width="medium"),
     })
+
+
+# ---------------------------------------------------------------- engineering views
+def crosshair(fig):
+    """Oscilloscope-style readout: a dotted cursor across the plot and one hover box per cycle."""
+    fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1, spikedash="dot",
+                     spikecolor=T["text_3"])
+    fig.update_layout(hovermode="x unified", spikedistance=-1)
+    return fig
+
+
+def envelope_chart(history, trained, height=300):
+    """Operating envelope: where the engines flew (altitude against Mach), against what the model was trained on."""
+    pts = history[["setting_1", "setting_2", "setting_3", "condition_known"]].copy()
+    pts["alt"], pts["mach"], pts["tra"] = pts["setting_1"].round(0), pts["setting_2"].round(2), pts["setting_3"].round(0)
+    seen = pts.groupby(["alt", "mach", "tra"]).agg(cycles=("alt", "size"), known=("condition_known", "all")).reset_index()
+    fig = go.Figure()
+    size = 10 + 26 * np.sqrt(seen["cycles"] / seen["cycles"].max())
+    colors = [T["accent"] if k else STATE_COLOR["CRITICAL"] for k in seen["known"]]
+    fig.add_trace(go.Scatter(
+        x=seen["mach"], y=seen["alt"], mode="markers+text", name="in this file",
+        marker=dict(size=size, color=colors, opacity=0.85, line=dict(color=T["bg"], width=1)),
+        text=[f"TRA {t:.0f}" for t in seen["tra"]], textposition="middle right",
+        textfont=dict(family=MONO, size=10, color=T["text_2"]), cliponaxis=False,
+        customdata=np.stack([seen["cycles"], np.where(seen["known"], "trained", "not trained")], axis=1),
+        hovertemplate="%{y:.0f} kft, Mach %{x:.2f}<br>%{customdata[0]:,} cycles<br>condition %{customdata[1]}<extra></extra>"))
+    # Training conditions as rings drawn over the data, so a filled dot inside a ring reads as "covered".
+    fig.add_trace(go.Scatter(
+        x=[c["mach"] for c in trained], y=[c["altitude_kft"] for c in trained], mode="markers", name="trained conditions",
+        marker=dict(size=46, color="rgba(0,0,0,0)", line=dict(color=T["text_3"], width=1)), hoverinfo="skip"))
+    fig.update_layout(height=height, showlegend=False, margin=dict(t=8, b=44, l=56, r=60))
+    fig.update_xaxes(title_text="Mach number", range=[-0.06, 0.98], zeroline=False)
+    fig.update_yaxes(title_text="altitude (kft)", range=[-5, 48], zeroline=False)
+    return fig
+
+
+def cross_chart(cross, metric="accuracy"):
+    """Generalisation matrix: each subset's model (rows) scored on every subset's test fleet (columns)."""
+    models = list(cross)
+    data = sorted({d for row in cross.values() for d in row})
+    z, text, hover = [], [], []
+    for m in models:
+        zr, tr, hr = [], [], []
+        for d in data:
+            cell = cross[m].get(d, {})
+            v = cell.get(metric)
+            known = cell.get("known_conditions", 1.0)
+            zr.append(None if v is None or known < 0.5 else v)
+            label = "n/a" if v is None else (f"{v:.0%}" if metric == "accuracy" else f"{v:.1f}")
+            tr.append(label if known >= 0.5 else f"{label}<br><span style='font-size:9px'>untrained conditions</span>")
+            hr.append(f"{m} model on {d} test fleet<br>{label}" + ("" if known >= 0.5 else "<br>conditions it was not trained on"))
+        z.append(zr), text.append(tr), hover.append(hr)
+    better_high = metric == "accuracy"
+    scale = [[0, T["surface"]], [1, "#3a6cc2"]] if better_high else [[0, "#3a6cc2"], [1, T["surface"]]]
+    fig = go.Figure(go.Heatmap(
+        z=z, x=[f"{d} test" for d in data], y=[f"{m} model" for m in models], text=text, texttemplate="%{text}",
+        customdata=hover, hovertemplate="%{customdata}<extra></extra>", showscale=False, xgap=2, ygap=2,
+        textfont=dict(family=MONO, size=12, color=T["text_1"]), colorscale=scale))
+    fig.update_layout(height=70 + 52 * len(models), margin=dict(t=8, b=32, l=96, r=8), plot_bgcolor=T["bg"])
+    fig.update_xaxes(showgrid=False, ticks="", side="top")
+    fig.update_yaxes(showgrid=False, ticks="", autorange="reversed")
+    return fig

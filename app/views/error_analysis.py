@@ -4,17 +4,21 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app import theme
-from app.components import band_label
+from app.components import active_subset, band_label
 from app.theme import BAND_COLORS, BAND_TEXT, TOKENS
-from src.config import RISK_BANDS
-from src.evaluation.error_analysis import load_test_predictions, summary
+from src.config import RISK_BANDS, SUBSETS
+from src.evaluation.error_analysis import load_test_predictions, predictions_file, summary
 
-theme.page_head("Error analysis", "Errors on the official FD001 test set: 100 engines, scored at their last recorded cycle.")
-
-df = load_test_predictions()
-if df is None:
+theme.page_head("Error analysis", "Errors on the official NASA test sets, each engine scored at its last recorded cycle.")
+ready = [s for s in SUBSETS if predictions_file(s).exists()]
+if not ready:
     theme.empty("No test predictions yet", "Run <code>python -m training.train</code> to generate test-set predictions.")
     st.stop()
+default = active_subset() if active_subset() in ready else ready[0]
+subset = st.segmented_control("Test set", ready, default=default, key="errors_subset") or default
+df = load_test_predictions(subset)
+st.caption(f"{subset}: {len(df)} engines. {int((df['true_rul'] > 125).sum())} have more than 125 cycles left, where the "
+           "model is trained to report 125.")
 
 s = summary(df)
 theme.stats([

@@ -7,7 +7,7 @@ from app import insights, theme
 from app.components import (
     drift_table, factor_chart, require_model, require_result, step_unit, trend_chart, unit_picker,
 )
-from app.instruments import engine_status, status_payload
+from app.instruments import engine_status, gas_path, gas_path_payload, status_payload
 from app.theme import TOKENS, esc
 from src.config import CRITICAL_HEALTH_MULTIPLE
 
@@ -16,7 +16,8 @@ result = require_result()
 units = result.units
 
 theme.page_head("Engine status", "Condition, remaining useful life, failure risk and the suggested next step for one engine.",
-                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} engines, model {esc(result.model_version)}")
+                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} engines, "
+                f"model {esc(result.model_version)} {esc(result.subset or '')}")
 
 pick, prev, nxt, _ = st.columns([3.2, 0.7, 0.7, 4.4], vertical_alignment="bottom")
 with pick:
@@ -31,6 +32,12 @@ state = insights.engine_state(row)
 
 # 1-3. Condition, time left, risk and the single most important action.
 engine_status(status_payload(row, drift), key="engine_status")
+
+# Where on the engine: module condition along the gas path, and the flight condition of the latest cycle.
+gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
+theme.note("Each module takes the colour of its most-drifted sensor; hover a module for its readings. Sensors also "
+           "respond to faults elsewhere (compressor wear shifts fan speed too), so shading shows where the evidence is "
+           "measured, not a confirmed root cause.")
 
 # 4-5. What is changing.
 left, right = st.columns([1.5, 1], gap="large")

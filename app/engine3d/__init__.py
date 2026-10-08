@@ -54,7 +54,11 @@ def twin_payload(result, unit, health, source=""):
         "id": f"{result.job_id}:{unit}",
         "unit": int(unit),
         "source": source,
-        "model": result.model_version,
+        "model": " ".join(x for x in (result.model_version, getattr(result, "subset", None)) if x),
+        "corrected": bool((getattr(result, "profile", None) or {}).get("corrected")),
+        # Flight condition per cycle (altitude kft, Mach, throttle), shown while replaying.
+        "flight": {"alt": _round(hist["setting_1"], 1), "mach": _round(hist["setting_2"], 2),
+                   "tra": _round(hist["setting_3"], 0)} if {"setting_1", "setting_2", "setting_3"} <= set(has) else None,
         "cycles": hist["cycle"].astype(int).tolist(),
         "health": _round(hist["health_score"], 3),
         "threshold": round(health.threshold, 3),

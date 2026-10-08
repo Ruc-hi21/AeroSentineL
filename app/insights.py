@@ -32,6 +32,12 @@ SENSOR_MODULE = {
 }
 
 
+def _cycles(n):
+    """'1 cycle', '5 cycles': n rounded to a whole number of cycles."""
+    n = int(round(float(n)))
+    return f"{n} cycle" if n == 1 else f"{n} cycles"
+
+
 def _has(row, key):
     if key not in row:
         return False
@@ -101,19 +107,19 @@ def state_reason(row, state):
     rul = row["predicted_rul"] if _has(row, "predicted_rul") else None
     if state == "INSUFFICIENT":
         if short_history(row):
-            return f"Only {int(row['cycle'])} cycles observed; predictions need {ROLLING_WINDOW} or more to be reliable."
+            return f"Only {_cycles(row['cycle'])} observed; predictions need {ROLLING_WINDOW} or more to be reliable."
         return "No RUL or risk prediction is available for this engine."
     if rul is None:
         return f"Risk band {row['risk_band'].replace('_', ' ').lower()}; RUL prediction unavailable."
     if state == "CRITICAL":
-        return f"Predicted RUL {rul:.0f} cycles, inside the failure-likely window (15 cycles or fewer)."
+        return f"Predicted RUL {_cycles(rul)}, inside the failure-likely window (15 cycles or fewer)."
     if state == "WARNING":
-        return f"Predicted RUL {rul:.0f} cycles, inside the high-risk window (16 to 30 cycles)."
+        return f"Predicted RUL {_cycles(rul)}, inside the high-risk window (16 to 30 cycles)."
     if state == "DEGRADING":
         if rul <= RISK_LIMITS["AT_RISK"]:
-            return f"Predicted RUL {rul:.0f} cycles, inside the at-risk window (31 to 60 cycles)."
-        return f"Health score {row['health_score']:.2f} is above the abnormal threshold although RUL is {rul:.0f} cycles."
-    return f"Predicted RUL {rul:.0f} cycles and sensor drift within the healthy baseline."
+            return f"Predicted RUL {_cycles(rul)}, inside the at-risk window (31 to 60 cycles)."
+        return f"Health score {row['health_score']:.2f} is above the abnormal threshold although RUL is {_cycles(rul)}."
+    return f"Predicted RUL {_cycles(rul)} and sensor drift within the healthy baseline."
 
 
 def sensor_drift(unit_history, health):
@@ -151,9 +157,9 @@ def recommendations(row, state, drift=None):
 
     if state == "CRITICAL" and has_rul:
         out.append({"action": f"Plan removal or shop visit before cycle {cycle + round(row['rul_low'])}",
-                    "why": f"Lower bound of the 80% RUL range is {row['rul_low']:.0f} cycles from the latest reading."})
+                    "why": f"Lower bound of the 80% RUL range is {_cycles(row['rul_low'])} from the latest reading."})
     elif state == "WARNING" and has_rul:
-        out.append({"action": f"Schedule maintenance within {round(row['rul_low'])} cycles",
+        out.append({"action": f"Schedule maintenance within {_cycles(row['rul_low'])}",
                     "why": f"80% RUL range {row['rul_low']:.0f} to {row['rul_high']:.0f} cycles; risk band is high."})
     elif state == "DEGRADING":
         out.append({"action": "Add to the watch list and re-assess at the next data upload",
