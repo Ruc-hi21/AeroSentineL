@@ -9,8 +9,21 @@ MODELS_DIR = ROOT / "models"
 REPORTS_DIR = ROOT / "reports"
 
 # Dataset & reproducibility
-DATASET = "FD001"
-MODEL_VERSION = "v2"  # v2: multi-scale trend/drift features + blended risk ensemble
+# The four NASA C-MAPSS subsets. Conditions = distinct operating conditions (altitude, Mach,
+# throttle) the engines fly through; fault modes = which modules degrade.
+SUBSETS = {
+    "FD001": {"conditions": 1, "fault_modes": ("HPC",), "train_engines": 100, "test_engines": 100},
+    "FD002": {"conditions": 6, "fault_modes": ("HPC",), "train_engines": 260, "test_engines": 259},
+    "FD003": {"conditions": 1, "fault_modes": ("HPC", "Fan"), "train_engines": 100, "test_engines": 100},
+    "FD004": {"conditions": 6, "fault_modes": ("HPC", "Fan"), "train_engines": 249, "test_engines": 248},
+}
+DATASET = "FD001"  # default subset (sample fleet, scripts, tests)
+# Model used for a file whose name does not say which subset it is, by its number of conditions. From the
+# cross-subset benchmark (reports/benchmark.json): the FD003 model scores 94% risk accuracy on FD001 test engines
+# and 92% on FD003; the FD004 model scores 93% on FD002 and 90% on FD004. Single-condition models cannot score
+# multi-condition data at all.
+AUTO_SUBSET = {"single": "FD003", "multi": "FD004"}
+MODEL_VERSION = "v3"  # v3: one model per subset, readings corrected for operating condition
 SEED = 42
 
 # Raw C-MAPSS columns (26 per row)
@@ -36,13 +49,15 @@ CRITICAL_HEALTH_MULTIPLE = 2.0
 RANGE_MARGIN = 0.1  # readings beyond training min/max by this share of the range are flagged
 
 # Feature engineering (all causal: a feature at cycle t only uses cycles <= t of the same unit).
-# Chosen by 5-fold GroupKFold CV on the training engines: going from one 30-cycle window to
-# these multi-scale stats, trends and drift raised CV risk accuracy 0.889 -> 0.946 and cut
-# CV RUL RMSE 15.3 -> 8.9 cycles.
+# Chosen by GroupKFold CV on the training engines. v2 (FD001 only): going from one 30-cycle window
+# to multi-scale stats, trends and drift raised CV risk accuracy 0.889 -> 0.946 and cut CV RUL RMSE
+# 15.3 -> 8.9 cycles. v3 adds 60/90-cycle windows for the noisier multi-condition subsets; 3-fold
+# CV RUL RMSE (v2 windows -> these): FD001 9.05 -> 8.81, FD002 10.20 -> 9.33, FD003 8.73 -> 8.68,
+# FD004 11.32 -> 10.91 cycles.
 ROLLING_WINDOW = 30  # sensor-trend smoothing in sensor scoring; shorter unit histories are flagged for review
-ROLLING_WINDOWS = (5, 15, 30)  # rolling mean / std
+ROLLING_WINDOWS = (5, 15, 30, 60)  # rolling mean / std
 EWM_ALPHAS = (0.05, 0.1, 0.3)  # exponentially weighted means: slow to fast memory
-SLOPE_WINDOWS = (15, 30, 50)  # least-squares trend of each sensor over the last N cycles
+SLOPE_WINDOWS = (15, 30, 50, 90)  # least-squares trend of each sensor over the last N cycles
 BASELINE_CYCLES_PER_UNIT = 15  # drift = smoothed reading minus the unit's own first-N-cycle mean
 DRIFT_SMOOTHING = 5
 

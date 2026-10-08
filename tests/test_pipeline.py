@@ -7,14 +7,14 @@ import io
 
 import pytest
 
-from src.config import DATASET, MODEL_VERSION, MODELS_DIR, RAW_DATA_DIR, RISK_BANDS
+from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, RISK_BANDS, SUBSETS
 from src.data.loader import read_sensor_file
-from src.models.artifacts import load_artifacts, model_status
+from src.models.artifacts import available_subsets, load_artifacts, model_dir, model_status
 from src.pipeline import analyze
 
 TEST_FILE = RAW_DATA_DIR / f"test_{DATASET}.txt"
 pytestmark = pytest.mark.skipif(
-    not (MODELS_DIR / MODEL_VERSION / "metadata.json").exists() or not TEST_FILE.exists(),
+    not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
 
@@ -25,7 +25,7 @@ def test_df():
 
 
 def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005  # TEST-001, TEST-005
-    result = analyze(test_df)
+    result = analyze(test_df, subset=DATASET)
     assert result.status == "COMPLETED"
     units = result.units
     assert len(units) == test_df["unit"].nunique()
@@ -39,7 +39,7 @@ def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005  # TEST
 
 
 def test_missing_columns_give_invalid_dataset(test_df):  # TEST-002
-    result = analyze(test_df.drop(columns=["sensor_11"]))
+    result = analyze(test_df.drop(columns=["sensor_11"]), subset=DATASET)
     assert result.status == "FAILED"
     assert result.error["code"] == "INVALID_DATASET"
     assert "sensor_11" in result.error["message"]
@@ -52,7 +52,7 @@ def test_garbage_file_gives_invalid_dataset():
 
 def test_unit_with_few_cycles_is_handled(test_df):  # TEST-003
     short = test_df[(test_df["unit"] == 1) & (test_df["cycle"] <= 3)]
-    result = analyze(short)
+    result = analyze(short, subset=DATASET)
     assert result.status == "COMPLETED"
     assert any("short history" in r for r in result.units.loc[0, "review_reasons"])
 
@@ -60,18 +60,18 @@ def test_unit_with_few_cycles_is_handled(test_df):  # TEST-003
 def test_out_of_range_readings_are_flagged(test_df):  # TEST-004
     noisy = test_df[test_df["unit"] == 1].copy()
     noisy.loc[noisy.index[-1], "sensor_11"] = 999.0
-    result = analyze(noisy)
+    result = analyze(noisy, subset=DATASET)
     assert "readings outside training range" in result.units.loc[0, "review_reasons"]
 
 
 def test_one_failing_model_gives_partial_result(test_df, monkeypatch):  # TEST-006
-    artifacts = load_artifacts(MODEL_VERSION)
+    artifacts = load_artifacts(MODEL_VERSION, DATASET)
 
     def broken(_):
         raise RuntimeError("simulated model failure")
 
     monkeypatch.setattr(artifacts.risk, "classify_band", broken)  # replaces method for this test only
-    result = analyze(test_df[test_df["unit"] <= 3])
+    result = analyze(test_df[test_df["unit"] <= 3], subset=DATASET)
     assert result.status == "PARTIAL"
     assert result.stages["risk"].startswith("failed")
     assert result.stages["rul"] == "ok"
@@ -85,6 +85,41 @@ def test_missing_model_fails_safely(test_df):  # TEST-007
 
 
 def test_same_input_gives_same_result(test_df):  # TEST-010
-    first, second = analyze(test_df), analyze(test_df)
+    first, second = analyze(test_df, subset=DATASET), analyze(test_df, subset=DATASET)
     cols = ["predicted_rul", "risk_band", "risk_probability"]
     assert first.units[cols].equals(second.units[cols])
+
+
+def test_file_name_picks_the_subset_model():
+    result = analyze(TEST_FILE)
+    assert result.subset == DATASET and "named in the file" in result.profile["reason"]
+    assert result.profile["conditions_seen"] == 1 and not result.profile["corrected"]
+    assert set(result.timings) >= {"read", "validate", "clean", "conditions", "health", "features", "rul"}
+
+
+MULTI = "FD002"
+MULTI_FILE = RAW_DATA_DIR / f"test_{MULTI}.txt"
+
+
+@pytest.mark.skipif(MULTI not in available_subsets() or not MULTI_FILE.exists(),
+                    reason="FD002 model or data not available")
+def test_multi_condition_file_is_corrected_and_scored():
+    result = analyze(MULTI_FILE)
+    assert result.status == "COMPLETED" and result.subset == MULTI
+    assert result.profile["corrected"] and result.profile["conditions_seen"] == 6
+    assert result.history["condition"].nunique() == 6 and result.history["condition_known"].all()
+    assert result.units["predicted_rul"].between(0, 125).all()
+
+
+def test_unnamed_data_goes_to_a_model_for_its_kind_of_data(test_df):
+    result = analyze(test_df)  # a DataFrame has no file name, so the model is chosen from the data
+    assert result.status == "COMPLETED"
+    assert SUBSETS[result.subset]["conditions"] == 1
+
+
+@pytest.mark.skipif(not MULTI_FILE.exists(), reason="FD002 data not available")
+def test_single_condition_model_flags_unseen_conditions():
+    result = analyze(MULTI_FILE, subset=DATASET)
+    assert result.status == "COMPLETED"
+    assert any("not trained on" in w for w in result.validation["warnings"])
+    assert result.units["review_reasons"].apply(lambda r: "operating condition not seen in training" in r).any()

@@ -1,6 +1,7 @@
 """Run the full pipeline on a sensor file and print units ranked by risk.
 
-Usage: python -m scripts.predict [path]   (default: the FD001 test set)
+Usage: python -m scripts.predict [path] [subset]   (default: the FD001 test set; subset FD001-FD004,
+       otherwise picked from the file name or its operating conditions)
 """
 
 import sys
@@ -15,9 +16,11 @@ def _sensors(factors, n=3):  # n=3 keeps table width manageable
     return ", ".join(f["sensor"] for f in factors[:n]) if isinstance(factors, list) else "-"
 
 
-def main(path):
-    result = analyze(path)
-    print(f"\nJob {result.job_id} | model {result.model_version} | status {result.status}")
+def main(path, subset=None):
+    result = analyze(path, subset=subset)
+    print(f"\nJob {result.job_id} | model {result.model_version} {result.subset} | status {result.status}")
+    if result.profile:
+        print(f"Model choice: {result.profile['reason']}")
     print(f"Stages: {result.stages}")
     if result.status == "FAILED":
         print(f"Error {result.error['code']}: {result.error['message']}")
@@ -52,4 +55,5 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else RAW_DATA_DIR / f"test_{DATASET}.txt")
+    main(sys.argv[1] if len(sys.argv) > 1 else RAW_DATA_DIR / f"test_{DATASET}.txt",
+         sys.argv[2].upper() if len(sys.argv) > 2 else None)

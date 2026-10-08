@@ -1,0 +1,195 @@
+{
+  "version": "v3",
+  "created_at": "2026-10-08T22:43:39+00:00",
+  "rul_cap": 125,
+  "subsets": {
+    "FD001": {
+      "conditions": 1,
+      "train_engines": 100,
+      "test_engines": 100,
+      "fault_modes": [
+        "HPC"
+      ],
+      "trained_at": "2026-10-08T22:12:34+00:00",
+      "cv_accuracy": 0.9423,
+      "val_accuracy": 0.947,
+      "val_macro_f1": 0.889,
+      "val_rmse": 8.057,
+      "test_accuracy": 0.92,
+      "test_macro_f1": 0.88,
+      "test_rmse": 11.896,
+      "test_rmse_capped": 10.715,
+      "test_r2": 0.918,
+      "test_interval_coverage": 0.81,
+      "test_interval_coverage_capped": 0.92
+    },
+    "FD002": {
+      "conditions": 6,
+      "train_engines": 260,
+      "test_engines": 259,
+      "fault_modes": [
+        "HPC"
+      ],
+      "trained_at": "2026-10-08T22:23:00+00:00",
+      "cv_accuracy": 0.9394,
+      "val_accuracy": 0.942,
+      "val_macro_f1": 0.886,
+      "val_rmse": 8.899,
+      "test_accuracy": 0.931,
+      "test_macro_f1": 0.854,
+      "test_rmse": 22.402,
+      "test_rmse_capped": 9.695,
+      "test_r2": 0.826,
+      "test_interval_coverage": 0.687,
+      "test_interval_coverage_capped": 0.907
+    },
+    "FD003": {
+      "conditions": 1,
+      "train_engines": 100,
+      "test_engines": 100,
+      "fault_modes": [
+        "HPC",
+        "Fan"
+      ],
+      "trained_at": "2026-10-08T22:29:25+00:00",
+      "cv_accuracy": 0.9486,
+      "val_accuracy": 0.95,
+      "val_macro_f1": 0.884,
+      "val_rmse": 7.781,
+      "test_accuracy": 0.92,
+      "test_macro_f1": 0.885,
+      "test_rmse": 11.208,
+      "test_rmse_capped": 9.557,
+      "test_r2": 0.927,
+      "test_interval_coverage": 0.75,
+      "test_interval_coverage_capped": 0.89
+    },
+    "FD004": {
+      "conditions": 6,
+      "train_engines": 249,
+      "test_engines": 248,
+      "fault_modes": [
+        "HPC",
+        "Fan"
+      ],
+      "trained_at": "2026-10-08T22:41:28+00:00",
+      "cv_accuracy": 0.9372,
+      "val_accuracy": 0.942,
+      "val_macro_f1": 0.875,
+      "val_rmse": 9.523,
+      "test_accuracy": 0.903,
+      "test_macro_f1": 0.818,
+      "test_rmse": 23.472,
+      "test_rmse_capped": 10.363,
+      "test_r2": 0.815,
+      "test_interval_coverage": 0.597,
+      "test_interval_coverage_capped": 0.851
+    }
+  },
+  "cross": {
+    "FD001": {
+      "FD001": {
+        "rmse": 11.9,
+        "rmse_capped": 10.72,
+        "accuracy": 0.92,
+        "known_conditions": 1.0
+      },
+      "FD002": {
+        "rmse": 56.78,
+        "rmse_capped": 45.03,
+        "accuracy": 0.417,
+        "known_conditions": 0.0
+      },
+      "FD003": {
+        "rmse": 17.35,
+        "rmse_capped": 16.23,
+        "accuracy": 0.77,
+        "known_conditions": 1.0
+      },
+      "FD004": {
+        "rmse": 58.2,
+        "rmse_capped": 44.81,
+        "accuracy": 0.496,
+        "known_conditions": 0.0
+      }
+    },
+    "FD002": {
+      "FD001": {
+        "rmse": 11.9,
+        "rmse_capped": 10.71,
+        "accuracy": 0.92,
+        "known_conditions": 1.0
+      },
+      "FD002": {
+        "rmse": 22.4,
+        "rmse_capped": 9.69,
+        "accuracy": 0.931,
+        "known_conditions": 1.0
+      },
+      "FD003": {
+        "rmse": 17.67,
+        "rmse_capped": 16.74,
+        "accuracy": 0.76,
+        "known_conditions": 1.0
+      },
+      "FD004": {
+        "rmse": 26.29,
+        "rmse_capped": 16.32,
+        "accuracy": 0.839,
+        "known_conditions": 1.0
+      }
+    },
+    "FD003": {
+      "FD001": {
+        "rmse": 12.13,
+        "rmse_capped": 10.78,
+        "accuracy": 0.94,
+        "known_conditions": 1.0
+      },
+      "FD002": {
+        "rmse": 60.29,
+        "rmse_capped": 51.94,
+        "accuracy": 0.456,
+        "known_conditions": 0.0
+      },
+      "FD003": {
+        "rmse": 11.21,
+        "rmse_capped": 9.56,
+        "accuracy": 0.92,
+        "known_conditions": 1.0
+      },
+      "FD004": {
+        "rmse": 59.5,
+        "rmse_capped": 49.79,
+        "accuracy": 0.512,
+        "known_conditions": 0.0
+      }
+    },
+    "FD004": {
+      "FD001": {
+        "rmse": 11.73,
+        "rmse_capped": 10.53,
+        "accuracy": 0.91,
+        "known_conditions": 1.0
+      },
+      "FD002": {
+        "rmse": 22.77,
+        "rmse_capped": 10.51,
+        "accuracy": 0.931,
+        "known_conditions": 1.0
+      },
+      "FD003": {
+        "rmse": 14.07,
+        "rmse_capped": 12.69,
+        "accuracy": 0.93,
+        "known_conditions": 1.0
+      },
+      "FD004": {
+        "rmse": 23.47,
+        "rmse_capped": 10.36,
+        "accuracy": 0.903,
+        "known_conditions": 1.0
+      }
+    }
+  }
+}

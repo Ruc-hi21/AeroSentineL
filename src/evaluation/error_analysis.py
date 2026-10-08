@@ -1,17 +1,20 @@
-"""Where the models go wrong, from reports/test_predictions.csv (written by training)."""
+"""Where the models go wrong, from reports/<subset>/test_predictions.csv (written by training)."""
 
 import pandas as pd
 
-from src.config import REPORTS_DIR, RISK_BANDS
-
-PREDICTIONS_FILE = REPORTS_DIR / "test_predictions.csv"
+from src.config import DATASET, REPORTS_DIR, RISK_BANDS
 
 
-def load_test_predictions():
-    """Test-set predictions with error columns, or None if training has not run."""
-    if not PREDICTIONS_FILE.exists():
+def predictions_file(subset=DATASET):
+    return REPORTS_DIR / subset / "test_predictions.csv"
+
+
+def load_test_predictions(subset=DATASET):
+    """Test-set predictions with error columns, or None if training has not run for this subset."""
+    path = predictions_file(subset)
+    if not path.exists():
         return None
-    df = pd.read_csv(PREDICTIONS_FILE)
+    df = pd.read_csv(path)
     df["error"] = df["predicted_rul"] - df["true_rul"]  # > 0 = model thinks engine has more life left
     df["abs_error"] = df["error"].abs()
     df["band_gap"] = df["predicted_band"].map(RISK_BANDS.index) - df["true_band"].map(RISK_BANDS.index)

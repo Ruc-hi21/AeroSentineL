@@ -1,0 +1,181 @@
+{
+  "validation": {
+    "rul": {
+      "baselines": {
+        "linear_regression": {
+          "rmse": 13.554,
+          "mae": 10.084,
+          "r2": 0.894
+        },
+        "random_forest": {
+          "rmse": 10.382,
+          "mae": 6.7,
+          "r2": 0.938
+        }
+      },
+      "xgboost": {
+        "rmse": 8.899,
+        "mae": 5.747,
+        "r2": 0.955,
+        "interval_coverage": 0.913,
+        "cv_rmse": 9.506
+      }
+    },
+    "risk": {
+      "baselines": {
+        "logistic_regression": {
+          "accuracy": 0.921,
+          "macro_f1": 0.868
+        },
+        "random_forest": {
+          "accuracy": 0.926,
+          "macro_f1": 0.87
+        },
+        "xgboost_classifier_only": {
+          "accuracy": 0.941,
+          "macro_f1": 0.887
+        }
+      },
+      "xgboost": {
+        "accuracy": 0.942,
+        "macro_f1": 0.886,
+        "per_band": {
+          "NORMAL": {
+            "precision": 0.97,
+            "recall": 0.988,
+            "f1": 0.979,
+            "roc_auc": 0.996,
+            "support": 7381
+          },
+          "AT_RISK": {
+            "precision": 0.859,
+            "recall": 0.822,
+            "f1": 0.84,
+            "roc_auc": 0.984,
+            "support": 1560
+          },
+          "HIGH_RISK": {
+            "precision": 0.827,
+            "recall": 0.781,
+            "f1": 0.803,
+            "roc_auc": 0.991,
+            "support": 780
+          },
+          "FAILURE_LIKELY": {
+            "precision": 0.94,
+            "recall": 0.907,
+            "f1": 0.924,
+            "roc_auc": 0.999,
+            "support": 832
+          }
+        },
+        "confusion_matrix": [
+          [
+            7293,
+            88,
+            0,
+            0
+          ],
+          [
+            228,
+            1282,
+            50,
+            0
+          ],
+          [
+            0,
+            123,
+            609,
+            48
+          ],
+          [
+            0,
+            0,
+            77,
+            755
+          ]
+        ],
+        "cv_accuracy": 0.9394,
+        "cv_macro_f1": 0.8826,
+        "blend": 0.75,
+        "blend_scores": {
+          "0.0": 0.9347,
+          "0.25": 0.9373,
+          "0.5": 0.9391,
+          "0.75": 0.9394,
+          "1.0": 0.936
+        }
+      }
+    }
+  },
+  "test": {
+    "rul": {
+      "rmse": 22.402,
+      "mae": 13.967,
+      "r2": 0.826,
+      "rmse_capped": 9.695,
+      "interval_coverage": 0.687,
+      "interval_coverage_capped": 0.907
+    },
+    "risk": {
+      "accuracy": 0.931,
+      "macro_f1": 0.854,
+      "per_band": {
+        "NORMAL": {
+          "precision": 0.975,
+          "recall": 0.994,
+          "f1": 0.984,
+          "roc_auc": 0.998,
+          "support": 157
+        },
+        "AT_RISK": {
+          "precision": 0.973,
+          "recall": 0.878,
+          "f1": 0.923,
+          "roc_auc": 0.994,
+          "support": 41
+        },
+        "HIGH_RISK": {
+          "precision": 0.545,
+          "recall": 0.8,
+          "f1": 0.649,
+          "roc_auc": 0.98,
+          "support": 15
+        },
+        "FAILURE_LIKELY": {
+          "precision": 0.925,
+          "recall": 0.804,
+          "f1": 0.86,
+          "roc_auc": 0.995,
+          "support": 46
+        }
+      },
+      "confusion_matrix": [
+        [
+          156,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          36,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          12,
+          3
+        ],
+        [
+          0,
+          0,
+          9,
+          37
+        ]
+      ]
+    }
+  }
+}
