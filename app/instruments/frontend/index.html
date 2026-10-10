@@ -18,6 +18,10 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: transparent; color: var(--text-1); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 2px; opacity: 0; }
+/* brand hairline on the status panel and the schematic, as on the 3D model */
+.panel, .gp { position: relative; }
+.panel::before, .gp::before { content: ""; position: absolute; left: -1px; right: -1px; top: -1px; height: 2px;
+  background: linear-gradient(90deg, #0a4fb8 0%, #1683f2 45%, #5fd4f8 100%); }
 .main { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.7fr) minmax(190px, .85fr); }
 .main > section { padding: 16px 20px 14px; min-width: 0; }
 .main > section + section { border-left: 1px solid var(--line); }
@@ -124,6 +128,6 @@ html, body { margin: 0; background: transparent; color: var(--text-1); font-fami
   <div class="tip" id="gp-tip"></div>
 </div>
 <script src="./vendor/gsap.min.js"></script>
-<script src="./instruments.js?v=2.0.2"></script>
+<script src="./instruments.js?v=2.1.0"></script>
 </body>
 </html>

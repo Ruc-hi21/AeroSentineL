@@ -48,4 +48,5 @@ pages = {
 }
 
 sidebar_status()
+theme.motion()
 st.navigation(pages).run()

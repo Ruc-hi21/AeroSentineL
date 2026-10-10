@@ -8,11 +8,11 @@ gatherUsageStats = false
 # Design tokens mirror app/theme.py (TOKENS). Carbon-inspired Gray-100 dark theme.
 [theme]
 base = "dark"
-primaryColor = "#78a9ff"
+primaryColor = "#3fa2ff"
 backgroundColor = "#0e1013"
 secondaryBackgroundColor = "#16191d"
 textColor = "#e6e8eb"
-linkColor = "#78a9ff"
+linkColor = "#3fa2ff"
 linkUnderline = false
 borderColor = "#262b31"
 dataframeBorderColor = "#262b31"
@@ -31,7 +31,7 @@ greenColor = "#42be65"
 yellowColor = "#f1c21b"
 orangeColor = "#ff832b"
 redColor = "#fa4d56"
-blueColor = "#78a9ff"
+blueColor = "#3fa2ff"
 grayColor = "#8d8d8d"
 codeBackgroundColor = "#16191d"
 

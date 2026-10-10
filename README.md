@@ -9,7 +9,12 @@
   <img src="https://img.shields.io/badge/Dataset-NASA%20C--MAPSS-0B3D91?style=for-the-badge&logo=nasa&logoColor=white" alt="NASA C-MAPSS" />
 </p>
 
-<h1 align="center">AeroSentinel</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo_full_dark.svg" />
+    <img src="assets/logo_full_light.svg" alt="AeroSentinel" width="240" />
+  </picture>
+</p>
 
 <p align="center">
   <b>Which engine, battery cell or bearing needs attention next, how long it has left, and which sensors are saying so.</b>
@@ -74,20 +79,31 @@ unit to the next.
 
 ![3D model page for an FD004 engine](assets/screenshot_digital_twin.png)
 
-**3D model** places every sensor channel at its station on a sectioned model of the component: a two-spool turbofan
-with running rotors and airflow, a wound 18650 Li-ion cell whose can warms with temperature drift, or a ball bearing in
-a pillow block with its horizontal and vertical accelerometers. *Replay* plays back the unit's recorded life while the
-top bar tracks the operating condition, and an event log notes each escalation.
-Keys: `Space` replay or pause, `E` exploded view, `H` hide panels, `Esc` reset the camera.
+**3D model** places every sensor channel at its station on a sectioned model of the component, lit like a product
+render (physically based materials, a studio environment, soft shadows, a brand-blue rim light and a restrained bloom
+on hot parts and alarms):
+
+- a two-spool turbofan with a painted spinner swirl, polished inlet lip, chevron exhausts, bolted case flanges, running
+  rotors, airflow and a combustor that glows with exhaust-temperature drift;
+- an 18650 Li-ion cell cut open to show every electrode layer to scale (aluminium and copper foils, cathode, anode,
+  separators), a printed sleeve, a vented cap, and lithium ions crossing the separators while it discharges;
+- a ball bearing in a cast pillow block with a riveted cage, a bolted coupling, a lock nut, a grease nipple and two
+  cabled accelerometers that radiate rings at a rate and colour set by the measured vibration.
+
+The component assembles part by part when it opens. **Every sensor beyond the elevated drift limit is tied to its
+station by a leader line**: dashed and flowing for critical, solid for warning, dotted for elevated. Warning and critical
+stations pulse, the panel headers count them, and the floor ripples while the unit is in a warning or critical state.
+*Replay* plays back the unit's recorded life while the top bar tracks the operating condition, and an event log notes
+each escalation. Keys: `Space` replay or pause, `E` exploded view, `H` hide panels, `Esc` reset the camera.
 
 <table>
   <tr>
     <td width="50%"><img src="assets/screenshot_battery_3d.png" alt="3D model of a Li-ion battery cell" /></td>
-    <td width="50%"><img src="assets/screenshot_bearing_status.png" alt="Bearing status with the bearing cross-section" /></td>
+    <td width="50%"><img src="assets/screenshot_bearing_3d.png" alt="3D model of a ball bearing with leader lines to every drifting sensor" /></td>
   </tr>
   <tr>
-    <td><sub>Battery cell: the sectioned cell with its electrode stack, terminals and thermocouple, and the state of health over its life.</sub></td>
-    <td><sub>Bearing: status, the bearing cross-section and the vibration trend in the last hour before failure.</sub></td>
+    <td><sub>Battery cell: every electrode layer in the cut, the printed sleeve and thermocouple, and the state of health over its life.</sub></td>
+    <td><sub>Bearing near failure: a leader line from every drifting vibration channel to its accelerometer, race, ball set or shaft.</sub></td>
   </tr>
 </table>
 
@@ -296,7 +312,7 @@ from v3.
 
 | Branch | Interface |
 |---|---|
-| `main` | The engineering console shown above: three components, a recognition model, calm and dense. |
+| `main` | The engineering console shown above: three components, a recognition model, a near-black console with the logo's blue, purposeful motion and rendered 3D models. |
 | `ui-streamlit` | The earlier cinematic "mission control" interface, with neon styling and a glowing 3D engine, running the previous FD001-only turbofan model (v2). |
 
 Switch with `git checkout ui-streamlit`, then start Streamlit as usual.
@@ -330,7 +346,8 @@ app/                         Streamlit console
   engine3d/                  Three.js viewer; frontend/models/ holds turbofan.js, battery.js, bearing.js
   instruments/               GSAP status panel and component schematics (custom component)
   insights.py                condition states, confidence, sensor drift, suggested actions
-  theme.py                   design tokens and shared UI pieces
+  theme.py                   design tokens, shared UI pieces and the motion runtime (reveals, count-ups)
+  static/brand/              the logo mark as SVG (lockups in assets/)
 src/
   components/                component registry (channels, parts, settings, limits) and data builders
   router/                    component-recognition model: table fingerprint and classifier

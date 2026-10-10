@@ -27,9 +27,10 @@ HERO = {"turbofan": "Turbofan", "battery": "Battery cell", "bearing": "Bearing"}
 if result is None or result.units is None:
     left, right = st.columns([1, 1.25], gap="large", vertical_alignment="center")
     with left:
-        st.html("""<div style="max-width:540px">
-<h1 style="font-size:28px;font-weight:600;margin:0 0 10px;padding:0;line-height:1.2">Component health, remaining life and failure risk</h1>
-<p style="font-size:15px;color:#a6adb6;margin:0;line-height:1.55">Turbofan engines, Li-ion battery cells and rolling bearings.
+        st.html("""<div class="as-hero" style="max-width:560px">
+<div class="eyebrow"><img src="app/static/brand/logo_mark.svg" alt=""><div><b>AEROSENTINEL</b><i>Predictive maintenance console</i></div></div>
+<h1>Component health, <span>remaining life</span> and failure risk</h1>
+<p>Turbofan engines, Li-ion battery cells and rolling bearings.
 Upload sensor data and a recognition model decides which component it comes from, then that component's own models
 predict condition, remaining life and risk, and explain why.</p></div>""")
         choice = sample_choice("hero_choice")
