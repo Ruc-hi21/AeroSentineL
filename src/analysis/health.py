@@ -14,10 +14,10 @@ from src.config import (
 
 
 class HealthAnalyzer:
-    def fit(self, train_df, sensors):
+    def fit(self, train_df, sensors, baseline_cycles=BASELINE_CYCLES):
         """Learn the healthy baseline from training data that has a `rul` column."""
         self.sensors = list(sensors)
-        baseline = train_df[train_df["cycle"] <= BASELINE_CYCLES]
+        baseline = train_df[train_df["cycle"] <= baseline_cycles]
         self.mean = baseline[self.sensors].mean()
         self.std = baseline[self.sensors].std().replace(0, 1)  # avoid zero division for constant sensors
         # +1 if the sensor rises as RUL falls, -1 if it drops.

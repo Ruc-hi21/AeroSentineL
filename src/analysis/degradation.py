@@ -14,10 +14,10 @@ def _monotonicity(series):  # private helper; call via score_sensors
     return abs((diffs > 0).sum() - (diffs < 0).sum()) / len(diffs)
 
 
-def score_sensors(df):
+def score_sensors(df, sensors=None):
     """Per-sensor std, correlation with RUL and monotonicity (training data with a `rul` column)."""
     rows = []
-    for sensor in SENSOR_COLS:
+    for sensor in sensors or SENSOR_COLS:
         std = df[sensor].std()
         constant = std < CONSTANT_STD_THRESHOLD
         rows.append({
@@ -30,9 +30,9 @@ def score_sensors(df):
     return pd.DataFrame(rows).set_index("sensor")
 
 
-def select_sensors(df):
+def select_sensors(df, sensors=None):
     """Drop sensors that never change; return (kept sensor names, score table)."""
-    scores = score_sensors(df)
+    scores = score_sensors(df, sensors)
     kept = scores.index[scores["kept"]].tolist()  # original SENSOR_COLS order preserved
     return kept, scores
 

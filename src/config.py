@@ -23,7 +23,7 @@ DATASET = "FD001"  # default subset (sample fleet, scripts, tests)
 # and 92% on FD003; the FD004 model scores 93% on FD002 and 90% on FD004. Single-condition models cannot score
 # multi-condition data at all.
 AUTO_SUBSET = {"single": "FD003", "multi": "FD004"}
-MODEL_VERSION = "v3"  # v3: one model per subset, readings corrected for operating condition
+MODEL_VERSION = "v4"  # v4: turbofan, battery and bearing models behind a component-recognition model
 SEED = 42
 
 # Raw C-MAPSS columns (26 per row)

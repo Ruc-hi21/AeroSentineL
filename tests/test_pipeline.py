@@ -5,9 +5,10 @@ Skipped until `python -m training.train` has run.
 
 import io
 
+import pandas as pd
 import pytest
 
-from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, RISK_BANDS, SUBSETS
+from src.config import DATASET, MODEL_VERSION, MODELS_DIR, RAW_DATA_DIR, RISK_BANDS, SUBSETS
 from src.data.loader import read_sensor_file
 from src.models.artifacts import available_subsets, load_artifacts, model_dir, model_status
 from src.pipeline import analyze
@@ -123,3 +124,41 @@ def test_single_condition_model_flags_unseen_conditions():
     assert result.status == "COMPLETED"
     assert any("not trained on" in w for w in result.validation["warnings"])
     assert result.units["review_reasons"].apply(lambda r: "operating condition not seen in training" in r).any()
+
+
+BATTERY_FILE = RAW_DATA_DIR / "sample_PCOE.csv"
+BEARING_FILE = RAW_DATA_DIR / "test_FEMTO.csv"
+ROUTER_READY = (MODELS_DIR / MODEL_VERSION / "router" / "router.joblib").exists()
+
+
+@pytest.mark.skipif(not ROUTER_READY or "PCOE" not in available_subsets() or not BATTERY_FILE.exists(),
+                    reason="router, battery model or data not available")
+def test_battery_file_is_recognised_and_scored():
+    result = analyze(BATTERY_FILE)
+    assert result.status == "COMPLETED", result.error
+    assert result.component == "battery" and result.subset == "PCOE"
+    assert result.routing["label"] == "battery" and result.routing["confidence"] >= 0.8
+    assert result.units["predicted_rul"].between(0, 80).all()
+    assert "soh" in result.history and result.eda["rows"] > 0
+
+
+@pytest.mark.skipif(not ROUTER_READY or "FEMTO" not in available_subsets() or not BEARING_FILE.exists(),
+                    reason="router, bearing model or data not available")
+def test_bearing_file_is_recognised_and_scored():
+    result = analyze(BEARING_FILE)
+    assert result.status == "COMPLETED", result.error
+    assert result.component == "bearing" and result.subset == "FEMTO"
+    assert result.units["predicted_rul"].between(0, 60).all()
+
+
+@pytest.mark.skipif(not ROUTER_READY, reason="router not trained")
+def test_unrelated_table_is_not_routed_to_any_model():
+    from sklearn.datasets import load_wine
+    result = analyze(pd.DataFrame(load_wine().data))
+    assert result.status == "FAILED" and result.error["code"] == "UNKNOWN_COMPONENT"
+    assert result.routing is None or result.routing.get("chosen") is None
+
+
+def test_turbofan_file_forced_into_another_component_is_rejected(test_df):
+    result = analyze(test_df, component="battery")
+    assert result.status == "FAILED" and result.error["code"] == "INVALID_DATASET"

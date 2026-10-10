@@ -78,3 +78,47 @@ def sensor_of(feature):
         if feature.endswith(suffix):
             return feature[: -len(suffix)]
     return feature
+
+
+def derive_channels(df, spec):
+    """Add a component's derived channels. Battery: state of health against the cell's first discharges."""
+    if spec.key == "battery" and "capacity_ah" in df:
+        df = df.copy()
+        start = df.groupby("unit")["capacity_ah"].transform(lambda s: s.iloc[:3].median())
+        df["soh"] = df["capacity_ah"] / start * 100.0
+    return df
+
+
+def _window_slope(values, unit, cycle, window):
+    """Causal least-squares slope of values against cycle over the last `window` rows of each unit."""
+    aux = pd.DataFrame({"v": values, "x": cycle, "xv": values * cycle, "xx": cycle * cycle})
+    m = aux.groupby(unit, sort=False).rolling(window, min_periods=4).mean().reset_index(level=0, drop=True).reindex(aux.index)
+    var = m["xx"] - m["x"] ** 2
+    return ((m["xv"] - m["v"] * m["x"]) / var.where(var > 1e-9)).fillna(0.0)
+
+
+def extra_features(df, spec):
+    """Component-specific model inputs beyond the generic sensor statistics (None for the turbofan).
+
+    Names follow '<channel>__<statistic>' so explanations group them with their channel."""
+    parts = []
+    if spec.settings_as_features:
+        parts.append(df[list(spec.settings)].astype(float).add_suffix(f"{SEP}setting"))
+    if "soh" in df:
+        # Fade extrapolation: cycles until state of health reaches end of life at the recent fade rate.
+        unit, cycle = df["unit"], df["cycle"].astype(float)
+        soh = df.groupby("unit", sort=False)["soh"].transform(lambda s: s.rolling(5, min_periods=1).median()) / 100.0
+        eol = 0.8
+        cols = {f"soh{SEP}margin": soh - eol}
+        for w in (10, 20):
+            slope = _window_slope(soh, unit, cycle, w)
+            cols[f"soh{SEP}extrap{w}"] = np.clip((soh - eol) / np.maximum(-slope, 1e-4), 0, 300)
+        parts.append(pd.DataFrame(cols, index=df.index))
+    return pd.concat(parts, axis=1) if parts else None
+
+
+def model_features(df, sensors, spec):
+    """All model inputs: generic sensor statistics plus the component's extra features."""
+    X = build_features(df, sensors)
+    extra = extra_features(df, spec)
+    return pd.concat([X, extra], axis=1) if extra is not None else X

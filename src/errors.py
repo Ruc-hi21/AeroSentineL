@@ -39,3 +39,8 @@ class PredictionError(AeroSentinelError):
 class ModelNotFoundError(AeroSentinelError):
     """Raised when a requested model version has not been trained yet."""
     code = "MODEL_UNAVAILABLE"
+
+
+class UnknownComponentError(AeroSentinelError):
+    """Raised when the component-recognition model cannot place a file with confidence."""
+    code = "UNKNOWN_COMPONENT"

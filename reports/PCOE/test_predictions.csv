@@ -1,0 +1,5 @@
+unit,true_rul,predicted_rul,rul_low,rul_high,true_band,predicted_band
+6,15,32.8,15.2,32.8,HIGH_RISK,NORMAL
+34,43,40.0,40.0,51.3,NORMAL,NORMAL
+44,11,12.0,11.0,31.9,HIGH_RISK,HIGH_RISK
+47,9,25.4,18.2,36.7,FAILURE_LIKELY,HIGH_RISK

@@ -1,49 +1,62 @@
 {
-  "version": "v3",
-  "created_at": "2026-10-08T22:43:39+00:00",
+  "version": "v4",
+  "created_at": "2026-10-10T15:17:12+00:00",
   "rul_cap": 125,
   "subsets": {
     "FD001": {
+      "component": "turbofan",
+      "component_name": "Turbofan engine",
+      "life_unit": "cycles",
       "conditions": 1,
       "train_engines": 100,
       "test_engines": 100,
       "fault_modes": [
         "HPC"
       ],
-      "trained_at": "2026-10-08T22:12:34+00:00",
+      "trained_at": "2026-10-10T14:32:30+00:00",
       "cv_accuracy": 0.9423,
       "val_accuracy": 0.947,
       "val_macro_f1": 0.889,
       "val_rmse": 8.057,
+      "cv_rmse": 8.863,
       "test_accuracy": 0.92,
       "test_macro_f1": 0.88,
       "test_rmse": 11.896,
       "test_rmse_capped": 10.715,
+      "test_mae": 8.665,
       "test_r2": 0.918,
       "test_interval_coverage": 0.81,
       "test_interval_coverage_capped": 0.92
     },
     "FD002": {
+      "component": "turbofan",
+      "component_name": "Turbofan engine",
+      "life_unit": "cycles",
       "conditions": 6,
       "train_engines": 260,
       "test_engines": 259,
       "fault_modes": [
         "HPC"
       ],
-      "trained_at": "2026-10-08T22:23:00+00:00",
+      "trained_at": "2026-10-10T14:46:59+00:00",
       "cv_accuracy": 0.9394,
       "val_accuracy": 0.942,
       "val_macro_f1": 0.886,
       "val_rmse": 8.899,
+      "cv_rmse": 9.506,
       "test_accuracy": 0.931,
       "test_macro_f1": 0.854,
       "test_rmse": 22.402,
       "test_rmse_capped": 9.695,
+      "test_mae": 13.967,
       "test_r2": 0.826,
       "test_interval_coverage": 0.687,
       "test_interval_coverage_capped": 0.907
     },
     "FD003": {
+      "component": "turbofan",
+      "component_name": "Turbofan engine",
+      "life_unit": "cycles",
       "conditions": 1,
       "train_engines": 100,
       "test_engines": 100,
@@ -51,20 +64,25 @@
         "HPC",
         "Fan"
       ],
-      "trained_at": "2026-10-08T22:29:25+00:00",
+      "trained_at": "2026-10-10T14:55:27+00:00",
       "cv_accuracy": 0.9486,
       "val_accuracy": 0.95,
       "val_macro_f1": 0.884,
       "val_rmse": 7.781,
+      "cv_rmse": 9.106,
       "test_accuracy": 0.92,
       "test_macro_f1": 0.885,
       "test_rmse": 11.208,
       "test_rmse_capped": 9.557,
+      "test_mae": 7.926,
       "test_r2": 0.927,
       "test_interval_coverage": 0.75,
       "test_interval_coverage_capped": 0.89
     },
     "FD004": {
+      "component": "turbofan",
+      "component_name": "Turbofan engine",
+      "life_unit": "cycles",
       "conditions": 6,
       "train_engines": 249,
       "test_engines": 248,
@@ -72,18 +90,70 @@
         "HPC",
         "Fan"
       ],
-      "trained_at": "2026-10-08T22:41:28+00:00",
+      "trained_at": "2026-10-10T15:11:11+00:00",
       "cv_accuracy": 0.9372,
       "val_accuracy": 0.942,
       "val_macro_f1": 0.875,
       "val_rmse": 9.523,
+      "cv_rmse": 11.211,
       "test_accuracy": 0.903,
       "test_macro_f1": 0.818,
       "test_rmse": 23.472,
       "test_rmse_capped": 10.363,
+      "test_mae": 15.343,
       "test_r2": 0.815,
       "test_interval_coverage": 0.597,
       "test_interval_coverage_capped": 0.851
+    },
+    "PCOE": {
+      "component": "battery",
+      "component_name": "Li-ion battery cell",
+      "life_unit": "cycles",
+      "conditions": 4,
+      "train_engines": 11,
+      "test_engines": 4,
+      "fault_modes": [
+        "capacity fade"
+      ],
+      "trained_at": "2026-10-10T15:12:31+00:00",
+      "cv_accuracy": 0.6979,
+      "val_accuracy": 0.719,
+      "val_macro_f1": 0.604,
+      "val_rmse": 10.011,
+      "cv_rmse": 20.832,
+      "test_accuracy": 0.5,
+      "test_macro_f1": 0.292,
+      "test_rmse": 12.202,
+      "test_rmse_capped": 12.202,
+      "test_mae": 9.563,
+      "test_r2": 0.211,
+      "test_interval_coverage": 0.25,
+      "test_interval_coverage_capped": 0.25
+    },
+    "FEMTO": {
+      "component": "bearing",
+      "component_name": "Rolling-element bearing",
+      "life_unit": "minutes",
+      "conditions": 3,
+      "train_engines": 12,
+      "test_engines": 5,
+      "fault_modes": [
+        "rolling contact wear"
+      ],
+      "trained_at": "2026-10-10T15:15:11+00:00",
+      "cv_accuracy": 0.8581,
+      "val_accuracy": 0.692,
+      "val_macro_f1": 0.287,
+      "val_rmse": 20.428,
+      "cv_rmse": 11.409,
+      "test_accuracy": 0.6,
+      "test_macro_f1": 0.188,
+      "test_rmse": 60.056,
+      "test_rmse_capped": 18.805,
+      "test_mae": 43.081,
+      "test_r2": -0.328,
+      "test_interval_coverage": 0.0,
+      "test_interval_coverage_capped": 0.0
     }
   },
   "cross": {
@@ -191,5 +261,52 @@
         "known_conditions": 1.0
       }
     }
+  },
+  "router": {
+    "test_examples": 600,
+    "accuracy": 0.9983,
+    "per_class_recall": {
+      "turbofan": 1.0,
+      "battery": 1.0,
+      "bearing": 1.0,
+      "unknown": 0.995
+    },
+    "confusion_matrix": [
+      [
+        160,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        160,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        80,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        199
+      ]
+    ],
+    "classes": [
+      "turbofan",
+      "battery",
+      "bearing",
+      "unknown"
+    ],
+    "threshold": 0.8,
+    "known_routed_correctly": 1.0,
+    "known_held_back": 0.0,
+    "known_misrouted": 0.0,
+    "unknown_rejected": 0.995
   }
 }

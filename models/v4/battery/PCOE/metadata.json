@@ -1,0 +1,573 @@
+{
+  "version": "v4",
+  "component": "battery",
+  "subset": "PCOE",
+  "dataset": "PCOE",
+  "run_id": "49526240",
+  "trained_at": "2026-10-10T15:12:31+00:00",
+  "seed": 42,
+  "fault_modes": [
+    "capacity fade"
+  ],
+  "conditions": [
+    {
+      "id": 1,
+      "settings": {
+        "ambient_c": 4.0,
+        "load_a": 2.0
+      },
+      "share": 0.222,
+      "reference": false
+    },
+    {
+      "id": 2,
+      "settings": {
+        "ambient_c": 4.0,
+        "load_a": 1.0
+      },
+      "share": 0.139,
+      "reference": false
+    },
+    {
+      "id": 3,
+      "settings": {
+        "ambient_c": 23.591,
+        "load_a": 2.0
+      },
+      "share": 0.474,
+      "reference": true
+    },
+    {
+      "id": 4,
+      "settings": {
+        "ambient_c": 24.0,
+        "load_a": 4.0
+      },
+      "share": 0.165,
+      "reference": false
+    }
+  ],
+  "train_units": [
+    7,
+    18,
+    33,
+    42,
+    43,
+    45,
+    46,
+    54,
+    55
+  ],
+  "val_units": [
+    5,
+    48
+  ],
+  "final_fit": "all training units (train + validation units), after CV model selection",
+  "sensors": [
+    "capacity_ah",
+    "discharge_min",
+    "dvdt_mid",
+    "cc_charge_min",
+    "v_mean",
+    "cv_charge_min",
+    "rct_ohm",
+    "re_ohm",
+    "v_start",
+    "temp_max_c",
+    "temp_rise_c",
+    "t_tmax_min",
+    "charge_temp_max_c",
+    "soh"
+  ],
+  "features": [
+    "cycle",
+    "capacity_ah",
+    "discharge_min",
+    "dvdt_mid",
+    "cc_charge_min",
+    "v_mean",
+    "cv_charge_min",
+    "rct_ohm",
+    "re_ohm",
+    "v_start",
+    "temp_max_c",
+    "temp_rise_c",
+    "t_tmax_min",
+    "charge_temp_max_c",
+    "soh",
+    "capacity_ah__mean5",
+    "capacity_ah__mean15",
+    "capacity_ah__mean30",
+    "capacity_ah__mean60",
+    "capacity_ah__std5",
+    "capacity_ah__std15",
+    "capacity_ah__std30",
+    "capacity_ah__std60",
+    "capacity_ah__ewm0.05",
+    "capacity_ah__ewm0.1",
+    "capacity_ah__ewm0.3",
+    "capacity_ah__slope15",
+    "capacity_ah__slope30",
+    "capacity_ah__slope50",
+    "capacity_ah__slope90",
+    "capacity_ah__drift",
+    "discharge_min__mean5",
+    "discharge_min__mean15",
+    "discharge_min__mean30",
+    "discharge_min__mean60",
+    "discharge_min__std5",
+    "discharge_min__std15",
+    "discharge_min__std30",
+    "discharge_min__std60",
+    "discharge_min__ewm0.05",
+    "discharge_min__ewm0.1",
+    "discharge_min__ewm0.3",
+    "discharge_min__slope15",
+    "discharge_min__slope30",
+    "discharge_min__slope50",
+    "discharge_min__slope90",
+    "discharge_min__drift",
+    "dvdt_mid__mean5",
+    "dvdt_mid__mean15",
+    "dvdt_mid__mean30",
+    "dvdt_mid__mean60",
+    "dvdt_mid__std5",
+    "dvdt_mid__std15",
+    "dvdt_mid__std30",
+    "dvdt_mid__std60",
+    "dvdt_mid__ewm0.05",
+    "dvdt_mid__ewm0.1",
+    "dvdt_mid__ewm0.3",
+    "dvdt_mid__slope15",
+    "dvdt_mid__slope30",
+    "dvdt_mid__slope50",
+    "dvdt_mid__slope90",
+    "dvdt_mid__drift",
+    "cc_charge_min__mean5",
+    "cc_charge_min__mean15",
+    "cc_charge_min__mean30",
+    "cc_charge_min__mean60",
+    "cc_charge_min__std5",
+    "cc_charge_min__std15",
+    "cc_charge_min__std30",
+    "cc_charge_min__std60",
+    "cc_charge_min__ewm0.05",
+    "cc_charge_min__ewm0.1",
+    "cc_charge_min__ewm0.3",
+    "cc_charge_min__slope15",
+    "cc_charge_min__slope30",
+    "cc_charge_min__slope50",
+    "cc_charge_min__slope90",
+    "cc_charge_min__drift",
+    "v_mean__mean5",
+    "v_mean__mean15",
+    "v_mean__mean30",
+    "v_mean__mean60",
+    "v_mean__std5",
+    "v_mean__std15",
+    "v_mean__std30",
+    "v_mean__std60",
+    "v_mean__ewm0.05",
+    "v_mean__ewm0.1",
+    "v_mean__ewm0.3",
+    "v_mean__slope15",
+    "v_mean__slope30",
+    "v_mean__slope50",
+    "v_mean__slope90",
+    "v_mean__drift",
+    "cv_charge_min__mean5",
+    "cv_charge_min__mean15",
+    "cv_charge_min__mean30",
+    "cv_charge_min__mean60",
+    "cv_charge_min__std5",
+    "cv_charge_min__std15",
+    "cv_charge_min__std30",
+    "cv_charge_min__std60",
+    "cv_charge_min__ewm0.05",
+    "cv_charge_min__ewm0.1",
+    "cv_charge_min__ewm0.3",
+    "cv_charge_min__slope15",
+    "cv_charge_min__slope30",
+    "cv_charge_min__slope50",
+    "cv_charge_min__slope90",
+    "cv_charge_min__drift",
+    "rct_ohm__mean5",
+    "rct_ohm__mean15",
+    "rct_ohm__mean30",
+    "rct_ohm__mean60",
+    "rct_ohm__std5",
+    "rct_ohm__std15",
+    "rct_ohm__std30",
+    "rct_ohm__std60",
+    "rct_ohm__ewm0.05",
+    "rct_ohm__ewm0.1",
+    "rct_ohm__ewm0.3",
+    "rct_ohm__slope15",
+    "rct_ohm__slope30",
+    "rct_ohm__slope50",
+    "rct_ohm__slope90",
+    "rct_ohm__drift",
+    "re_ohm__mean5",
+    "re_ohm__mean15",
+    "re_ohm__mean30",
+    "re_ohm__mean60",
+    "re_ohm__std5",
+    "re_ohm__std15",
+    "re_ohm__std30",
+    "re_ohm__std60",
+    "re_ohm__ewm0.05",
+    "re_ohm__ewm0.1",
+    "re_ohm__ewm0.3",
+    "re_ohm__slope15",
+    "re_ohm__slope30",
+    "re_ohm__slope50",
+    "re_ohm__slope90",
+    "re_ohm__drift",
+    "v_start__mean5",
+    "v_start__mean15",
+    "v_start__mean30",
+    "v_start__mean60",
+    "v_start__std5",
+    "v_start__std15",
+    "v_start__std30",
+    "v_start__std60",
+    "v_start__ewm0.05",
+    "v_start__ewm0.1",
+    "v_start__ewm0.3",
+    "v_start__slope15",
+    "v_start__slope30",
+    "v_start__slope50",
+    "v_start__slope90",
+    "v_start__drift",
+    "temp_max_c__mean5",
+    "temp_max_c__mean15",
+    "temp_max_c__mean30",
+    "temp_max_c__mean60",
+    "temp_max_c__std5",
+    "temp_max_c__std15",
+    "temp_max_c__std30",
+    "temp_max_c__std60",
+    "temp_max_c__ewm0.05",
+    "temp_max_c__ewm0.1",
+    "temp_max_c__ewm0.3",
+    "temp_max_c__slope15",
+    "temp_max_c__slope30",
+    "temp_max_c__slope50",
+    "temp_max_c__slope90",
+    "temp_max_c__drift",
+    "temp_rise_c__mean5",
+    "temp_rise_c__mean15",
+    "temp_rise_c__mean30",
+    "temp_rise_c__mean60",
+    "temp_rise_c__std5",
+    "temp_rise_c__std15",
+    "temp_rise_c__std30",
+    "temp_rise_c__std60",
+    "temp_rise_c__ewm0.05",
+    "temp_rise_c__ewm0.1",
+    "temp_rise_c__ewm0.3",
+    "temp_rise_c__slope15",
+    "temp_rise_c__slope30",
+    "temp_rise_c__slope50",
+    "temp_rise_c__slope90",
+    "temp_rise_c__drift",
+    "t_tmax_min__mean5",
+    "t_tmax_min__mean15",
+    "t_tmax_min__mean30",
+    "t_tmax_min__mean60",
+    "t_tmax_min__std5",
+    "t_tmax_min__std15",
+    "t_tmax_min__std30",
+    "t_tmax_min__std60",
+    "t_tmax_min__ewm0.05",
+    "t_tmax_min__ewm0.1",
+    "t_tmax_min__ewm0.3",
+    "t_tmax_min__slope15",
+    "t_tmax_min__slope30",
+    "t_tmax_min__slope50",
+    "t_tmax_min__slope90",
+    "t_tmax_min__drift",
+    "charge_temp_max_c__mean5",
+    "charge_temp_max_c__mean15",
+    "charge_temp_max_c__mean30",
+    "charge_temp_max_c__mean60",
+    "charge_temp_max_c__std5",
+    "charge_temp_max_c__std15",
+    "charge_temp_max_c__std30",
+    "charge_temp_max_c__std60",
+    "charge_temp_max_c__ewm0.05",
+    "charge_temp_max_c__ewm0.1",
+    "charge_temp_max_c__ewm0.3",
+    "charge_temp_max_c__slope15",
+    "charge_temp_max_c__slope30",
+    "charge_temp_max_c__slope50",
+    "charge_temp_max_c__slope90",
+    "charge_temp_max_c__drift",
+    "soh__mean5",
+    "soh__mean15",
+    "soh__mean30",
+    "soh__mean60",
+    "soh__std5",
+    "soh__std15",
+    "soh__std30",
+    "soh__std60",
+    "soh__ewm0.05",
+    "soh__ewm0.1",
+    "soh__ewm0.3",
+    "soh__slope15",
+    "soh__slope30",
+    "soh__slope50",
+    "soh__slope90",
+    "soh__drift",
+    "ambient_c__setting",
+    "load_a__setting",
+    "soh__margin",
+    "soh__extrap10",
+    "soh__extrap20"
+  ],
+  "config": {
+    "rul_cap": 80,
+    "life_unit": "cycles",
+    "risk_bands": [
+      "NORMAL",
+      "AT_RISK",
+      "HIGH_RISK",
+      "FAILURE_LIKELY"
+    ],
+    "risk_limits": {
+      "FAILURE_LIKELY": 10,
+      "HIGH_RISK": 20,
+      "AT_RISK": 40
+    },
+    "rul_interval": [
+      0.1,
+      0.9
+    ],
+    "health_threshold": 1.0805,
+    "baseline_cycles": 5,
+    "rolling_windows": [
+      5,
+      15,
+      30,
+      60
+    ],
+    "ewm_alphas": [
+      0.05,
+      0.1,
+      0.3
+    ],
+    "slope_windows": [
+      15,
+      30,
+      50,
+      90
+    ],
+    "baseline_cycles_per_unit": 15,
+    "risk_blend": 0.25,
+    "risk_blend_sigma": 8.0,
+    "optuna_trials": 0
+  },
+  "params": {
+    "rul": {
+      "n_estimators": 700,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "subsample": 0.8,
+      "colsample_bytree": 0.5,
+      "min_child_weight": 5
+    },
+    "risk": {
+      "n_estimators": 700,
+      "max_depth": 5,
+      "learning_rate": 0.04,
+      "subsample": 0.8,
+      "colsample_bytree": 0.5,
+      "min_child_weight": 5
+    }
+  },
+  "metrics": {
+    "validation": {
+      "rul": {
+        "baselines": {
+          "linear_regression": {
+            "rmse": 16.514,
+            "mae": 13.81,
+            "r2": 0.612
+          },
+          "random_forest": {
+            "rmse": 9.959,
+            "mae": 7.692,
+            "r2": 0.859
+          }
+        },
+        "xgboost": {
+          "rmse": 10.011,
+          "mae": 7.539,
+          "r2": 0.857,
+          "interval_coverage": 0.797,
+          "cv_rmse": 20.832
+        }
+      },
+      "risk": {
+        "baselines": {
+          "logistic_regression": {
+            "accuracy": 0.601,
+            "macro_f1": 0.395
+          },
+          "random_forest": {
+            "accuracy": 0.784,
+            "macro_f1": 0.677
+          },
+          "xgboost_classifier_only": {
+            "accuracy": 0.699,
+            "macro_f1": 0.582
+          }
+        },
+        "xgboost": {
+          "accuracy": 0.719,
+          "macro_f1": 0.604,
+          "per_band": {
+            "NORMAL": {
+              "precision": 0.798,
+              "recall": 0.931,
+              "f1": 0.859,
+              "roc_auc": 0.979,
+              "support": 72
+            },
+            "AT_RISK": {
+              "precision": 0.6,
+              "recall": 0.462,
+              "f1": 0.522,
+              "roc_auc": 0.875,
+              "support": 39
+            },
+            "HIGH_RISK": {
+              "precision": 0.429,
+              "recall": 0.15,
+              "f1": 0.222,
+              "roc_auc": 0.89,
+              "support": 20
+            },
+            "FAILURE_LIKELY": {
+              "precision": 0.688,
+              "recall": 1.0,
+              "f1": 0.815,
+              "roc_auc": 0.975,
+              "support": 22
+            }
+          },
+          "confusion_matrix": [
+            [
+              67,
+              5,
+              0,
+              0
+            ],
+            [
+              17,
+              18,
+              4,
+              0
+            ],
+            [
+              0,
+              7,
+              3,
+              10
+            ],
+            [
+              0,
+              0,
+              0,
+              22
+            ]
+          ],
+          "cv_accuracy": 0.6979,
+          "cv_macro_f1": 0.5932,
+          "blend": 0.25,
+          "blend_scores": {
+            "0.0": 0.689,
+            "0.25": 0.6979,
+            "0.5": 0.689,
+            "0.75": 0.6443,
+            "1.0": 0.6101
+          }
+        }
+      }
+    },
+    "test": {
+      "rul": {
+        "rmse": 12.202,
+        "mae": 9.563,
+        "r2": 0.211,
+        "rmse_capped": 12.202,
+        "interval_coverage": 0.25,
+        "interval_coverage_capped": 0.25
+      },
+      "risk": {
+        "accuracy": 0.5,
+        "macro_f1": 0.292,
+        "per_band": {
+          "NORMAL": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.667,
+            "roc_auc": 1.0,
+            "support": 1
+          },
+          "AT_RISK": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": null,
+            "support": 0
+          },
+          "HIGH_RISK": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "roc_auc": 0.75,
+            "support": 2
+          },
+          "FAILURE_LIKELY": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": 0.333,
+            "support": 1
+          }
+        },
+        "confusion_matrix": [
+          [
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0
+          ]
+        ]
+      }
+    }
+  },
+  "environment": {
+    "python": "3.14.5",
+    "platform": "Windows-11-10.0.26300-SP0"
+  }
+}

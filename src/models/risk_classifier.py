@@ -17,28 +17,32 @@ from xgboost import XGBClassifier
 from src.config import RISK_BANDS, RISK_BLEND_SIGMA, RISK_LIMITS, RUL_CAP, SEED
 
 
-def rul_to_band(rul):
+def rul_to_band(rul, limits=None):
     """Map RUL values to band codes. Every RUL >= 0 lands in exactly one band."""
+    limits = limits or RISK_LIMITS
     rul = np.asarray(rul)
     codes = np.zeros(len(rul), dtype=int)  # NORMAL
     for code in range(1, len(RISK_BANDS)):  # later (more severe) bands overwrite earlier ones
-        codes[rul <= RISK_LIMITS[RISK_BANDS[code]]] = code
+        codes[rul <= limits[RISK_BANDS[code]]] = code
     return codes
 
 
-def rul_band_proba(rul, sigma=RISK_BLEND_SIGMA):
+def rul_band_proba(rul, sigma=RISK_BLEND_SIGMA, limits=None):
     """(n, 4) band probabilities from RUL point predictions with Gaussian uncertainty."""
+    limits = limits or RISK_LIMITS
     # Upper RUL edge of each band, most lenient first; +0.5 because RUL is counted in whole cycles.
-    edges = np.array([np.inf] + [RISK_LIMITS[b] + 0.5 for b in RISK_BANDS[1:]] + [-np.inf])
+    edges = np.array([np.inf] + [limits[b] + 0.5 for b in RISK_BANDS[1:]] + [-np.inf])
     cdf = norm.cdf((edges[None, :] - np.asarray(rul, dtype=float)[:, None]) / sigma)
     return cdf[:, :-1] - cdf[:, 1:]
 
 
 class FailureRiskClassifier:
-    def __init__(self, params=None, blend=0.0, sigma=RISK_BLEND_SIGMA):
+    def __init__(self, params=None, blend=0.0, sigma=RISK_BLEND_SIGMA, limits=None, cap=RUL_CAP):
         self.params = params or {}
         self.blend = blend
         self.sigma = sigma
+        self.limits = limits or RISK_LIMITS  # band limits of the component, in its life units
+        self.cap = cap
         self.rul_model = None  # an XGBRegressor predicting RUL, used when blend > 0
         self.model = XGBClassifier(
             tree_method="hist", n_jobs=-1, random_state=SEED,
@@ -57,8 +61,8 @@ class FailureRiskClassifier:
         """Returns class probability matrix (n_samples, 4)."""
         proba = self.model.predict_proba(X)
         if self.blend and self.rul_model is not None:
-            rul = np.clip(self.rul_model.predict(X), 0, RUL_CAP)
-            proba = (1 - self.blend) * proba + self.blend * rul_band_proba(rul, self.sigma)
+            rul = np.clip(self.rul_model.predict(X), 0, getattr(self, "cap", RUL_CAP))
+            proba = (1 - self.blend) * proba + self.blend * rul_band_proba(rul, self.sigma, getattr(self, "limits", None))
         return proba
 
     def classify_band(self, X):

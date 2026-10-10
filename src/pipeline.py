@@ -1,4 +1,12 @@
-"""End-to-end analysis: validate -> clean -> conditions -> health -> features -> RUL -> risk -> explain.
+"""End-to-end analysis.
+
+read -> EDA profile -> recognise the component -> validate -> clean -> correct for operating
+conditions -> health -> features -> RUL -> risk -> explain
+
+The component-recognition model (src/router/) decides from the data alone whether a file comes
+from a turbofan, a battery cell or a bearing, and only then is it handed to that component's
+models. A file it cannot recognise with confidence is stopped with UNKNOWN_COMPONENT instead of
+being scored by the wrong model.
 
 `analyze()` never raises. It returns an AnalysisResult whose status is
 COMPLETED, PARTIAL (a prediction stage failed, the rest is still usable)
@@ -15,18 +23,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.config import (
-    LOW_CONFIDENCE, MODEL_VERSION, RISK_BANDS, ROLLING_WINDOW, SENSOR_COLS, SETTING_COLS, SUBSETS,
-)
+from src import eda
+from src.components import COMPONENTS, get, spec_of_profile, to_canonical
+from src.config import LOW_CONFIDENCE, MODEL_VERSION, RISK_BANDS
 from src.data.loader import read_sensor_file
 from src.data.profile import detect_subset
 from src.data.validation import validate_dataset
-from src.errors import AeroSentinelError, PredictionError, ProcessingError
-from src.features.engineering import build_features
+from src.errors import AeroSentinelError, InvalidDataError, PredictionError, ProcessingError, UnknownComponentError
+from src.features.engineering import derive_channels, model_features
 from src.models.artifacts import available_subsets, load_artifacts
 from src.models.risk_classifier import rul_to_band
 from src.preprocessing.cleaning import clean_data
 from src.preprocessing.conditions import count_conditions
+from src.router import load_router
 
 logger = logging.getLogger("aerosentinel")  # root logger for all pipeline events
 
@@ -36,8 +45,11 @@ class AnalysisResult:
     job_id: str
     status: str = "PROCESSING"
     model_version: str | None = None
-    subset: str | None = None  # which subset's model scored the file
+    component: str | None = None  # turbofan, battery or bearing
+    subset: str | None = None  # which profile's model scored the file (FD001..FD004, PCOE, FEMTO)
     profile: dict | None = None  # why that model, operating conditions, fault modes
+    routing: dict | None = None  # component-recognition decision, confidence and signals
+    eda: dict | None = None  # exploratory profile of the uploaded table
     units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
     history: pd.DataFrame | None = None  # every cycle: sensors, health score, predicted RUL
     stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
@@ -46,6 +58,10 @@ class AnalysisResult:
     cleaning: dict | None = None
     error: dict | None = None  # {"code", "message", "requestId"}
     duration_ms: float | None = None
+
+    @property
+    def spec(self):
+        return get(self.component)
 
 
 def _fail(result, exc):
@@ -75,7 +91,7 @@ def _run_stage(result, name, fn):
         result.stages[name] = f"failed: {type(exc).__name__}"
 
 
-def _review_reasons(units, history):
+def _review_reasons(units, history, spec):
     """Why each unit needs a human look. Empty list = no flag."""
     out_of_range = history.groupby("unit")["out_of_range"].any()
     unknown_condition = ~history.groupby("unit")["condition_known"].all()
@@ -88,56 +104,105 @@ def _review_reasons(units, history):
         if row.get("risk_probability", 1.0) < LOW_CONFIDENCE:
             r.append("low confidence")
         if "predicted_rul" in row and "risk_band" in row:
-            gap = abs(rul_to_band([row["predicted_rul"]])[0] - RISK_BANDS.index(row["risk_band"]))
+            gap = abs(rul_to_band([row["predicted_rul"]], spec.risk_limits)[0] - RISK_BANDS.index(row["risk_band"]))
             if gap > 1:
                 r.append("RUL and risk band disagree")
         if unknown_condition[row["unit"]]:
             r.append("operating condition not seen in training")
         if out_of_range[row["unit"]]:
             r.append("readings outside training range")
-        if cycles_seen[row["unit"]] < ROLLING_WINDOW:
-            r.append(f"short history (<{ROLLING_WINDOW} cycles)")
+        if cycles_seen[row["unit"]] < spec.min_history:
+            r.append(f"short history (<{spec.min_history} {spec.time_title.lower()}s)")
         reasons.append(r)
     return reasons
 
 
-def analyze(source, version=MODEL_VERSION, subset=None, name=None):
-    """Analyze a file path, uploaded file or DataFrame of C-MAPSS sensor data.
+def _schema_component(df):
+    """Fallback when no recognition model is trained: the component whose channel names the file has."""
+    cols = set(df.columns)
+    best = max(COMPONENTS.values(), key=lambda s: len(cols & set(s.channel_keys)))
+    return best.key if cols & set(best.channel_keys) else None
 
-    subset picks the model (FD001-FD004). Left as None, it is chosen from the file name, or
-    else from how many operating conditions the data contains.
+
+def _recognise(result, df, component, subset, version):
+    """Decide the component. An explicit subset or component wins, but the model's view is still recorded."""
+    router = load_router(version)
+    routing = router.route(df) if router is not None else None
+    if subset is not None:
+        component = spec_of_profile(subset).key
+    chosen = component
+    if chosen is None:
+        if routing is None:
+            chosen = _schema_component(df)
+            if chosen is None:
+                raise UnknownComponentError("Could not tell which component this data comes from.")
+        elif routing["component"] is None:
+            raise UnknownComponentError(
+                f"The component-recognition model could not place this file ({routing['reason']}). "
+                "Use a turbofan, battery or bearing file in the documented layout, or choose the component.")
+        else:
+            chosen = routing["component"]
+    result.routing = {**(routing or {"label": None, "confidence": None, "probabilities": {}, "signals": [],
+                                      "reason": "recognition model not trained; matched by column names"}),
+                      "chosen": chosen, "by_user": component is not None or subset is not None,
+                      "agrees": routing is None or routing.get("label") == chosen}
+    return chosen
+
+
+def _choose_profile(spec, df, name, version):
+    """Turbofan: the subset by file name or operating conditions. Other components have one profile."""
+    if spec.key != "turbofan":
+        return spec.default_profile, "the one model for this component"
+    subset, reason = detect_subset(df, name)
+    trained = available_subsets(version, "turbofan")
+    if trained and subset not in trained:  # fall back to a trained model for the same kind of data
+        multi = spec.profiles[subset].conditions > 1
+        same_kind = [s for s in trained if (spec.profiles[s].conditions > 1) == multi]
+        if same_kind:
+            subset, reason = same_kind[0], f"{reason}; {subset} model not trained, using {same_kind[0]}"
+    return subset, reason
+
+
+def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=None):
+    """Analyze a file path, uploaded file or DataFrame of sensor data.
+
+    component (turbofan, battery, bearing) and subset (FD001..FD004, PCOE, FEMTO) override the
+    automatic choice. Left as None, the component-recognition model picks the component, and for
+    turbofans the subset comes from the file name or the number of operating conditions.
     """
     result = AnalysisResult(job_id=f"job_{uuid.uuid4().hex[:8]}")
     start = time.perf_counter()
     if name is None and isinstance(source, (str, Path)):
         name = Path(source).name
 
-    # 1. Load models, validate, clean, correct for conditions, health, features. Any failure is fatal.
+    # 1. Read, profile, recognise, load models, validate, clean, correct, health, features. Any failure is fatal.
     try:
         with _timed(result, "read"):
             df = source if isinstance(source, pd.DataFrame) else read_sensor_file(source)
+        with _timed(result, "eda"):
+            result.eda = eda.profile(df)
+        if result.eda["rows"] == 0 or result.eda["numeric_columns"] < 2:
+            raise InvalidDataError("The file has no numeric sensor data to analyze.")
+        with _timed(result, "route"):
+            result.component = _recognise(result, df, component, subset, version)
+        spec = get(result.component)
+        df = to_canonical(df, spec)
         reason = "chosen by the user"
         if subset is None:
-            subset, reason = detect_subset(df, name)
-            trained = available_subsets(version)
-            if trained and subset not in trained:  # fall back to a trained model for the same kind of data
-                multi = SUBSETS[subset]["conditions"] > 1
-                same_kind = [s for s in trained if (SUBSETS[s]["conditions"] > 1) == multi]
-                if same_kind:
-                    subset, reason = same_kind[0], f"{reason}; {subset} model not trained, using {same_kind[0]}"
+            subset, reason = _choose_profile(spec, df, name, version)
         artifacts = load_artifacts(version, subset)
         result.model_version, result.subset = version, subset
         with _timed(result, "validate"):
             result.validation = validate_dataset(df, artifacts.required_columns)
         with _timed(result, "clean"):
-            df, result.cleaning = clean_data(df)
+            df, result.cleaning = clean_data(df, spec.columns)
         with _timed(result, "conditions"):
-            seen = count_conditions(df)
-            df = artifacts.conditions.transform(df)
+            seen = count_conditions(df, spec.settings, spec.setting_scale)
+            df = artifacts.conditions.transform(derive_channels(df, spec))  # derived from raw readings
         with _timed(result, "health"):
             df = artifacts.health.transform(df)
         with _timed(result, "features"):
-            X = build_features(df, artifacts.sensors)
+            X = model_features(df, artifacts.sensors, spec)
     except AeroSentinelError as exc:
         return _fail(result, exc)
     except Exception:  # noqa: BLE001 - never expose a stack trace to the user
@@ -149,22 +214,26 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None):
     if unknown:
         result.validation["warnings"].append(
             f"{unknown} readings come from operating conditions the {subset} model was not trained on; "
-            "predictions for those engines are unreliable.")
+            "predictions for those units are unreliable.")
     result.profile = {
+        "component": spec.key, "component_name": spec.name, "unit_title": spec.unit_title,
+        "life_unit": spec.life_unit, "time_title": spec.time_title,
         "subset": subset, "reason": reason,
         "conditions_trained": artifacts.conditions.n_conditions, "conditions_seen": seen,
         "corrected": artifacts.conditions.n_conditions > 1,
-        "fault_modes": list(SUBSETS.get(subset, {}).get("fault_modes", ())),
+        "fault_modes": list(spec.profiles[subset].fault_modes) if subset in spec.profiles else [],
         "condition_table": artifacts.conditions.describe(),
+        "settings": list(spec.settings),
     }
 
-    # Every sensor is kept (not only the modelled ones) so the 3D twin can show all 21 readings.
+    # Every channel is kept (not only the modelled ones) so the 3D model can show all readings.
     # With several operating conditions these are the corrected readings (at the reference condition).
     history = df[["unit", "cycle", "condition", "condition_known", "health_score", "health_condition",
-                  "out_of_range"] + [c for c in SETTING_COLS + SENSOR_COLS if c in df]].copy()
+                  "out_of_range"] + [c for c in [*spec.settings, *spec.model_channels] if c in df]].copy()
     last = df.groupby("unit")["cycle"].idxmax().to_numpy()
     X_last = X.loc[last]
     units = history.loc[last, ["unit", "cycle", "condition", "health_condition", "health_score"]].reset_index(drop=True)
+    units.insert(0, "component", spec.key)  # lets every consumer read the component's limits and wording
     band_codes = None
 
     # 2. Predictions. Each stage can fail on its own.
@@ -196,7 +265,7 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None):
     if result.stages["rul"] != "ok" and result.stages["risk"] != "ok":
         return _fail(result, PredictionError("Both RUL and risk prediction failed."))
 
-    units["review_reasons"] = _review_reasons(units, history)
+    units["review_reasons"] = _review_reasons(units, history, spec)
     units["needs_review"] = units["review_reasons"].apply(bool)
     result.units = units
     result.history = history
@@ -217,4 +286,5 @@ def get_pipeline_info() -> dict:
         "version": MODEL_VERSION,
         "status": status,
         "subsets": artifacts.available_subsets(MODEL_VERSION),
+        "router": load_router(MODEL_VERSION) is not None,
     }

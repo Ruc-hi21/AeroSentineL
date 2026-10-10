@@ -1,0 +1,91 @@
+{
+  "version": "v4",
+  "trained_at": "2026-10-10T15:16:22+00:00",
+  "classes": [
+    "turbofan",
+    "battery",
+    "bearing",
+    "unknown"
+  ],
+  "threshold": 0.8,
+  "features": [
+    "n_value_cols",
+    "log_rows",
+    "has_units",
+    "log_units",
+    "log_rows_per_unit",
+    "mag_q0",
+    "mag_q25",
+    "mag_q50",
+    "mag_q75",
+    "mag_q100",
+    "frac_mag_lt1",
+    "frac_mag_1_10",
+    "frac_mag_10_100",
+    "frac_mag_100_1000",
+    "frac_mag_gt1000",
+    "frac_constant",
+    "frac_integer",
+    "frac_negative",
+    "cv_q25",
+    "cv_q50",
+    "cv_q75",
+    "autocorr_mean",
+    "autocorr_min",
+    "trend_mean",
+    "trend_max",
+    "kurt_median",
+    "kurt_max",
+    "skew_abs_median",
+    "corr_mean"
+  ],
+  "metrics": {
+    "test_examples": 600,
+    "accuracy": 0.9983,
+    "per_class_recall": {
+      "turbofan": 1.0,
+      "battery": 1.0,
+      "bearing": 1.0,
+      "unknown": 0.995
+    },
+    "confusion_matrix": [
+      [
+        160,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        160,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        80,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        199
+      ]
+    ],
+    "classes": [
+      "turbofan",
+      "battery",
+      "bearing",
+      "unknown"
+    ],
+    "threshold": 0.8,
+    "known_routed_correctly": 1.0,
+    "known_held_back": 0.0,
+    "known_misrouted": 0.0,
+    "unknown_rejected": 0.995
+  },
+  "train_examples": 1320,
+  "note": "Trained on slices of training files; scored on slices of test and sample files (unseen units)."
+}

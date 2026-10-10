@@ -1,26 +1,50 @@
-"""Download NASA C-MAPSS (FD001-FD004) into data/raw/.
+"""Download the public datasets and build data/raw/ for every component.
 
 Usage:
-    python -m scripts.download_data              # all four subsets
-    python -m scripts.download_data FD001 FD003  # only these
+    python -m scripts.download_data                  # turbofan (FD001-FD004), battery and bearing
+    python -m scripts.download_data turbofan         # NASA C-MAPSS only (or name subsets: FD001 FD003)
+    python -m scripts.download_data battery bearing  # NASA PCoE batteries, FEMTO bearings
+
+Large archives (battery 0.2 GB, bearing 1.2 GB) are kept in a cache outside the project
+(AEROSENTINEL_CACHE, default ~/.cache/aerosentinel); only the small per-cycle tables go to data/raw/.
 """
 
 import io
+import os
 import sys
 import urllib.request
 import zipfile
+from pathlib import Path
 
 from src.config import RAW_DATA_DIR, SUBSETS
 
-# NASA Prognostics Center of Excellence data set #6, mirrored by the PHM Society.
-URL = "https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip"
+# NASA Prognostics Center of Excellence data repository, mirrored by the PHM Society.
+MIRROR = "https://phm-datasets.s3.amazonaws.com/NASA/"
+URL = MIRROR + "6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip"
+BATTERY_URL = MIRROR + "5.+Battery+Data+Set.zip"
+BEARING_URL = MIRROR + "10.+FEMTO+Bearing.zip"
+CACHE = Path(os.environ.get("AEROSENTINEL_CACHE", Path.home() / ".cache" / "aerosentinel"))
 
 
 def files_for(subset):
     return [f"train_{subset}.txt", f"test_{subset}.txt", f"RUL_{subset}.txt"]
 
 
-def main(subsets):
+def _fetch(url, path):
+    """Stream a download to disk (skipped if already cached)."""
+    if path.exists():
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading {url} ...", flush=True)
+    tmp = path.with_suffix(".part")
+    with urllib.request.urlopen(url, timeout=600) as response, open(tmp, "wb") as out:
+        while chunk := response.read(1 << 20):
+            out.write(chunk)
+    tmp.replace(path)
+    return path
+
+
+def turbofan(subsets):
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     wanted = [name for s in subsets for name in files_for(s) if not (RAW_DATA_DIR / name).exists()]
     if not wanted:
@@ -41,9 +65,55 @@ def main(subsets):
         print(f"  saved {name}")
 
 
-if __name__ == "__main__":
-    requested = [s.upper() for s in sys.argv[1:]] or list(SUBSETS)
-    unknown = [s for s in requested if s not in SUBSETS]
+def battery():
+    from src.components import battery_data, splits
+
+    if (RAW_DATA_DIR / "train_PCOE.csv").exists():
+        print("Battery tables already present")
+        return
+    archive = _fetch(BATTERY_URL, CACHE / "battery.zip")
+    mat_dir = CACHE / "battery"
+    mat_dir.mkdir(parents=True, exist_ok=True)
+    outer = zipfile.ZipFile(archive)
+    for info in outer.infolist():
+        if info.filename.endswith(".zip"):  # one inner zip per test campaign
+            inner = zipfile.ZipFile(io.BytesIO(outer.read(info)))
+            for f in inner.infolist():
+                if f.filename.lower().endswith(".mat"):
+                    (mat_dir / Path(f.filename).name).write_bytes(inner.read(f))
+    table, eol = battery_data.build(mat_dir)
+    print("  battery cells train/test:", splits.write_battery(table, eol, RAW_DATA_DIR))
+
+
+def bearing():
+    from src.components import bearing_data, splits
+
+    if (RAW_DATA_DIR / "train_FEMTO.csv").exists():
+        print("Bearing tables already present")
+        return
+    archive = _fetch(BEARING_URL, CACHE / "femto.zip")
+    inner = CACHE / "FEMTOBearingDataSet.zip"
+    if not inner.exists():
+        outer = zipfile.ZipFile(archive)
+        inner.write_bytes(outer.read(next(n for n in outer.namelist() if n.endswith("FEMTOBearingDataSet.zip"))))
+    print("Extracting vibration features (about 2 minutes) ...", flush=True)
+    table = bearing_data.build(inner)
+    print("  bearings train/test:", splits.write_bearing(table, RAW_DATA_DIR))
+
+
+def main(args):
+    args = [a.upper() if a.upper().startswith("FD") else a.lower() for a in args] or ["turbofan", "battery", "bearing"]
+    subsets = [a for a in args if a in SUBSETS]
+    if "turbofan" in args or subsets:
+        turbofan(subsets or list(SUBSETS))
+    if "battery" in args:
+        battery()
+    if "bearing" in args:
+        bearing()
+    unknown = [a for a in args if a not in SUBSETS and a not in ("turbofan", "battery", "bearing")]
     if unknown:
-        sys.exit(f"Unknown subset(s): {', '.join(unknown)}. Choose from {', '.join(SUBSETS)}.")
-    main(requested)
+        sys.exit(f"Unknown argument(s): {', '.join(unknown)}. Use turbofan, battery, bearing or {', '.join(SUBSETS)}.")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

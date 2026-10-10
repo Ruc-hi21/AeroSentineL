@@ -6,9 +6,12 @@ from src.config import ID_COLS, RAW_COLUMNS
 from src.errors import InvalidDataError
 
 
-def clean_data(df):
-    """Coerce types, drop unusable/duplicate rows, fill gaps per unit. Returns (df, report)."""
-    df = df[[c for c in RAW_COLUMNS if c in df.columns]].apply(pd.to_numeric, errors="coerce")
+def clean_data(df, columns=None):
+    """Coerce types, drop unusable/duplicate rows, fill gaps per unit. Returns (df, report).
+
+    columns: the component's canonical columns (default: the C-MAPSS layout)."""
+    columns = columns or RAW_COLUMNS
+    df = df[[c for c in columns if c in df.columns]].apply(pd.to_numeric, errors="coerce")
     rows_in = len(df)
 
     df = df.dropna(subset=ID_COLS)  # rows where unit or cycle is NaN are unidentifiable

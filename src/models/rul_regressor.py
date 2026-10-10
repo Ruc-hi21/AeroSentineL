@@ -13,8 +13,9 @@ INTERVAL_PARAMS = {"n_estimators": 200, "max_depth": 3, "learning_rate": 0.05,
 
 
 class RULRegressor:
-    def __init__(self, params=None):
+    def __init__(self, params=None, cap=RUL_CAP):
         self.params = params or {}  # merge with BASE_PARAMS at model construction
+        self.cap = cap  # predictions are clipped to [0, cap] like the training target
         self.model = XGBRegressor(**BASE_PARAMS, **self.params)
         self.interval_model = XGBRegressor(
             **BASE_PARAMS, **INTERVAL_PARAMS,
@@ -28,11 +29,11 @@ class RULRegressor:
         return self
 
     def predict(self, X):
-        return np.clip(self.model.predict(X), 0, RUL_CAP)
+        return np.clip(self.model.predict(X), 0, getattr(self, "cap", RUL_CAP))
 
     def predict_interval(self, X):
         """(low, high) bounds, widened if needed so they always contain the point prediction."""
-        bounds = np.clip(self.interval_model.predict(X), 0, RUL_CAP)
+        bounds = np.clip(self.interval_model.predict(X), 0, getattr(self, "cap", RUL_CAP))
         point = self.predict(X)
         # Widen so the interval always contains the point prediction (avoids visual confusion).
         low = np.minimum.reduce([bounds[:, 0], bounds[:, 1], point])

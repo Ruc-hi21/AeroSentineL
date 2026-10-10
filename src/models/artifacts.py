@@ -1,7 +1,8 @@
 """Save and load versioned model artifacts.
 
-v3 keeps one model set per C-MAPSS subset in models/<version>/<subset>/. Older versions (v1, v2)
-hold a single FD001 model set directly in models/<version>/ and still load.
+v4 keeps one model set per component profile in models/<version>/<component>/<profile>/
+(turbofan/FD001..FD004, battery/PCOE, bearing/FEMTO). v3 kept turbofan subsets in
+models/v3/<subset>/; v1 and v2 hold a single FD001 model set in models/<version>/. All still load.
 """
 
 import json
@@ -11,7 +12,8 @@ from functools import lru_cache
 import joblib
 
 from src.analysis.health import HealthAnalyzer
-from src.config import DATASET, MODELS_DIR, MODEL_VERSION, SETTING_COLS, SUBSETS
+from src.components import COMPONENTS, spec_of_profile
+from src.config import DATASET, MODELS_DIR, MODEL_VERSION
 from src.errors import ModelNotFoundError
 from src.explainability.explainer import Explainer
 from src.models.risk_classifier import FailureRiskClassifier
@@ -45,16 +47,28 @@ class Artifacts:
         return self.metadata["sensors"]
 
     @property
+    def spec(self):
+        return spec_of_profile(self.subset)
+
+    @property
+    def component(self):
+        return self.spec.key
+
+    @property
     def required_columns(self):
         """Columns an input file needs: the modelled sensors, plus settings when there are several conditions."""
-        return list(self.sensors) + (SETTING_COLS if self.conditions.n_conditions > 1 else [])
+        derived = {c.key for c in self.spec.derived}
+        settings = list(self.spec.settings) if (self.conditions.n_conditions > 1 or self.spec.settings_as_features) else []
+        return [s for s in self.sensors if s not in derived] + settings
 
 
 def model_dir(version=MODEL_VERSION, subset=DATASET):
     flat = MODELS_DIR / version
     if (flat / "metadata.json").exists():  # v1/v2 layout: one FD001 model set per version
         return flat if subset == DATASET else flat / subset
-    return flat / subset
+    if (flat / subset / "metadata.json").exists():  # v3 layout: turbofan subsets directly under the version
+        return flat / subset
+    return flat / spec_of_profile(subset).key / subset
 
 
 def save_artifacts(health, rul, risk, conditions, metadata, version=MODEL_VERSION, subset=DATASET):
@@ -94,9 +108,10 @@ def load_artifacts(version=MODEL_VERSION, subset=DATASET):
     )
 
 
-def available_subsets(version=MODEL_VERSION):
-    """Subsets that have a trained model set for this version, in catalogue order."""
-    return [s for s in SUBSETS if (model_dir(version, s) / "metadata.json").exists()]
+def available_subsets(version=MODEL_VERSION, component=None):
+    """Profiles with a trained model set for this version, in catalogue order (optionally one component's)."""
+    specs = [COMPONENTS[component]] if component else COMPONENTS.values()
+    return [p for spec in specs for p in spec.profiles if (model_dir(version, p) / "metadata.json").exists()]
 
 
 def model_status(version=MODEL_VERSION, subset=DATASET):

@@ -1,0 +1,15 @@
+sensor,std,corr_with_rul,monotonicity,kept
+capacity_ah,0.1159,0.3434,0.7363,True
+discharge_min,3.1512,0.2667,0.7778,True
+dvdt_mid,1.0163,0.1801,0.6633,True
+cc_charge_min,8.4534,0.2423,0.4646,True
+v_mean,0.0254,0.205,0.4223,True
+cv_charge_min,12.6825,-0.2024,0.4198,True
+rct_ohm,0.0175,-0.0177,0.6278,True
+re_ohm,0.0108,0.0039,0.4593,True
+v_start,0.0194,-0.0882,0.4632,True
+temp_max_c,1.8355,-0.2446,0.254,True
+temp_rise_c,1.2936,-0.2417,0.2303,True
+t_tmax_min,3.4961,0.2882,0.6001,True
+charge_temp_max_c,3.1952,0.0474,0.2251,True
+soh,14.135,0.6097,0.8894,True
