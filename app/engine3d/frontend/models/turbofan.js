@@ -1,12 +1,12 @@
 /* Turbofan model: a sectioned two-spool turbofan with every C-MAPSS sensor at its station.
  * Rotors and airflow show a running engine; the hot section glows with LPT outlet temperature drift. */
-import { T, V2, metal, lathe, axialCylinder, sectionCut, ring, dispose } from './shared.js';
+import { T, V2, metal, physical, lathe, axialCylinder, sectionCut, ring, boltCircle, canvasTexture, dispose } from './shared.js?v=5.1.0';
 
 const MODULES = [
-  { key: 'fan', name: 'Fan', explode: [-2.6, 0, 0] }, { key: 'lpc', name: 'LPC', explode: [-1.6, 0, 0] },
-  { key: 'hpc', name: 'HPC', explode: [-0.55, 0, 0] }, { key: 'comb', name: 'Combustor', explode: [0.45, 0, 0] },
-  { key: 'hpt', name: 'HPT', explode: [1.25, 0, 0] }, { key: 'lpt', name: 'LPT', explode: [2.15, 0, 0] },
-  { key: 'noz', name: 'Nozzle', explode: [3.2, 0, 0] }, { key: 'byp', name: 'Bypass', explode: [0, 2.8, 0] },
+  { key: 'fan', name: 'Fan', explode: [-2.6, 0, 0], intro: [-7, 0, 0] }, { key: 'lpc', name: 'LPC', explode: [-1.6, 0, 0], intro: [-6, 0, 0] },
+  { key: 'hpc', name: 'HPC', explode: [-0.55, 0, 0], intro: [0, -5, 0] }, { key: 'comb', name: 'Combustor', explode: [0.45, 0, 0], intro: [0, -5, 0] },
+  { key: 'hpt', name: 'HPT', explode: [1.25, 0, 0], intro: [0, -5, 0] }, { key: 'lpt', name: 'LPT', explode: [2.15, 0, 0], intro: [6, 0, 0] },
+  { key: 'noz', name: 'Nozzle', explode: [3.2, 0, 0], intro: [7, 0, 0] }, { key: 'byp', name: 'Bypass', explode: [0, 2.8, 0], intro: [0, 6, 0] },
 ];
 const LAYOUT = {
   sensor_1: { mod: 'fan', pos: [-4.7, 1.5, 0.6], side: 'L' }, sensor_5: { mod: 'fan', pos: [-4.7, -1.4, 0.7], side: 'L' },
@@ -44,13 +44,40 @@ function bladeRing(geo, mat, count, x, phase = 0) {
   return mesh;
 }
 
+// Spinner swirl: the painted spiral that tells ground crew the fan is turning.
+function spinnerTexture() {
+  const t = canvasTexture(512, 512, (g, w, h) => {
+    g.fillStyle = '#9aa3ad'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#f2f4f7'; g.lineWidth = 46;
+    g.beginPath(); g.moveTo(-w * 0.2, h); g.bezierCurveTo(w * 0.3, h * 0.7, w * 0.5, h * 0.35, w * 1.2, 0); g.stroke();
+  });
+  return t;
+}
+// Saw-tooth trailing edge (chevrons) round an exit at radius r, axial station x, over the solid 270 degrees.
+function chevrons(r, x, count, len, mat) {
+  const shape = new T.Shape(); shape.moveTo(-0.5, 0); shape.lineTo(0.5, 0); shape.lineTo(0, 1); shape.lineTo(-0.5, 0);
+  const geo = new T.ShapeGeometry(shape); geo.rotateZ(-Math.PI / 2); // tip points +X, base along the tangent (Y at phi 0)
+  const mesh = new T.InstancedMesh(geo, mat, count), m = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3();
+  const width = (2 * Math.PI * r * 0.75) / count;
+  for (let i = 0; i < count; i++) {
+    const phi = ((i + 0.5) / count) * Math.PI * 1.5;
+    q.setFromAxisAngle(new T.Vector3(1, 0, 0), phi);
+    sc.set(len, width * 0.98, 1);
+    m.compose(new T.Vector3(x, -r * Math.sin(phi), r * Math.cos(phi)), q, sc); mesh.setMatrixAt(i, m);
+  }
+  return mesh;
+}
+
 export function build() {
   const M = {
     shell: new T.MeshStandardMaterial({ color: 0x2b3139, metalness: 0.35, roughness: 0.62, side: T.DoubleSide }),
     core: new T.MeshStandardMaterial({ color: 0x23282f, metalness: 0.4, roughness: 0.58, side: T.DoubleSide }),
-    fan: metal(0xaab3bd, 0.3), spinner: metal(0xc6cdd5, 0.25, 0.9), disk: metal(0x4c5560, 0.45, 0.8),
+    fan: physical(0xb3bcc6, 0.24, 0.95, { clearcoat: 0.3 }),
+    spinner: new T.MeshPhysicalMaterial({ map: spinnerTexture(), roughness: 0.3, metalness: 0.6, clearcoat: 0.9, clearcoatRoughness: 0.15 }),
+    lip: physical(0xc7ced6, 0.18, 1.0), bolt: physical(0x9aa2ab, 0.3, 0.95),
+    disk: metal(0x4c5560, 0.45, 0.8),
     stator: metal(0x6a737e, 0.45, 0.75), lpc: metal(0x9aa4af, 0.32), hpc: metal(0x9aa4af, 0.32),
-    comb: new T.MeshStandardMaterial({ color: 0x6d625a, metalness: 0.5, roughness: 0.5, emissive: 0xff6a1f, emissiveIntensity: 0.5 }),
+    comb: new T.MeshStandardMaterial({ color: 0x6d625a, metalness: 0.5, roughness: 0.5, emissive: 0xff6a1f, emissiveIntensity: 1.6 }),
     hpt: new T.MeshStandardMaterial({ color: 0x857a72, metalness: 0.75, roughness: 0.4, emissive: 0xff5a1a, emissiveIntensity: 0.25 }),
     lpt: new T.MeshStandardMaterial({ color: 0x8b847f, metalness: 0.78, roughness: 0.38, emissive: 0xff6a20, emissiveIntensity: 0.1 }),
     plug: metal(0x7d8792, 0.35), shaft: metal(0x56606b, 0.35, 0.9),
@@ -67,6 +94,12 @@ export function build() {
     V2(2.04, 1.68), V2(2.2, 1.55), V2(2.42, 0.2), V2(2.53, -1.6), V2(2.5, -3.3), V2(2.4, -4.5), V2(2.28, -4.98), V2(2.12, -4.95)];
   mods.byp.add(lathe(nacelleProfile, M.shell, 96, 0, Math.PI * 1.5), sectionCut(nacelleProfile.slice(0, -1)));
   mods.byp.add(ring(2.29, -4.97), ring(2.06, 1.66));
+  // Polished inlet lip, as on a real nacelle, and chevrons on the bypass and core exits.
+  mods.byp.add(lathe([V2(2.12, -4.95), V2(2.13, -4.6), V2(2.37, -4.6), V2(2.4, -4.5), V2(2.28, -4.98), V2(2.12, -4.95)].map((p) => V2(p.x + 0.004, p.y)), M.lip, 96, 0, Math.PI * 1.5));
+  mods.byp.add(chevrons(2.08, 1.66, 24, 0.2, M.shell));
+  mods.byp.add(chevrons(0.99, 3.84, 14, 0.15, M.core));
+  // Bolted case flanges at the fan frame, the combustor case and the turbine case.
+  [[-3.3, 1.17], [0.62, 1.33], [2.02, 1.3]].forEach(([x, r]) => mods.byp.add(boltCircle({ r, x, count: 64, size: 0.028, height: 0.04, facing: -1, mat: M.bolt })));
   mods.byp.add(bladeRing(bladeGeometry({ hub: 1.2, tip: 2.12, chordHub: 0.22, chordTip: 0.26, thick: 0.02, twistHub: 0.25, twistTip: 0.2 }), M.stator, 44, -3.05));
 
   const coreProfile = [V2(1.08, -3.3), V2(1.13, -3.32), V2(1.24, -2.6), V2(1.31, -1.0), V2(1.31, 0.8), V2(1.27, 2.0), V2(1.2, 2.9), V2(1.0, 3.85),
@@ -190,8 +223,8 @@ export function build() {
       };
       tint(M.fan, 'fan'); tint(M.lpc, 'lpc'); tint(M.hpc, 'hpc');
       const heat = Math.max(0, Math.min(1, (z.sensor_4 || 0) / 4));
-      M.comb.emissiveIntensity = 0.45 + heat * 0.35 + (reduced ? 0 : 0.04 * Math.sin(tsec * 13));
-      M.hpt.emissiveIntensity = 0.22 + heat * 0.45;
+      M.comb.emissiveIntensity = 1.6 + heat * 1.2 + (reduced ? 0 : 0.12 * Math.sin(tsec * 13) + 0.06 * Math.sin(tsec * 31));
+      M.hpt.emissiveIntensity = 0.3 + heat * 0.6;
       M.lpt.emissiveIntensity = 0.08 + heat * 0.3;
       combLight.intensity = 2.2 + heat * 2;
       flowMat.uniforms.uHeat.value = heat;
