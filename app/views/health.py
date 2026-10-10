@@ -1,4 +1,4 @@
-"""Degradation: how far the engine has drifted from a healthy baseline, and which sensors moved."""
+"""Degradation: how far the unit has drifted from a healthy baseline, and which sensors moved."""
 
 import streamlit as st
 
@@ -9,10 +9,12 @@ from app.components import (
 from src.config import CRITICAL_HEALTH_MULTIPLE
 from src.explainability.sensor_names import describe
 
-theme.page_head("Degradation", "The health score measures drift from a healthy, new-engine baseline (0 = like new, "
-                "higher = more degraded). Above the abnormal threshold the engine is flagged.")
 artifacts = require_model()
 result = require_result()
+spec = result.spec
+noun = spec.actions.get("noun", "unit")
+theme.page_head("Degradation", f"The health score measures drift from a healthy, new-{noun} baseline (0 = like new, "
+                f"higher = more degraded). Above the abnormal threshold the {noun} is flagged.")
 threshold = artifacts.health.threshold
 critical = CRITICAL_HEALTH_MULTIPLE * threshold
 
@@ -24,17 +26,17 @@ theme.stats([
     theme.stat("Health score", f"{score:.2f}", foot=f"abnormal above {threshold:.2f}, critical above {critical:.2f}",
                color=theme.STATES[status]["color"]),
     theme.stat("Condition", CONDITION_LABELS[row["health_condition"]]),
-    theme.stat("Cycles observed", int(row["cycle"])),
+    theme.stat(f"{spec.time_title}s observed", int(row["cycle"])),
     theme.stat("Readings outside training range", int(unit_history["out_of_range"].sum())),
 ])
 
-theme.section("Health score over the engine's life")
+theme.section(f"Health score over the {noun}'s life")
 theme.chart(health_chart(unit_history, threshold, critical), key="health_curve")
 
-theme.section("Sensor drift", "latest cycle, strongest first")
-drift_table(insights.sensor_drift(unit_history, artifacts.health))
+theme.section("Sensor drift", f"latest {spec.time_title.lower()}, strongest first")
+drift_table(insights.sensor_drift(unit_history, artifacts.health), unit=spec.life_unit)
 
-theme.section("Degradation curves", "raw reading and 10-cycle mean")
+theme.section("Degradation curves", f"raw reading and 10-{spec.time_title.lower()} mean")
 # Start with the sensors that most influenced this unit's RUL prediction.
 factors = row["rul_factors"] if isinstance(row.get("rul_factors"), list) else []
 default = [f["sensor"] for f in factors if f["sensor"] in artifacts.sensors][:3] or artifacts.sensors[:3]
@@ -42,7 +44,7 @@ chosen = st.multiselect("Sensors", artifacts.sensors, default=default, format_fu
 if chosen:
     theme.chart(sensor_chart(unit_history, chosen), key="sensor_curves")
 
-theme.section("All engines", "by health score")
-abnormal_only = st.toggle("Abnormal engines only")
+theme.section(f"All {spec.unit_plural}", "by health score")
+abnormal_only = st.toggle(f"Abnormal {spec.unit_plural} only")
 units = result.units[result.units["health_condition"] == "abnormal"] if abnormal_only else result.units
 show_table(units.sort_values("health_score", ascending=False), ["Engine", "State", "Cycles", "Health", "Condition", "Flags"])

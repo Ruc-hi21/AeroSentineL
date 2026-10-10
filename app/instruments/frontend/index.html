@@ -69,6 +69,10 @@ html, body { margin: 0; background: transparent; color: var(--text-1); font-fami
 .gp .flow { fill: none; stroke-width: 1.2; stroke-dasharray: 2 14; stroke-linecap: round; }
 .gp .flow.core { stroke: #8fb6ff; opacity: .55; }
 .gp .flow.byp { stroke: #7f8790; opacity: .5; }
+.gp .layer { stroke: #2b3038; stroke-width: 1; }
+.gp .tab { stroke: #7f8790; stroke-width: 2; }
+.gp .load { stroke: #a6adb6; stroke-width: 1.4; fill: none; }
+.gp-head .t b { font-weight: 400; }
 .gp .chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); border-top: 1px solid var(--line); }
 .gp .chip { padding: 8px 10px 9px; min-width: 0; }
 .gp .chip + .chip { border-left: 1px solid var(--line); }
@@ -97,7 +101,7 @@ html, body { margin: 0; background: transparent; color: var(--text-1); font-fami
     </section>
     <section aria-labelledby="l-rul">
       <div class="lbl" id="l-rul">Remaining useful life<span id="window"></span></div>
-      <div class="rul"><b id="rul">0</b><small>cycles</small><span class="rng" id="rng"></span></div>
+      <div class="rul"><b id="rul">0</b><small id="life-unit">cycles</small><span class="rng" id="rng"></span></div>
       <div class="scale" id="scale" role="img" aria-label="">
         <div class="track" id="track"></div>
         <div class="range" id="range"></div>
@@ -114,12 +118,12 @@ html, body { margin: 0; background: transparent; color: var(--text-1); font-fami
   <div class="act" id="act-row"><span class="k">Suggested action</span><b id="act"></b><span class="w" id="why"></span></div>
 </div>
 <div class="gp" id="gp">
-  <div class="gp-head"><div class="t">Gas path, inlet to exhaust<span id="gp-unit"></span></div><div class="oc" id="gp-oc"></div></div>
+  <div class="gp-head"><div class="t"><b id="gp-title">Gas path, inlet to exhaust</b><span id="gp-unit"></span></div><div class="oc" id="gp-oc"></div></div>
   <div id="gp-svg"></div>
   <div class="chips" id="gp-chips"></div>
   <div class="tip" id="gp-tip"></div>
 </div>
 <script src="./vendor/gsap.min.js"></script>
-<script src="./instruments.js?v=1.1.0"></script>
+<script src="./instruments.js?v=2.0.2"></script>
 </body>
 </html>

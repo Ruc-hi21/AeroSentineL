@@ -1,4 +1,4 @@
-"""Explanations: which sensors pushed each prediction, per engine and across the training data."""
+"""Explanations: which sensors pushed each prediction, per unit and across the training data."""
 
 import streamlit as st
 
@@ -16,13 +16,13 @@ row = unit_picker(result.units, key="explain")
 left, right = st.columns(2, gap="large")
 
 with left:
-    theme.section("Why this RUL", "contribution in cycles")
+    theme.section("Why this RUL", f"contribution in {result.spec.life_unit}")
     factors = row.get("rul_factors")
     if isinstance(factors, list):
-        theme.chart(factor_chart(factors, "change in predicted RUL (cycles)", "#ff832b", TOKENS["accent"]), key="rul_shap")
+        theme.chart(factor_chart(factors, f"change in predicted RUL ({result.spec.life_unit})", "#ff832b", TOKENS["accent"]), key="rul_shap")
         theme.actions([{"action": describe(f["sensor"]),
                         "why": f"{'Shortened' if f['impact'] < 0 else 'Extended'} the predicted life by about "
-                               f"{abs(f['impact']):.0f} cycles."} for f in factors[:3]])
+                               f"{abs(f['impact']):.0f} {result.spec.life_unit}."} for f in factors[:3]])
     else:
         st.warning("No RUL explanation available for this analysis.")
 
@@ -39,7 +39,7 @@ with right:
     else:
         st.warning("No risk explanation available for this analysis.")
 
-with st.expander(f"Average influence across {result.subset} training engines (training report figures)"):
+with st.expander(f"Average influence across {result.subset} training {result.spec.unit_plural} (training report figures)"):
     figures = REPORTS_DIR / (result.subset or "") / "figures"
     cols = st.columns(2)
     for col, name, caption in [(cols[0], "shap_rul.png", "Average influence on RUL"),

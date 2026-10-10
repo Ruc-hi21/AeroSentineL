@@ -16,21 +16,23 @@ st.set_page_config(page_title="AeroSentinel", page_icon=str(ROOT / "assets" / "l
                    layout="wide", initial_sidebar_state="expanded")
 
 from app import theme  # noqa: E402
-from app.components import sidebar_status  # noqa: E402
+from app.components import active_spec, sidebar_status  # noqa: E402
 
 theme.inject()
 st.logo(str(ROOT / "assets" / "logo.svg"), size="large", icon_image=str(ROOT / "assets" / "logo_icon.svg"))
 
-# Information architecture follows the operator's questions: which engines need attention
-# (Fleet), then for one engine: condition, change, time left, risk, action (Engine).
+# Information architecture follows the operator's questions: which units need attention
+# (Fleet), then for one unit: condition, change, time left, risk, action. The unit section is named
+# after the loaded component (Engine, Cell, Bearing).
 VIEWS = ROOT / "app" / "views"
+unit = active_spec().unit_title
 pages = {
     "Fleet": [
         st.Page(VIEWS / "overview.py", title="Fleet overview", icon=":material/grid_view:", default=True),
         st.Page(VIEWS / "upload.py", title="Ingest data", icon=":material/upload:"),
     ],
-    "Engine": [
-        st.Page(VIEWS / "engine.py", title="Engine status", icon=":material/speed:"),
+    unit: [
+        st.Page(VIEWS / "engine.py", title=f"{unit} status", icon=":material/speed:", url_path="engine"),
         st.Page(VIEWS / "health.py", title="Degradation", icon=":material/trending_down:"),
         st.Page(VIEWS / "rul_risk.py", title="RUL and risk", icon=":material/timelapse:"),
         st.Page(VIEWS / "explainability.py", title="Explanations", icon=":material/account_tree:"),

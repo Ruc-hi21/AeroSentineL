@@ -11,22 +11,37 @@ from plotly.subplots import make_subplots
 
 from app import insights
 from app.theme import BAND_COLORS, BAND_TEXT, MONO, STATES, TOKENS, esc
-from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS, RISK_LIMITS, RUL_CAP, SUBSETS
+from src.components import COMPONENTS, PROFILES, get, spec_of_profile
+from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS, SUBSETS
 from src.data.loader import read_sensor_file
 from src.explainability.sensor_names import SENSOR_INFO, describe
 from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
 
-SAMPLES = {s: RAW_DATA_DIR / f"test_{s}.txt" for s in SUBSETS}  # NASA test fleets, one per subset
+# Sample fleets: NASA C-MAPSS test fleets, the battery cells the model never saw, the held-out bearings.
+SAMPLES = {**{s: RAW_DATA_DIR / f"test_{s}.txt" for s in SUBSETS},
+           "PCOE": RAW_DATA_DIR / "sample_PCOE.csv", "FEMTO": RAW_DATA_DIR / "test_FEMTO.csv"}
 SAMPLE = SAMPLES[DATASET]
-FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation"}
+PROFILE_LABELS = {**{s: s for s in SUBSETS}, "PCOE": "Battery cells", "FEMTO": "Bearings"}
+FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation", "capacity fade": "capacity fade",
+              "rolling contact wear": "rolling contact wear"}
+# Operating-envelope axes per component: (x setting, y setting, label setting or None).
+ENVELOPE = {"turbofan": ("setting_2", "setting_1", "setting_3"), "battery": ("load_a", "ambient_c", None),
+            "bearing": ("speed_rpm", "load_kn", None)}
 T = TOKENS
 STATE_COLOR = {s: v["color"] for s, v in STATES.items()}
 STATE_LABEL = {s: v["label"] for s, v in STATES.items()}
 CONDITION_LABELS = {"normal": "Normal", "abnormal": "Abnormal"}
-# Band thresholds as (band, upper RUL limit), most severe first.
-ZONES = [("FAILURE_LIKELY", 0, RISK_LIMITS["FAILURE_LIKELY"]), ("HIGH_RISK", RISK_LIMITS["FAILURE_LIKELY"], RISK_LIMITS["HIGH_RISK"]),
-         ("AT_RISK", RISK_LIMITS["HIGH_RISK"], RISK_LIMITS["AT_RISK"])]
+
+
+def zones(spec):
+    """Band thresholds as (band, lower, upper RUL limit), most severe first, in the component's life units."""
+    lim = spec.risk_limits
+    return [("FAILURE_LIKELY", 0, lim["FAILURE_LIKELY"]), ("HIGH_RISK", lim["FAILURE_LIKELY"], lim["HIGH_RISK"]),
+            ("AT_RISK", lim["HIGH_RISK"], lim["AT_RISK"])]
+
+
+ZONES = zones(get("turbofan"))
 
 
 # ---------------------------------------------------------------- state
@@ -34,9 +49,9 @@ def get_result():
     return st.session_state.get("result")
 
 
-def run_analysis(name, content, subset=None):
-    """Analyze uploaded bytes and store the result for every page. subset None = pick automatically."""
-    result = analyze(read_sensor_file(io.BytesIO(content)), subset=subset, name=name)
+def run_analysis(name, content, subset=None, component=None):
+    """Analyze uploaded bytes and store the result for every page. None = the recognition model decides."""
+    result = analyze(read_sensor_file(io.BytesIO(content)), subset=subset, name=name, component=component)
     st.session_state["last_run"] = result
     if result.status != "FAILED":
         st.session_state["result"] = result
@@ -46,28 +61,33 @@ def run_analysis(name, content, subset=None):
 
 
 def subset_summary(subset):
-    """'6 operating conditions, HPC and fan degradation' style description of a subset."""
+    """'6 operating conditions, HPC and fan degradation' style description of a profile."""
+    spec = spec_of_profile(subset)
+    if spec.key != "turbofan":
+        return spec.profiles[subset].description
     info = SUBSETS[subset]
     conditions = "1 operating condition" if info["conditions"] == 1 else f"{info['conditions']} operating conditions"
     return f"{conditions}, {' and '.join(FAULT_TEXT[f] for f in info['fault_modes'])}"
 
 
-def sample_choice(key, label="NASA sample fleet"):
-    """Pick one of the four NASA test fleets. Only subsets with a trained model and data are offered."""
-    options = [s for s in available_subsets() if SAMPLES[s].exists()] or [DATASET]
-    choice = st.segmented_control(label, options, default=options[0], key=key,
-                                  help="FD001 and FD003 run at one operating condition, FD002 and FD004 at six. "
-                                       "FD003 and FD004 add fan degradation to compressor degradation.")
+def sample_choice(key, label="Sample fleet"):
+    """Pick a bundled fleet: the four NASA C-MAPSS test fleets, battery cells or bearings."""
+    options = [s for s in available_subsets() if SAMPLES.get(s) and SAMPLES[s].exists()] or [DATASET]
+    choice = st.segmented_control(label, options, default=options[0], key=key, format_func=PROFILE_LABELS.get,
+                                  help="Turbofan: FD001 and FD003 run at one operating condition, FD002 and FD004 at six; "
+                                       "FD003 and FD004 add fan degradation. Battery cells: NASA PCoE cells the model never "
+                                       "saw. Bearings: held-out FEMTO run-to-failure bearings.")
     return choice or options[0]
 
 
 def sample_button(key, primary=True, subset=None):
-    """Load a bundled NASA test fleet in one click."""
+    """Load a bundled sample fleet in one click."""
     subset = subset or DATASET
     path = SAMPLES[subset]
-    label = "Load NASA sample fleet" if subset == DATASET else f"Load NASA {subset} fleet"
+    spec = spec_of_profile(subset)
+    label = "Load NASA sample fleet" if subset == DATASET else f"Load {PROFILE_LABELS[subset].lower()} fleet"
     if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key):
-        with st.spinner(f"Analyzing {SUBSETS[subset]['test_engines']} engines"):
+        with st.spinner(f"Analyzing the {PROFILE_LABELS[subset]} sample fleet ({spec.unit_plural})"):
             run_analysis(path.name, path.read_bytes(), subset=subset)
         st.rerun()
 
@@ -77,8 +97,8 @@ def require_result():
     result = get_result()
     if result is None or result.units is None:
         from app.theme import empty
-        empty("No engine data loaded",
-              "Upload a C-MAPSS sensor file, or load one of the NASA test fleets to populate this view.")
+        empty("No data loaded",
+              "Upload turbofan, battery or bearing data, or load one of the sample fleets to populate this view.")
         left, right, _ = st.columns([1, 1, 3])
         with left:
             sample_button(key="empty_sample")
@@ -95,21 +115,28 @@ def load_benchmark():
 
 
 def profile_spec(result):
-    """Spec-strip facts for the loaded file: model, conditions, fault modes, size."""
+    """Spec-strip facts for the loaded file: component, model, conditions, fault modes, size."""
     prof = result.profile or {}
     subset = result.subset or DATASET
+    spec = spec_of_profile(subset)
     seen = prof.get("conditions_seen", 1)
-    return [("Model", f"{result.model_version} {subset}"),
-            ("Operating conditions", f"{seen}" + (", corrected to sea level" if prof.get("corrected") else "")),
-            ("Fault modes", " and ".join(FAULT_TEXT[f] for f in prof.get("fault_modes", SUBSETS[subset]["fault_modes"]))),
-            ("Engines", f"{len(result.units)}"), ("Cycles", f"{len(result.history):,}"),
-            ("Processing", f"{result.duration_ms:,.0f} ms")]
+    faults = prof.get("fault_modes") or list(spec.profiles[subset].fault_modes)
+    return [("Component", spec.name), ("Model", f"{result.model_version} {subset}"),
+            ("Operating conditions", f"{seen}" + (", corrected" if prof.get("corrected") else "")),
+            ("Degradation", " and ".join(FAULT_TEXT.get(f, f) for f in faults)),
+            (spec.unit_plural.capitalize(), f"{len(result.units)}"),
+            (f"{spec.time_title}s", f"{len(result.history):,}"), ("Processing", f"{result.duration_ms:,.0f} ms")]
 
 
 def active_subset():
-    """The subset whose model scored the loaded data (the default subset before any analysis)."""
+    """The profile whose model scored the loaded data (the default subset before any analysis)."""
     result = get_result()
     return getattr(result, "subset", None) or DATASET
+
+
+def active_spec():
+    """The component spec of the loaded data (the turbofan before any analysis)."""
+    return spec_of_profile(active_subset())
 
 
 def require_model(subset=None):
@@ -136,19 +163,22 @@ def sidebar_status():
         status = model_status(MODEL_VERSION, subset)
         rows = []
         if status["ready"]:
-            m = load_artifacts(MODEL_VERSION, subset).metadata["metrics"]
-            conditions = SUBSETS[subset]["conditions"]
-            rows += [("Model", f"{esc(status['version'])} {esc(subset)}"),
+            meta = load_artifacts(MODEL_VERSION, subset).metadata
+            m = meta["metrics"]
+            conditions = len(meta.get("conditions") or [1])
+            rows += [("Component", esc(spec_of_profile(subset).unit_title)),
+                     ("Model", f"{esc(status['version'])} {esc(subset)}"),
                      ("Conditions", "1" if conditions == 1 else f"{conditions}, corrected"),
                      ("Trained", esc(str(status["trained_at"])[:10])),
-                     ("Accuracy, unseen engines", f"{m['validation']['risk']['xgboost']['accuracy']:.1%}"),
-                     ("Accuracy, NASA test", f"{m['test']['risk']['accuracy']:.1%}"),
+                     (f"Accuracy, unseen {spec_of_profile(subset).unit_plural}", f"{m['validation']['risk']['xgboost']['accuracy']:.1%}"),
+                     ("Accuracy, test set", f"{m['test']['risk']['accuracy']:.1%}"),
                      ("RUL RMSE, test, capped", f"{m['test']['rul'].get('rmse_capped', m['test']['rul']['rmse']):.1f}")]
         else:
             rows.append(("Model", '<span style="color:#fa4d56">unavailable</span>'))
         result = get_result()
         if result is not None and result.units is not None:
-            rows += [("Dataset", esc(st.session_state.get("source_name", ""))), ("Engines", str(len(result.units)))]
+            rows += [("Dataset", esc(st.session_state.get("source_name", ""))),
+                     (result.spec.unit_plural.capitalize(), str(len(result.units)))]
         body = "".join(f'<div class="r"><span>{k}</span><b>{v}</b></div>' for k, v in rows)
         st.html(f"""<style>.as-sb .r {{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:12px;
   padding:3px 0; }}
@@ -156,7 +186,7 @@ def sidebar_status():
   overflow:hidden; text-overflow:ellipsis; max-width:60%; }}
 .as-sb p {{ font-size:12px; color:#7f8790; line-height:1.5; margin:14px 0 0; }}</style>
 <div class="as-sb">{body}
-<p>Decision support only. Predictions do not certify airworthiness and require review by a qualified engineer.</p></div>""")
+<p>Decision support only. Predictions do not certify {'airworthiness' if subset in ('FD001', 'FD002', 'FD003', 'FD004') else 'fitness for service'} and require review by a qualified engineer.</p></div>""")
 
 
 # ---------------------------------------------------------------- pickers & tables
@@ -165,13 +195,15 @@ def band_label(band):
 
 
 def unit_label(row):
+    spec = insights.spec_of(row)
     state = STATE_LABEL[insights.engine_state(row)]
     rul = f"   RUL {row['predicted_rul']:.0f}" if "predicted_rul" in row else ""
-    return f"Engine {int(row['unit']):03d}   {state}{rul}"
+    return f"{spec.label(row['unit'])}   {state}{rul}"
 
 
-def unit_picker(units, key="unit", label="Engine"):
+def unit_picker(units, key="unit", label=None):
     """Select an engine, most urgent first. The choice is shared across pages."""
+    label = label or insights.spec_of(units).unit_title
     ordered = insights.add_states(units)
     options = ordered["unit"].tolist()
     current = st.session_state.get("selected_unit")
@@ -192,7 +224,7 @@ def unit_picker(units, key="unit", label="Engine"):
 
 
 TABLE_CONFIG = {
-    "Engine": st.column_config.NumberColumn("Engine", format="%03d", width="small"),
+    "Engine": st.column_config.TextColumn("Engine", width="small"),
     "RUL": st.column_config.NumberColumn("RUL (cycles)", format="%.0f"),
     "Range": st.column_config.TextColumn("80% range"),
     "Confidence": st.column_config.NumberColumn("Band confidence", format="%.0f%%"),
@@ -204,7 +236,9 @@ TABLE_CONFIG = {
 def units_table(units, columns=None):
     """Readable unit table with human labels, in the order the caller passes."""
     u = units if "state" in units else units.assign(state=units.apply(insights.engine_state, axis=1))
-    table = {"Engine": u["unit"], "State": u["state"].map(STATE_LABEL), "Cycles": u["cycle"]}
+    spec = insights.spec_of(u)
+    table = {"_unit": u["unit"], "Engine": u["unit"].map(spec.unit_id), "State": u["state"].map(STATE_LABEL),
+             "Cycles": u["cycle"]}
     if "predicted_rul" in u:
         table["RUL"] = u["predicted_rul"]
         table["Range"] = [f"{lo:.0f} to {hi:.0f}" for lo, hi in zip(u["rul_low"], u["rul_high"])]
@@ -217,7 +251,8 @@ def units_table(units, columns=None):
         table["Top driver"] = u["rul_factors"].apply(lambda f: describe(f[0]["sensor"]) if isinstance(f, list) and f else "")
     table["Flags"] = u["review_reasons"].apply(lambda r: ", ".join(x for x in r if x != "high risk"))
     df = pd.DataFrame(table).reset_index(drop=True)
-    return df[[c for c in (columns or df.columns) if c in df]]
+    keep = [c for c in (columns or df.columns) if c in df and c != "_unit"]
+    return df[["_unit", *keep]]
 
 
 def _style_states(df):
@@ -228,10 +263,19 @@ def _style_states(df):
     return styler
 
 
+def table_config(spec):
+    """Column labels in the component's words: 'Cell', 'RUL (minutes)', 'Minutes'."""
+    return {**TABLE_CONFIG,
+            "Engine": st.column_config.TextColumn(spec.unit_title, width="small"),
+            "RUL": st.column_config.NumberColumn(f"RUL ({spec.life_unit})", format="%.0f"),
+            "Cycles": st.column_config.NumberColumn(f"{spec.time_title}s", format="%d")}
+
+
 def show_table(units, columns=None, key=None, on_select=None, height="auto"):
-    """Unit table. With on_select, a row click returns the selection state."""
+    """Unit table. With on_select, a row click returns the selection state; df['_unit'] is the unit id."""
     df = units_table(units, columns)
-    kwargs = dict(hide_index=True, width="stretch", column_config=TABLE_CONFIG, height=height)
+    kwargs = dict(hide_index=True, width="stretch", column_config=table_config(insights.spec_of(units)), height=height,
+                  column_order=[c for c in df.columns if c != "_unit"])
     if on_select:
         kwargs.update(on_select=on_select, selection_mode="single-row", key=key)
     event = st.dataframe(_style_states(df), **kwargs)
@@ -245,11 +289,11 @@ def review_box(row):
 
 
 # ---------------------------------------------------------------- chart helpers
-def _band_zones(fig, row=None, col=None, axis="y"):
+def _band_zones(fig, row=None, col=None, axis="y", spec=None):
     """Faint RUL band zones with direct labels; colour is backed by the label text."""
     # Plotly drops row/col shapes on subplots without traces yet unless told otherwise.
     pos = {"row": row, "col": col, "exclude_empty_subplots": False} if row else {}
-    for band, lo, hi in ZONES:
+    for band, lo, hi in zones(spec or get("turbofan")):
         kw = dict(fillcolor=BAND_COLORS[band], opacity=0.09, line_width=0, layer="below")
         if axis == "y":
             fig.add_hrect(y0=lo, y1=hi, **pos, **kw)
@@ -260,22 +304,23 @@ def _band_zones(fig, row=None, col=None, axis="y"):
             fig.add_vrect(x0=lo, x1=hi, **kw)
 
 
-def rul_chart(unit_history, row=None, height=360):
+def rul_chart(unit_history, row=None, height=360, spec=None):
     """Predicted RUL per cycle with band zones; the latest cycle carries the 80% range."""
+    spec = spec or (insights.spec_of(row) if row is not None else get("turbofan"))
     has_band = "risk_band" in unit_history
     fig = make_subplots(rows=2 if has_band else 1, cols=1, shared_xaxes=True, vertical_spacing=0.04,
                         row_heights=[0.9, 0.1] if has_band else [1])
-    _band_zones(fig, row=1, col=1)
+    _band_zones(fig, row=1, col=1, spec=spec)
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name="Predicted RUL",
                              line=dict(color=T["accent"], width=2),
                              hovertemplate="cycle %{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
     if row is not None and "rul_low" in row:
         fig.add_trace(go.Scatter(
-            x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name="80% range, latest cycle",
+            x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name=f"80% range, latest {spec.time_title.lower()}",
             marker=dict(color=T["accent"], size=8, line=dict(color=T["bg"], width=2)),
             error_y=dict(type="data", symmetric=False, array=[row["rul_high"] - row["predicted_rul"]],
                          arrayminus=[row["predicted_rul"] - row["rul_low"]], color=T["accent"], thickness=1.5, width=8),
-            hovertemplate="latest cycle %{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
+            hovertemplate=f"latest {spec.time_title.lower()} " + "%{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
     if has_band:
         fig.add_trace(go.Scatter(
             x=unit_history["cycle"], y=[0] * len(unit_history), mode="markers", name="Risk band per cycle",
@@ -283,10 +328,10 @@ def rul_chart(unit_history, row=None, height=360):
             customdata=[BAND_TEXT[b] for b in unit_history["risk_band"]], showlegend=False,
             hovertemplate="cycle %{x}<br>%{customdata}<extra></extra>"), row=2, col=1)
         fig.update_yaxes(visible=False, row=2, col=1)
-        fig.update_xaxes(title_text="cycle", row=2, col=1)
+        fig.update_xaxes(title_text=spec.time_title.lower(), row=2, col=1)
     else:
-        fig.update_xaxes(title_text="cycle")
-    fig.update_yaxes(title_text="predicted RUL (cycles)", range=[0, RUL_CAP + 5], row=1, col=1)
+        fig.update_xaxes(title_text=spec.time_title.lower())
+    fig.update_yaxes(title_text=f"predicted RUL ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
     fig.update_layout(height=height, showlegend=True)
     return fig
 
@@ -353,7 +398,7 @@ def factor_chart(factors, x_title, negative_color, positive_color, height=None):
     return fig
 
 
-def confusion_chart(matrix):
+def confusion_chart(matrix, units="engines"):
     labels = [BAND_TEXT[b] for b in RISK_BANDS]
     z = np.asarray(matrix, dtype=float)
     norm = z / np.maximum(z.sum(axis=1, keepdims=True), 1)
@@ -362,7 +407,7 @@ def confusion_chart(matrix):
         textfont=dict(family=MONO, size=13, color=T["text_1"]), xgap=2, ygap=2,
         # capped at a mid blue so white counts keep at least 4.5:1 contrast
         colorscale=[[0, T["surface"]], [0.5, "#24406b"], [1, "#3a6cc2"]], zmin=0, zmax=1,
-        hovertemplate="true %{y}<br>predicted %{x}<br>%{text} engines<extra></extra>"))
+        hovertemplate="true %{y}<br>predicted %{x}<br>%{text} " + units + "<extra></extra>"))
     fig.update_layout(height=360, xaxis_title="predicted band", yaxis_title="true band", yaxis_autorange="reversed",
                       margin=dict(t=8, b=48, l=96, r=8))
     fig.update_xaxes(showgrid=False, ticks="")
@@ -371,12 +416,13 @@ def confusion_chart(matrix):
 
 
 def ladder_chart(units, limit=None):
-    """Fleet RUL forecast: one row per engine, 80% range as a bar, point estimate as a marker."""
+    """Fleet RUL forecast: one row per unit, 80% range as a bar, point estimate as a marker."""
+    spec = insights.spec_of(units)
     u = units.head(limit) if limit else units
-    labels = [f"{int(x):03d}" for x in u["unit"]]
+    labels = [spec.unit_id(x) for x in u["unit"]]
     fig = go.Figure()
-    _band_zones(fig, axis="x")
-    for band, lo, hi in ZONES:
+    _band_zones(fig, axis="x", spec=spec)
+    for band, lo, hi in zones(spec):
         fig.add_annotation(x=(lo + hi) / 2, y=1.0, yref="paper", yanchor="bottom", showarrow=False,
                            text=BAND_TEXT[band], font=dict(color=BAND_COLORS[band], size=10))
     colors = [STATE_COLOR[s] for s in u["state"]]
@@ -387,17 +433,18 @@ def ladder_chart(units, limit=None):
         x=u["predicted_rul"], y=labels, mode="markers", name="Predicted RUL",
         marker=dict(color=colors, size=8, symbol="diamond", line=dict(color=T["bg"], width=1)),
         customdata=np.stack([u["unit"], u["rul_low"], u["rul_high"], u["state"].map(STATE_LABEL)], axis=1),
-        hovertemplate="Engine %{y}<br>RUL %{x:.0f} (80%: %{customdata[1]:.0f} to %{customdata[2]:.0f})"
+        hovertemplate=f"{spec.unit_title} " + "%{y}<br>RUL %{x:.0f} (80%: %{customdata[1]:.0f} to %{customdata[2]:.0f})"
                       "<br>%{customdata[3]}<extra></extra>"))
     fig.update_layout(height=max(260, 24 * len(u) + 70), barmode="overlay", showlegend=False, bargap=0.4,
                       margin=dict(t=24, b=40, l=44, r=12), hovermode="closest", clickmode="event+select")
-    fig.update_xaxes(title_text="remaining useful life (cycles)", range=[0, RUL_CAP + 2], side="bottom")
+    fig.update_xaxes(title_text=f"remaining useful life ({spec.life_unit})", range=[0, spec.rul_cap + 2], side="bottom")
     fig.update_yaxes(autorange="reversed", type="category", tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
     return fig
 
 
 def health_heatmap(units, history, threshold, critical, rows=20, window=60):
-    """Health score over the last `window` cycles for the most urgent engines (rows)."""
+    """Health score over the last `window` cycles for the most urgent units (rows)."""
+    spec = insights.spec_of(units)
     top = units.head(rows)["unit"].tolist()
     h = history[history["unit"].isin(top)].copy()
     h["rel"] = h["cycle"] - h.groupby("unit")["cycle"].transform("max")
@@ -409,12 +456,12 @@ def health_heatmap(units, history, threshold, critical, rows=20, window=60):
     scale = [[0, T["surface"]], [pos(threshold) - 0.01, "#30353c"], [pos(threshold), "#7d6a1f"],
              [pos(critical), "#9a5426"], [1, "#a8343c"]]
     fig = go.Figure(go.Heatmap(
-        z=grid.to_numpy(), x=grid.columns, y=[f"{u:03d}" for u in grid.index], zmin=lo, zmax=hi, colorscale=scale,
+        z=grid.to_numpy(), x=grid.columns, y=[spec.unit_id(u) for u in grid.index], zmin=lo, zmax=hi, colorscale=scale,
         xgap=1, ygap=1, colorbar=dict(title=dict(text="health", side="right", font=dict(size=11)), thickness=8,
                                       outlinewidth=0, tickfont=dict(family=MONO, size=10)),
-        hovertemplate="Engine %{y}<br>%{x} cycles from latest<br>health %{z:.2f}<extra></extra>"))
+        hovertemplate=f"{spec.unit_title} " + "%{y}<br>%{x} " + spec.time_title.lower() + "s from latest<br>health %{z:.2f}<extra></extra>"))
     fig.update_layout(height=max(240, 18 * len(top) + 70), margin=dict(t=8, b=40, l=44, r=8))
-    fig.update_xaxes(title_text="cycles before latest reading", showgrid=False)
+    fig.update_xaxes(title_text=f"{spec.time_title.lower()}s before latest reading", showgrid=False)
     fig.update_yaxes(autorange="reversed", type="category", tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
     return fig
 
@@ -430,15 +477,16 @@ def step_unit(units, key, delta):
 
 def trend_chart(unit_history, row, threshold, critical, height=430):
     """What is changing: predicted RUL (with band zones) above the health score, on one cycle axis."""
+    spec = insights.spec_of(row)
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08, row_heights=[0.58, 0.42])
-    _band_zones(fig, row=1, col=1)
+    _band_zones(fig, row=1, col=1, spec=spec)
     if "predicted_rul" in unit_history:
         fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name="Predicted RUL",
-                                 line=dict(color=T["accent"], width=2), hovertemplate="RUL %{y:.0f} cycles<extra></extra>"),
+                                 line=dict(color=T["accent"], width=2), hovertemplate="RUL %{y:.0f} " + spec.life_unit + "<extra></extra>"),
                       row=1, col=1)
     if "rul_low" in row:
         fig.add_trace(go.Scatter(
-            x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name="80% range, latest cycle",
+            x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name=f"80% range, latest {spec.time_title.lower()}",
             marker=dict(color=T["accent"], size=8, line=dict(color=T["bg"], width=2)),
             error_y=dict(type="data", symmetric=False, array=[row["rul_high"] - row["predicted_rul"]],
                          arrayminus=[row["predicted_rul"] - row["rul_low"]], color=T["accent"], thickness=1.5, width=8),
@@ -451,10 +499,10 @@ def trend_chart(unit_history, row, threshold, critical, height=430):
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["health_score"], mode="lines", name="Health score",
                              line=dict(color=T["accent_2"], width=1.6), hovertemplate="health %{y:.2f}<extra></extra>"),
                   row=2, col=1)
-    fig.update_yaxes(title_text="RUL (cycles)", range=[0, RUL_CAP + 5], row=1, col=1)
+    fig.update_yaxes(title_text=f"RUL ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
     fig.update_yaxes(title_text="health score", row=2, col=1,
                      range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), max(critical * 1.3, float(unit_history["health_score"].max()) * 1.1)])
-    fig.update_xaxes(title_text="cycle", row=2, col=1)
+    fig.update_xaxes(title_text=spec.time_title.lower(), row=2, col=1)
     fig.update_layout(height=height, margin=dict(t=30, b=40, l=56, r=12))
     return crosshair(fig)
 
@@ -463,19 +511,20 @@ DRIFT_COLORS = {"Critical": STATE_COLOR["CRITICAL"], "Warning": STATE_COLOR["WAR
                 "Nominal": T["text_3"]}
 
 
-def drift_table(drift, rows=None, height="auto", compact=False):
-    """Sensor drift ranking with a 60-cycle drift sparkline per sensor. compact drops module and trend."""
+def drift_table(drift, rows=None, height="auto", compact=False, unit="cycles"):
+    """Sensor drift ranking with a 60-step drift sparkline per sensor (unit: the life unit). compact drops module and trend."""
+    recent = f"Last 60 {unit}"
     d = drift.head(rows) if rows else drift
     df = pd.DataFrame({"Sensor": d["code"], "Measures": d["name"], "Module": d["module"], "Drift": d["drift"],
-                       "Trend": d["trend"], "Status": d["status"], "Last 60 cycles": d["history"]})
+                       "Trend": d["trend"], "Status": d["status"], recent: d["history"]})
     if compact:
         df = df.drop(columns=["Module", "Trend"])
     styler = df.style.map(lambda v: f"color: {DRIFT_COLORS.get(v, T['text_1'])}", subset=["Status"])
     st.dataframe(styler, hide_index=True, width="stretch", height=height, column_config={
         "Drift": st.column_config.NumberColumn("Drift (sigma)", format="%+.1f",
                                                help="Directed z-score against the healthy baseline; positive means degrading"),
-        "Trend": st.column_config.NumberColumn("Trend", format="%+.2f", help="Change in drift per 10 cycles, last 20 cycles"),
-        "Last 60 cycles": st.column_config.LineChartColumn("Last 60 cycles", y_min=-2, y_max=6, width="medium"),
+        "Trend": st.column_config.NumberColumn("Trend", format="%+.2f", help=f"Change in drift per 10 {unit}, last 20 {unit}"),
+        recent: st.column_config.LineChartColumn(recent, y_min=-2, y_max=6, width="medium"),
     })
 
 
@@ -488,28 +537,39 @@ def crosshair(fig):
     return fig
 
 
-def envelope_chart(history, trained, height=300):
-    """Operating envelope: where the engines flew (altitude against Mach), against what the model was trained on."""
-    pts = history[["setting_1", "setting_2", "setting_3", "condition_known"]].copy()
-    pts["alt"], pts["mach"], pts["tra"] = pts["setting_1"].round(0), pts["setting_2"].round(2), pts["setting_3"].round(0)
-    seen = pts.groupby(["alt", "mach", "tra"]).agg(cycles=("alt", "size"), known=("condition_known", "all")).reset_index()
+def envelope_chart(history, trained, spec=None, height=300):
+    """Operating envelope: the conditions in the file against the conditions the model was trained on."""
+    spec = spec or get("turbofan")
+    xk, yk, tk = ENVELOPE[spec.key]
+    labels = dict(zip(spec.settings, spec.setting_labels))
+    cols = [c for c in (xk, yk, tk) if c]
+    pts = history[cols + ["condition_known"]].copy()
+    for c in cols:
+        pts[c] = pts[c].round(2 if pts[c].abs().max() < 10 else 0)
+    seen = pts.groupby(cols).agg(cycles=(xk, "size"), known=("condition_known", "all")).reset_index()
     fig = go.Figure()
     size = 10 + 26 * np.sqrt(seen["cycles"] / seen["cycles"].max())
     colors = [T["accent"] if k else STATE_COLOR["CRITICAL"] for k in seen["known"]]
     fig.add_trace(go.Scatter(
-        x=seen["mach"], y=seen["alt"], mode="markers+text", name="in this file",
+        x=seen[xk], y=seen[yk], mode="markers+text" if tk else "markers", name="in this file",
         marker=dict(size=size, color=colors, opacity=0.85, line=dict(color=T["bg"], width=1)),
-        text=[f"TRA {t:.0f}" for t in seen["tra"]], textposition="middle right",
+        text=[f"TRA {t:.0f}" for t in seen[tk]] if tk else None, textposition="middle right",
         textfont=dict(family=MONO, size=10, color=T["text_2"]), cliponaxis=False,
         customdata=np.stack([seen["cycles"], np.where(seen["known"], "trained", "not trained")], axis=1),
-        hovertemplate="%{y:.0f} kft, Mach %{x:.2f}<br>%{customdata[0]:,} cycles<br>condition %{customdata[1]}<extra></extra>"))
+        hovertemplate=f"{labels[yk]} " + "%{y}<br>" + f"{labels[xk]} " + "%{x}<br>%{customdata[0]:,} "
+                      + f"{spec.time_title.lower()}s" + "<br>condition %{customdata[1]}<extra></extra>"))
     # Training conditions as rings drawn over the data, so a filled dot inside a ring reads as "covered".
+    ring_x = [c.get("settings", {}).get(xk, c.get("mach")) for c in trained]
+    ring_y = [c.get("settings", {}).get(yk, c.get("altitude_kft")) for c in trained]
     fig.add_trace(go.Scatter(
-        x=[c["mach"] for c in trained], y=[c["altitude_kft"] for c in trained], mode="markers", name="trained conditions",
+        x=ring_x, y=ring_y, mode="markers", name="trained conditions",
         marker=dict(size=46, color="rgba(0,0,0,0)", line=dict(color=T["text_3"], width=1)), hoverinfo="skip"))
     fig.update_layout(height=height, showlegend=False, margin=dict(t=8, b=44, l=56, r=60))
-    fig.update_xaxes(title_text="Mach number", range=[-0.06, 0.98], zeroline=False)
-    fig.update_yaxes(title_text="altitude (kft)", range=[-5, 48], zeroline=False)
+    span = lambda v: (min(v), max(v))  # noqa: E731
+    xs, ys = span(list(seen[xk]) + [v for v in ring_x if v is not None]), span(list(seen[yk]) + [v for v in ring_y if v is not None])
+    pad = lambda lo, hi: max((hi - lo) * 0.15, abs(hi) * 0.08, 0.1)  # noqa: E731
+    fig.update_xaxes(title_text=labels[xk], range=[xs[0] - pad(*xs), xs[1] + pad(*xs) * 1.6], zeroline=False)
+    fig.update_yaxes(title_text=labels[yk], range=[ys[0] - pad(*ys), ys[1] + pad(*ys)], zeroline=False)
     return fig
 
 

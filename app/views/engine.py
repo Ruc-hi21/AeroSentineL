@@ -15,13 +15,15 @@ artifacts = require_model()
 result = require_result()
 units = result.units
 
-theme.page_head("Engine status", "Condition, remaining useful life, failure risk and the suggested next step for one engine.",
-                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} engines, "
+spec = result.spec
+noun = spec.actions.get("noun", "unit")
+theme.page_head(f"{spec.unit_title} status", f"Condition, remaining useful life, failure risk and the suggested next step for one {noun}.",
+                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} {spec.unit_plural}, "
                 f"model {esc(result.model_version)} {esc(result.subset or '')}")
 
 pick, prev, nxt, _ = st.columns([3.2, 0.7, 0.7, 4.4], vertical_alignment="bottom")
 with pick:
-    row = unit_picker(units, key="engine", label="Engine (most urgent first)")
+    row = unit_picker(units, key="engine", label=f"{spec.unit_title} (most urgent first)")
 prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "engine", -1), width="stretch")
 nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
 
@@ -33,25 +35,26 @@ state = insights.engine_state(row)
 # 1-3. Condition, time left, risk and the single most important action.
 engine_status(status_payload(row, drift), key="engine_status")
 
-# Where on the engine: module condition along the gas path, and the flight condition of the latest cycle.
+# Where on the component: part condition on its schematic, and the operating condition of the latest reading.
 gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
-theme.note("Each module takes the colour of its most-drifted sensor; hover a module for its readings. Sensors also "
-           "respond to faults elsewhere (compressor wear shifts fan speed too), so shading shows where the evidence is "
-           "measured, not a confirmed root cause.")
+example = {"turbofan": "compressor wear shifts fan speed too", "battery": "capacity fade also lengthens charge times",
+           "bearing": "a race defect raises vibration in every band"}[spec.key]
+theme.note("Each part takes the colour of its most-drifted sensor; hover a part for its readings. Sensors also "
+           f"respond to faults elsewhere ({example}), so shading shows where the evidence is measured, not a confirmed root cause.")
 
 # 4-5. What is changing.
 left, right = st.columns([1.5, 1], gap="large")
 with left:
-    theme.section("Trend", "predicted RUL above health score, per cycle")
+    theme.section("Trend", f"predicted RUL above health score, per {spec.time_title.lower()}")
     threshold = artifacts.health.threshold
     theme.chart(trend_chart(hist, row, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="engine_trend")
 with right:
     hot = int(drift["status"].isin(["Critical", "Warning"]).sum())
     theme.section("Sensor drift", f"{hot} of {len(drift)} sensors beyond 2.4 sigma" if hot else "all sensors within 2.4 sigma")
     show_all = st.toggle("Show all sensors", key="engine_all_sensors")
-    drift_table(drift, rows=None if show_all else 8, compact=True)
-    theme.note("Drift is the directed z-score against the healthy baseline learned from the first cycles of the "
-               "training engines. Positive values move in the direction degradation pushes that sensor.")
+    drift_table(drift, rows=None if show_all else 8, compact=True, unit=spec.life_unit)
+    theme.note(f"Drift is the directed z-score against the healthy baseline learned from the first {spec.life_unit} of the "
+               f"training {spec.unit_plural}. Positive values move in the direction degradation pushes that sensor.")
 
 # 6-7. Why, and what to do.
 left, right = st.columns([1, 1], gap="large")
@@ -62,9 +65,9 @@ with left:
                "Confirm against approved maintenance data before acting.")
 with right:
     factors = row.get("rul_factors")
-    theme.section("Why the model predicts this", "SHAP contribution to the RUL estimate, cycles")
+    theme.section("Why the model predicts this", f"SHAP contribution to the RUL estimate, {spec.life_unit}")
     if isinstance(factors, list):
-        theme.chart(factor_chart(factors, "change in predicted RUL (cycles)", "#ff832b", TOKENS["accent"]), key="engine_shap")
+        theme.chart(factor_chart(factors, f"change in predicted RUL ({spec.life_unit})", "#ff832b", TOKENS["accent"]), key="engine_shap")
         theme.note("Bars to the left shortened the predicted life. SHAP shows correlation with the prediction, "
                    "not proof of a root cause.")
     else:

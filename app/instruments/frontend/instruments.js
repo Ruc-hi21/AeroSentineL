@@ -1,4 +1,4 @@
-/* AeroSentinel instruments: engine status panel and gas-path schematic.
+/* AeroSentinel instruments: unit status panel and component schematics (gas path, cell, bearing).
  *
  * Motion rule: the panel only animates when the engine (or its data) changes. Readouts tween
  * from the previous engine's values to the new ones so the difference is visible; the first
@@ -68,7 +68,9 @@
       text('state', d.state.label);
       if (animate) gsap.fromTo('#state-row', { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.24, ease: EASE });
     }
-    text('unit', `Engine ${String(d.unit).padStart(3, '0')}, cycle ${d.cycle}`);
+    const tt = (d.time_title || 'Cycle').toLowerCase();
+    text('unit', `${d.label || `Engine ${String(d.unit).padStart(3, '0')}`}, ${tt} ${d.cycle}`);
+    text('life-unit', d.life_unit || 'cycles');
     text('reason', d.reason);
 
     // RUL readout tweens numerically from the previous engine's value.
@@ -83,9 +85,9 @@
         onUpdate: () => text('rul', Math.round(shown.rul)),
       });
       text('rng', `80% range ${Math.round(d.low)} to ${Math.round(d.high)}`);
-      text('window', `end of life, cycle ${d.cycle + Math.round(d.low)} to ${d.cycle + Math.round(d.high)}`);
+      text('window', `end of life, ${tt} ${d.cycle + Math.round(d.low)} to ${d.cycle + Math.round(d.high)}`);
       $('scale').setAttribute('aria-label',
-        `Predicted RUL ${Math.round(d.rul)} cycles, 80 percent range ${Math.round(d.low)} to ${Math.round(d.high)} on a 0 to ${d.cap} cycle scale`);
+        `Predicted RUL ${Math.round(d.rul)} ${d.life_unit || 'cycles'}, 80 percent range ${Math.round(d.low)} to ${Math.round(d.high)} on a 0 to ${d.cap} scale`);
     }
     place(d, animate);
 
@@ -114,28 +116,85 @@
     post('streamlit:setFrameHeight', { height: Math.ceil(panel.getBoundingClientRect().height) + 2 });
   }
 
-  /* ---------------------------------------------------------------- gas path
-   * Side view of the upper half of a two-spool turbofan, inlet on the left. Each module is
-   * shaded by the strongest drift among its sensors; dashed traces show core and bypass flow.
-   * Engineering stations follow the C-MAPSS naming (2 fan inlet, 24 LPC exit, 30 HPC exit,
-   * 50 LPT exit). Motion: module colours tween when the engine changes; the flow traces drift
-   * slowly and stop under prefers-reduced-motion.
+  /* ---------------------------------------------------------------- component schematics
+   * An engineering line drawing of the component, upper half above its centre line. Each part
+   * is shaded by the strongest drift among its sensors.
+   *  turbofan: two-spool gas path, inlet on the left, C-MAPSS stations 2, 24, 30, 50
+   *  battery:  cylindrical cell, negative end on the left, positive cap on the right
+   *  bearing:  ball bearing in its housing, drive end on the left
+   * Motion: part colours tween when the unit changes; flow traces drift slowly and stop under
+   * prefers-reduced-motion.
    */
   const NS = 'http://www.w3.org/2000/svg';
   const NEUTRAL = { fill: '#1b1f24', stroke: '#353b43' };
-  const GEOM = {
-    byp: { pts: '132,52 836,60 836,84 132,88', label: 'BYPASS', lx: 470, ly: 75 },
-    fan: { pts: '66,34 112,34 122,204 58,204', label: 'FAN', lx: 90, ly: 128 },
-    lpc: { pts: '144,100 252,106 252,204 144,204', label: 'LPC', lx: 198, ly: 160 },
-    hpc: { pts: '264,108 444,126 444,204 264,204', label: 'HPC', lx: 354, ly: 168 },
-    comb: { pts: '456,120 546,120 546,204 456,204', label: 'CC', lx: 501, ly: 168 },
-    hpt: { pts: '558,122 616,116 616,204 558,204', label: 'HPT', lx: 587, ly: 168 },
-    lpt: { pts: '628,114 764,94 764,204 628,204', label: 'LPT', lx: 696, ly: 160 },
-    noz: { pts: '776,94 910,118 910,204 776,204', label: 'NOZ', lx: 843, ly: 164 },
+  const circle = (cx, cy, r, n = 20) => Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+  const SCHEMATICS = {
+    turbofan: {
+      parts: {
+        byp: [{ pts: '132,52 836,60 836,84 132,88', label: 'BYPASS', lx: 470, ly: 75 }],
+        fan: [{ pts: '66,34 112,34 122,204 58,204', label: 'FAN', lx: 90, ly: 128 }],
+        lpc: [{ pts: '144,100 252,106 252,204 144,204', label: 'LPC', lx: 198, ly: 160 }],
+        hpc: [{ pts: '264,108 444,126 444,204 264,204', label: 'HPC', lx: 354, ly: 168 }],
+        comb: [{ pts: '456,120 546,120 546,204 456,204', label: 'CC', lx: 501, ly: 168 }],
+        hpt: [{ pts: '558,122 616,116 616,204 558,204', label: 'HPT', lx: 587, ly: 168 }],
+        lpt: [{ pts: '628,114 764,94 764,204 628,204', label: 'LPT', lx: 696, ly: 160 }],
+        noz: [{ pts: '776,94 910,118 910,204 776,204', label: 'NOZ', lx: 843, ly: 164 }],
+      },
+      stations: [[56, 'stn 2'], [258, 'stn 24'], [450, 'stn 30'], [770, 'stn 50']],
+      decor(svg) {
+        el('path', { class: 'shell', d: 'M 40 40 Q 60 28 132 46 L 836 56 L 852 60' }, svg);
+        el('path', { class: 'shell', d: 'M 132 92 L 770 90' }, svg);
+        el('line', { x1: 96, y1: 210, x2: 700, y2: 210, class: 'shaft' }, svg);
+        el('line', { x1: 300, y1: 206, x2: 590, y2: 206, class: 'shaft' }, svg);
+        el('text', { x: 712, y: 213, class: 'shaft-l' }, svg).textContent = 'LP spool  Nf';
+        el('text', { x: 300, y: 200, class: 'shaft-l' }, svg).textContent = 'HP spool  Nc';
+      },
+      flows: [['flow byp', 'M 30 70 L 860 72', 4.4], ['flow core', 'M 30 150 L 140 150 L 260 158 L 450 166 L 560 168 L 770 160 L 930 162', 3.2]],
+    },
+    battery: {
+      parts: {
+        can: [{ pts: '70,36 890,36 890,50 84,50 84,214 70,214', label: 'CAN', lx: 300, ly: 46 }],
+        electrolyte: [{ pts: '92,56 882,56 882,62 92,62', label: '', lx: 0, ly: 0 },
+                      { pts: '856,62 882,62 882,206 856,206', label: 'EL', lx: 869, ly: 140 }],
+        stack: [{ pts: '100,68 850,68 850,122 100,122', label: 'ELECTRODE STACK', lx: 475, ly: 98 },
+                { pts: '100,140 850,140 850,206 100,206', label: '', lx: 0, ly: 0 }],
+        interface: [{ pts: '100,124 850,124 850,138 100,138', label: 'SEPARATOR AND SEI', lx: 475, ly: 134 }],
+        terminal: [{ pts: '890,150 928,150 928,214 890,214', label: '+', lx: 909, ly: 186 },
+                   { pts: '44,170 70,170 70,214 44,214', label: '-', lx: 57, ly: 196 }],
+      },
+      stations: [[70, 'negative'], [475, 'mid-stack'], [890, 'positive']],
+      decor(svg) {
+        for (let y = 74; y < 120; y += 9) el('line', { x1: 104, y1: y, x2: 846, y2: y, class: 'layer' }, svg);
+        for (let y = 146; y < 204; y += 9) el('line', { x1: 104, y1: y, x2: 846, y2: y, class: 'layer' }, svg);
+        el('line', { x1: 100, y1: 211, x2: 850, y2: 211, class: 'shaft' }, svg);
+        el('text', { x: 104, y: 226, class: 'shaft-l' }, svg).textContent = 'mandrel';
+        el('line', { x1: 850, y1: 96, x2: 900, y2: 152, class: 'tab' }, svg);
+        el('line', { x1: 100, y1: 186, x2: 70, y2: 196, class: 'tab' }, svg);
+      },
+      flows: [['flow core', 'M 120 96 L 846 96 L 900 156', 5.0]],
+    },
+    bearing: {
+      parts: {
+        shaft: [{ pts: '40,180 920,180 920,214 40,214', label: 'SHAFT', lx: 160, ly: 202 }],
+        races: [{ pts: '380,150 580,150 580,178 380,178', label: 'INNER RACE', lx: 480, ly: 170 },
+                { pts: '380,62 580,62 580,90 380,90', label: 'OUTER RACE', lx: 480, ly: 80 }],
+        rolling: [{ pts: circle(480, 120, 27), label: 'BALL', lx: 480, ly: 124 }],
+        housing: [{ pts: '300,28 660,28 660,60 580,60 580,62 380,62 380,60 300,60', label: 'HOUSING', lx: 340, ly: 48 },
+                  { pts: '600,6 644,6 644,28 600,28', label: 'acc V', lx: 622, ly: 21 }],
+      },
+      stations: [[120, 'drive end'], [480, 'bearing'], [840, 'free end']],
+      decor(svg) {
+        el('line', { x1: 444, y1: 120, x2: 516, y2: 120, class: 'layer' }, svg);
+        el('text', { x: 600, y: 124, class: 'shaft-l' }, svg).textContent = 'cage';
+        el('path', { class: 'load', d: 'M 700 8 L 700 25 M 693 18 L 700 26 L 707 18' }, svg);
+        el('text', { x: 712, y: 21, class: 'shaft-l' }, svg).textContent = 'radial load';
+      },
+      flows: [['flow core', 'M 60 196 L 920 196', 2.4]],
+    },
   };
-  const STATIONS = [[56, '2'], [258, '24'], [450, '30'], [770, '50']];
-  const FLOW_ORDER = ['fan', 'lpc', 'hpc', 'comb', 'hpt', 'lpt', 'noz', 'byp'];  // chips read inlet to exhaust
-  let gpPrev = null;
+  let gpPrev = null, gpComponent = null;
   let flowTweens = [];
 
   function el(tag, attrs, parent) {
@@ -145,32 +204,29 @@
     return n;
   }
 
-  function buildGasPath() {
-    const svg = el('svg', { viewBox: '0 0 960 236', role: 'img', 'aria-label': 'Gas path schematic' });
+  function buildSchematic(d) {
+    const sc = SCHEMATICS[d.component] || SCHEMATICS.turbofan;
+    flowTweens.forEach((t) => t.kill()); flowTweens = [];
+    $('gp-svg').innerHTML = '';
+    const svg = el('svg', { viewBox: '0 0 960 236', role: 'img', 'aria-label': d.title || 'Component schematic' });
     el('line', { x1: 20, y1: 214, x2: 940, y2: 214, class: 'axis' }, svg);
-    STATIONS.forEach(([x, name]) => {
+    sc.stations.forEach(([x, name]) => {
       const g = el('g', { class: 'stn' }, svg);
       el('line', { x1: x, y1: 22, x2: x, y2: 214 }, g);
-      el('text', { x: x, y: 16, 'text-anchor': 'middle' }, g).textContent = `stn ${name}`;
+      el('text', { x: x, y: 16, 'text-anchor': 'middle' }, g).textContent = name;
     });
-    // nacelle and core cowl
-    el('path', { class: 'shell', d: 'M 40 40 Q 60 28 132 46 L 836 56 L 852 60' }, svg);
-    el('path', { class: 'shell', d: 'M 132 92 L 770 90' }, svg);
-    Object.entries(GEOM).forEach(([key, g]) => {
-      const poly = el('polygon', { points: g.pts, class: 'mod', id: `m-${key}`, fill: NEUTRAL.fill, stroke: NEUTRAL.stroke }, svg);
+    sc.decor(svg);
+    Object.entries(sc.parts).forEach(([key, polys]) => polys.forEach((g, i) => {
+      const poly = el('polygon', { points: g.pts, class: `mod p-${key}`, fill: NEUTRAL.fill, stroke: NEUTRAL.stroke }, svg);
       poly.dataset.key = key;
-      el('text', { x: g.lx, y: g.ly, 'text-anchor': 'middle', class: 'lbl-m' }, svg).textContent = g.label;
-    });
-    // spools: LP shaft joins fan and LPT, HP shaft joins HPC and HPT
-    el('line', { x1: 96, y1: 210, x2: 700, y2: 210, class: 'shaft' }, svg);
-    el('line', { x1: 300, y1: 206, x2: 590, y2: 206, class: 'shaft' }, svg);
-    el('text', { x: 712, y: 213, class: 'shaft-l' }, svg).textContent = 'LP spool  Nf';
-    el('text', { x: 300, y: 200, class: 'shaft-l' }, svg).textContent = 'HP spool  Nc';
-    el('path', { class: 'flow byp', d: 'M 30 70 L 860 72' }, svg);
-    el('path', { class: 'flow core', d: 'M 30 150 L 140 150 L 260 158 L 450 166 L 560 168 L 770 160 L 930 162' }, svg);
+      if (g.label) el('text', { x: g.lx, y: g.ly, 'text-anchor': 'middle', class: 'lbl-m' }, svg).textContent = g.label;
+    }));
+    sc.flows.forEach(([cls, path]) => el('path', { class: cls, d: path }, svg));
     $('gp-svg').appendChild(svg);
 
-    $('gp-chips').innerHTML = FLOW_ORDER.map((k) => `<div class="chip" id="c-${k}"><div class="n"><i></i><span></span></div>`
+    const order = d.modules.map((m) => m.key);
+    $('gp-chips').style.gridTemplateColumns = `repeat(${order.length}, minmax(0, 1fr))`;
+    $('gp-chips').innerHTML = order.map((k) => `<div class="chip" id="c-${k}"><div class="n"><i></i><span></span></div>`
       + '<div class="v"></div><div class="s"></div></div>').join('');
 
     const tip = $('gp-tip');
@@ -181,9 +237,9 @@
       tip.innerHTML = `<b></b>${m.sensors.length ? '' : '<div>no modelled sensor</div>'}`;
       tip.querySelector('b').textContent = m.name;
       m.sensors.forEach((s) => {
-        const d = document.createElement('div');
-        d.textContent = `${s.code.padEnd(6)} ${s.drift >= 0 ? '+' : ''}${s.drift.toFixed(1)} sigma  ${s.status}`;
-        tip.appendChild(d);
+        const row = document.createElement('div');
+        row.textContent = `${s.code.padEnd(6)} ${s.drift >= 0 ? '+' : ''}${s.drift.toFixed(1)} sigma  ${s.status}`;
+        tip.appendChild(row);
       });
       tip.style.display = 'block';
       tip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
@@ -192,45 +248,49 @@
     svg.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 
     if (!REDUCED) {
-      flowTweens = [
-        gsap.to('#gp .flow.core', { strokeDashoffset: -64, duration: 3.2, ease: 'none', repeat: -1 }),
-        gsap.to('#gp .flow.byp', { strokeDashoffset: -64, duration: 4.4, ease: 'none', repeat: -1 }),
-      ];
-      document.addEventListener('visibilitychange', () => flowTweens.forEach((t) => (document.hidden ? t.pause() : t.resume())));
+      sc.flows.forEach(([cls, , secs]) => {
+        flowTweens.push(gsap.to(`#gp .${cls.split(' ').join('.')}`, { strokeDashoffset: -64, duration: secs, ease: 'none', repeat: -1 }));
+      });
     }
+    gpComponent = d.component;
   }
+  document.addEventListener('visibilitychange', () => flowTweens.forEach((t) => (document.hidden ? t.pause() : t.resume())));
 
   function renderGasPath(d) {
     const first = gpPrev === null;
     const box = $('gp');
-    if (first) { box.style.display = 'block'; buildGasPath(); }
-    const dur = first || REDUCED ? 0 : DUR;
-    text('gp-unit', `Engine ${String(d.unit).padStart(3, '0')}, cycle ${d.cycle}`);
+    if (first) box.style.display = 'block';
+    const rebuilt = first || gpComponent !== d.component;
+    if (rebuilt) { buildSchematic(d); gpPrev = null; }
+    const dur = rebuilt || REDUCED ? 0 : DUR;
+    text('gp-title', d.title || 'Gas path, inlet to exhaust');
+    text('gp-unit', `${d.label || `Engine ${String(d.unit).padStart(3, '0')}`}, ${(d.time_title || 'cycle').toLowerCase()} ${d.cycle}`);
 
     const oc = $('gp-oc');
     oc.className = 'oc';
     if (d.condition) {
       const c = d.condition;
-      oc.innerHTML = `<em>latest cycle</em> ${c.altitude.toFixed(0)} kft  M${c.mach.toFixed(2)}  TRA ${c.throttle}`
-        + (c.corrected ? '  <em>corrected to sea level</em>' : '');
+      oc.innerHTML = `<em>latest reading</em> ${c.text}` + (c.corrected ? '  <em>corrected to the reference condition</em>' : '');
       if (!c.known) { oc.className = 'oc warn'; oc.innerHTML += '  condition not trained'; }
     } else {
       oc.textContent = '';
     }
 
     d.modules.forEach((m) => {
-      const poly = $(`m-${m.key}`);
+      const polys = document.querySelectorAll(`#gp .p-${m.key}`);
       const has = m.sensors.length > 0;
-      poly.classList.toggle('nodata', !has);
-      const stroke = m.color || NEUTRAL.stroke;
-      gsap.to(poly, { attr: { fill: m.color || NEUTRAL.fill, stroke }, fillOpacity: m.color ? 0.22 : 1, duration: dur, ease: EASE, overwrite: true });
-
+      polys.forEach((poly) => {
+        poly.classList.toggle('nodata', !has);
+        gsap.to(poly, { attr: { fill: m.color || NEUTRAL.fill, stroke: m.color || NEUTRAL.stroke }, fillOpacity: m.color ? 0.22 : 1,
+          duration: dur, ease: EASE, overwrite: true });
+      });
       const chip = $(`c-${m.key}`);
+      if (!chip) return;
       chip.style.setProperty('--cc', m.color || '');
       chip.querySelector('.n span').textContent = m.name;
       chip.querySelector('.v').textContent = has ? `${m.drift >= 0 ? '+' : ''}${m.drift.toFixed(1)} sigma` : 'not modelled';
       chip.querySelector('.s').textContent = has ? `${m.status}  ${m.sensors.map((s) => s.code).join(' ')}` : '';
-      if (!first && !REDUCED && gpPrev) {
+      if (!rebuilt && !REDUCED && gpPrev) {
         const before = gpPrev.modules.find((x) => x.key === m.key);
         if (before && before.status !== m.status) gsap.fromTo(chip, { backgroundColor: 'rgba(120,169,255,.10)' }, { backgroundColor: 'rgba(0,0,0,0)', duration: 0.8 });
       }

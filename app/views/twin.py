@@ -1,4 +1,4 @@
-"""3D model: every C-MAPSS sensor at its engine station, with a replay of the recorded life."""
+"""3D model: every sensor channel at its station on a sectioned turbofan, battery cell or bearing, with a replay."""
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -9,10 +9,12 @@ from app.engine3d import Z_SMOOTHING, engine_twin, twin_payload
 from app.theme import TOKENS, esc
 from src.explainability.sensor_names import SENSOR_INFO, describe
 
-theme.page_head("3D model", "Sectioned turbofan with each sensor at its station. Opens on the latest reading; "
-                "Replay steps through the recorded history cycle by cycle.")
 artifacts = require_model()
 result = require_result()
+spec = result.spec
+WHAT = {"turbofan": "Sectioned turbofan", "battery": "Sectioned Li-ion cell", "bearing": "Sectioned ball bearing in its housing"}
+theme.page_head("3D model", f"{WHAT[spec.key]} with each sensor at its station. Opens on the latest reading; Replay steps "
+                f"through the recorded history {spec.time_title.lower()} by {spec.time_title.lower()}.")
 
 row = unit_picker(result.units, key="twin")
 unit = int(row["unit"])
@@ -32,7 +34,7 @@ with left:
     fig.add_trace(go.Scatter(x=hist["cycle"], y=hist[sensor], mode="lines", name="Reading",
                              line=dict(color=TOKENS["text_3"], width=1), opacity=0.7))
     fig.add_trace(go.Scatter(x=hist["cycle"], y=hist[sensor].rolling(10, min_periods=1).mean(), mode="lines",
-                             name="10-cycle mean", line=dict(color=TOKENS["accent"], width=2)))
+                             name=f"10-{spec.time_title.lower()} mean", line=dict(color=TOKENS["accent"], width=2)))
     if sensor in artifacts.health.sensors:
         h = artifacts.health
         base = h.mean[sensor]
@@ -41,7 +43,7 @@ with left:
         for k, color in [(2.4, "#ff832b"), (3.2, "#fa4d56")]:
             fig.add_hline(y=base + k * h.std[sensor] * h.direction[sensor], line=dict(color=color, width=1, dash="dash"),
                           annotation_text=f"{k} sigma", annotation_position="top left", annotation_font=dict(color=color))
-    fig.update_layout(height=340, xaxis_title="cycle", yaxis_title=f"{code} ({unit_label})" if unit_label else code)
+    fig.update_layout(height=340, xaxis_title=spec.time_title.lower(), yaxis_title=f"{code} ({unit_label})" if unit_label else code)
     theme.chart(fig, key="twin_sensor")
 with right:
     if sensor in artifacts.health.sensors:
@@ -52,12 +54,12 @@ with right:
             theme.stat("Drift now", f"{now:+.1f}", "sigma", foot=level),
             theme.stat("Peak drift", f"{peak:+.1f}", "sigma"),
         ])
-        theme.kv([("Module", esc(insights.MODULE_NAMES[insights.SENSOR_MODULE[sensor]])),
+        theme.kv([("Part", esc(insights.module_of(sensor))),
                   ("Latest reading", f"{hist[sensor].iloc[-1]:.2f} {esc(unit_label)}"),
                   ("Healthy baseline", f"{artifacts.health.mean[sensor]:.2f} {esc(unit_label)}")])
     else:
-        theme.empty("Not modelled", f"{esc(describe(sensor))} carries no wear signal in {esc(result.subset)} once readings "
-                    "are taken at a single operating condition, so the model does not use it. It is shown for completeness.")
+        theme.empty("Not modelled", f"{esc(describe(sensor))} carries no wear signal in {esc(result.subset)}, so the "
+                    "model does not use it. It is shown for completeness.")
     impact = next((f["impact"] for f in factors if f["sensor"] == sensor), None)
-    theme.note(f"SHAP: this sensor changed the predicted RUL by {impact:+.1f} cycles." if impact is not None
-               else "Not among this engine's top five RUL drivers.")
+    theme.note(f"SHAP: this sensor changed the predicted RUL by {impact:+.1f} {spec.life_unit}." if impact is not None
+               else f"Not among this {spec.actions.get('noun', 'unit')}'s top five RUL drivers.")
