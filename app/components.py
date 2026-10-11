@@ -18,14 +18,18 @@ from src.explainability.sensor_names import SENSOR_INFO, describe
 from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
 
-# Sample fleets: NASA C-MAPSS test fleets, the battery cells the model never saw, the held-out bearings.
+# Sample fleets: NASA C-MAPSS test fleets, battery cells the model never saw, held-out gearboxes, the held-out
+# hydraulic test blocks, and the IGBT devices.
 SAMPLES = {**{s: RAW_DATA_DIR / f"test_{s}.txt" for s in SUBSETS},
-           "PCOE": RAW_DATA_DIR / "sample_PCOE.csv", "FEMTO": RAW_DATA_DIR / "test_FEMTO.csv"}
+           "PCOE": RAW_DATA_DIR / "sample_PCOE.csv", "FEMTO": RAW_DATA_DIR / "test_FEMTO.csv",
+           "UCI": RAW_DATA_DIR / "test_UCI.csv", "IGBT": RAW_DATA_DIR / "sample_IGBT.csv"}
 SAMPLE = SAMPLES[DATASET]
-PROFILE_LABELS = {**{s: s for s in SUBSETS}, "PCOE": "Battery cells", "FEMTO": "Bearings"}
+PROFILE_LABELS = {**{s: s for s in SUBSETS}, "PCOE": "Battery cells", "FEMTO": "Gearboxes", "UCI": "Hydraulics",
+                  "IGBT": "Power electronics"}
 FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation", "capacity fade": "capacity fade",
               "rolling contact wear": "rolling contact wear"}
-# Operating-envelope axes per component: (x setting, y setting, label setting or None).
+# Operating-envelope axes per component: (x setting, y setting, label setting or None). Components without
+# operating settings (hydraulic rig, IGBTs) have no envelope.
 ENVELOPE = {"turbofan": ("setting_2", "setting_1", "setting_3"), "battery": ("load_a", "ambient_c", None),
             "bearing": ("speed_rpm", "load_kn", None)}
 T = TOKENS
@@ -73,10 +77,13 @@ def subset_summary(subset):
 def sample_choice(key, label="Sample fleet"):
     """Pick a bundled fleet: the four NASA C-MAPSS test fleets, battery cells or bearings."""
     options = [s for s in available_subsets() if SAMPLES.get(s) and SAMPLES[s].exists()] or [DATASET]
-    choice = st.segmented_control(label, options, default=options[0], key=key, format_func=PROFILE_LABELS.get,
+    # Pills wrap onto a second line; with eight fleets a segmented control would run off a narrow column.
+    choice = st.pills(label, options, default=options[0], key=key, format_func=PROFILE_LABELS.get,
                                   help="Turbofan: FD001 and FD003 run at one operating condition, FD002 and FD004 at six; "
                                        "FD003 and FD004 add fan degradation. Battery cells: NASA PCoE cells the model never "
-                                       "saw. Bearings: held-out FEMTO run-to-failure bearings.")
+                                       "saw. Gearboxes: held-out run-to-failure gearbox bearings (FEMTO). Hydraulics: the "
+                                       "test rig's held-out blocks. Power electronics: the four NASA IGBTs (only D03 was "
+                                       "held out of training).")
     return choice or options[0]
 
 
@@ -197,7 +204,7 @@ def band_label(band):
 def unit_label(row):
     spec = insights.spec_of(row)
     state = STATE_LABEL[insights.engine_state(row)]
-    rul = f"   RUL {row['predicted_rul']:.0f}" if "predicted_rul" in row else ""
+    rul = f"   {spec.rul_short} {insights.life(row['predicted_rul'], spec)}" if "predicted_rul" in row else ""
     return f"{spec.label(row['unit'])}   {state}{rul}"
 
 
@@ -267,7 +274,7 @@ def table_config(spec):
     """Column labels in the component's words: 'Cell', 'RUL (minutes)', 'Minutes'."""
     return {**TABLE_CONFIG,
             "Engine": st.column_config.TextColumn(spec.unit_title, width="small"),
-            "RUL": st.column_config.NumberColumn(f"RUL ({spec.life_unit})", format="%.0f"),
+            "RUL": st.column_config.NumberColumn(f"{spec.rul_short} ({spec.life_unit})", format="%.0f"),
             "Cycles": st.column_config.NumberColumn(f"{spec.time_title}s", format="%d")}
 
 
@@ -289,19 +296,37 @@ def review_box(row):
 
 
 # ---------------------------------------------------------------- chart helpers
+RIGHT_LABELS = 132  # px of right margin for direct labels (band limits, thresholds, latest values)
+
+
 def _band_zones(fig, row=None, col=None, axis="y", spec=None):
-    """Faint RUL band zones with direct labels; colour is backed by the label text."""
+    """Faint band zones; each limit is labelled with its value in the right margin, clear of the data."""
+    spec = spec or get("turbofan")
     # Plotly drops row/col shapes on subplots without traces yet unless told otherwise.
     pos = {"row": row, "col": col, "exclude_empty_subplots": False} if row else {}
-    for band, lo, hi in zones(spec or get("turbofan")):
-        kw = dict(fillcolor=BAND_COLORS[band], opacity=0.09, line_width=0, layer="below")
+    for band, lo, hi in zones(spec):
+        kw = dict(fillcolor=BAND_COLORS[band], opacity=0.08, line_width=0, layer="below")
         if axis == "y":
             fig.add_hrect(y0=lo, y1=hi, **pos, **kw)
-            fig.add_hline(y=hi, line=dict(color=BAND_COLORS[band], width=1, dash="dot"), opacity=0.75, **pos,
-                          annotation_text=f"{BAND_TEXT[band]} (RUL {hi} or less)", annotation_position="top left",
-                          annotation_font=dict(color=BAND_COLORS[band], size=10))
+            fig.add_hline(y=hi, line=dict(color=BAND_COLORS[band], width=1, dash="dot"), opacity=0.8, **pos,
+                          annotation_text=f"{BAND_TEXT[band]}  ≤{hi}", annotation_position="right",
+                          annotation_font=dict(color=BAND_COLORS[band], size=11, family=MONO))
         else:
             fig.add_vrect(x0=lo, x1=hi, **kw)
+
+
+def _end_label(fig, x, y, text, color, row=None, col=None):
+    """Value at the end of a line, just right of the last point."""
+    kw = {"row": row, "col": col} if row else {}
+    fig.add_annotation(x=x, y=y, text=f"<b>{text}</b>", showarrow=False, xanchor="left", xshift=10,
+                       font=dict(family=MONO, size=12, color=color), bgcolor="rgba(14,16,19,0.85)", **kw)
+
+
+def _threshold(fig, y, text, color, shift=0, row=None, col=None):
+    """A dashed limit line labelled with its value in the right margin."""
+    kw = {"row": row, "col": col, "exclude_empty_subplots": False} if row else {}
+    fig.add_hline(y=y, line=dict(color=color, width=1, dash="dash"), annotation_text=text, annotation_position="right",
+                  annotation_yshift=shift, annotation_font=dict(color=color, size=11, family=MONO), **kw)
 
 
 def rul_chart(unit_history, row=None, height=360, spec=None):
@@ -311,45 +336,46 @@ def rul_chart(unit_history, row=None, height=360, spec=None):
     fig = make_subplots(rows=2 if has_band else 1, cols=1, shared_xaxes=True, vertical_spacing=0.04,
                         row_heights=[0.9, 0.1] if has_band else [1])
     _band_zones(fig, row=1, col=1, spec=spec)
-    fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name="Predicted RUL",
-                             line=dict(color=T["accent"], width=2),
-                             hovertemplate="cycle %{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name=f"Predicted {spec.rul_short}",
+                             line=dict(color=T["accent"], width=2.2),
+                             hovertemplate=f"{spec.rul_short} " + "%{y:.1f} " + spec.life_unit + "<extra></extra>"), row=1, col=1)
+    last = unit_history.iloc[-1]
+    _end_label(fig, last["cycle"], last["predicted_rul"], insights.life(last["predicted_rul"], spec), T["accent"], row=1, col=1)
     if row is not None and "rul_low" in row:
         fig.add_trace(go.Scatter(
             x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name=f"80% range, latest {spec.time_title.lower()}",
             marker=dict(color=T["accent"], size=8, line=dict(color=T["bg"], width=2)),
             error_y=dict(type="data", symmetric=False, array=[row["rul_high"] - row["predicted_rul"]],
                          arrayminus=[row["predicted_rul"] - row["rul_low"]], color=T["accent"], thickness=1.5, width=8),
-            hovertemplate=f"latest {spec.time_title.lower()} " + "%{x}<br>RUL %{y:.0f}<extra></extra>"), row=1, col=1)
+            hovertemplate=f"80% range {row['rul_low']:.0f} to {row['rul_high']:.0f} {spec.life_unit}<extra></extra>"), row=1, col=1)
     if has_band:
         fig.add_trace(go.Scatter(
             x=unit_history["cycle"], y=[0] * len(unit_history), mode="markers", name="Risk band per cycle",
             marker=dict(symbol="square", size=6, color=[BAND_COLORS[b] for b in unit_history["risk_band"]]),
             customdata=[BAND_TEXT[b] for b in unit_history["risk_band"]], showlegend=False,
-            hovertemplate="cycle %{x}<br>%{customdata}<extra></extra>"), row=2, col=1)
+            hovertemplate="band %{customdata}<extra></extra>"), row=2, col=1)
         fig.update_yaxes(visible=False, row=2, col=1)
         fig.update_xaxes(title_text=spec.time_title.lower(), row=2, col=1)
     else:
         fig.update_xaxes(title_text=spec.time_title.lower())
-    fig.update_yaxes(title_text=f"predicted RUL ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
-    fig.update_layout(height=height, showlegend=True)
-    return fig
+    fig.update_yaxes(title_text=f"predicted {spec.rul_short} ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
+    fig.update_layout(height=height, showlegend=True, margin=dict(t=30, b=40, l=56, r=RIGHT_LABELS))
+    return crosshair(fig)
 
 
 def health_chart(unit_history, threshold, critical, height=300):
     fig = go.Figure()
     top = max(float(unit_history["health_score"].max()), critical) * 1.15
-    fig.add_hline(y=threshold, line=dict(color=STATE_COLOR["DEGRADING"], width=1, dash="dash"),
-                  annotation_text=f"abnormal above {threshold:.2f}", annotation_position="top left",
-                  annotation_font=dict(color=STATE_COLOR["DEGRADING"]))
-    fig.add_hline(y=critical, line=dict(color=STATE_COLOR["CRITICAL"], width=1, dash="dash"),
-                  annotation_text=f"critical above {critical:.2f}", annotation_position="top left",
-                  annotation_font=dict(color=STATE_COLOR["CRITICAL"]))
+    _threshold(fig, threshold, f"abnormal >{threshold:.2f}", STATE_COLOR["DEGRADING"], shift=-9)
+    _threshold(fig, critical, f"critical >{critical:.2f}", STATE_COLOR["CRITICAL"], shift=9)
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["health_score"], mode="lines", name="Health score",
-                             line=dict(color=T["accent_2"], width=2),
+                             line=dict(color=T["accent_2"], width=2.2),
                              hovertemplate="health %{y:.2f}<extra></extra>"))
-    fig.update_layout(height=height, showlegend=False, xaxis_title="cycle", yaxis_title="health score (0 = new engine)",
-                      yaxis_range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), top])
+    last = unit_history.iloc[-1]
+    _end_label(fig, last["cycle"], last["health_score"], f"{last['health_score']:.2f}", T["accent_2"])
+    fig.update_layout(height=height, showlegend=False, xaxis_title="cycle", yaxis_title="health score (0 = like new)",
+                      yaxis_range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), top],
+                      margin=dict(t=24, b=40, l=56, r=RIGHT_LABELS))
     return crosshair(fig)
 
 
@@ -430,14 +456,16 @@ def ladder_chart(units, limit=None):
         x=u["rul_high"] - u["rul_low"], base=u["rul_low"], y=labels, orientation="h", name="80% range",
         marker=dict(color=colors, opacity=0.28), width=0.6, hoverinfo="skip"))
     fig.add_trace(go.Scatter(
-        x=u["predicted_rul"], y=labels, mode="markers", name="Predicted RUL",
-        marker=dict(color=colors, size=8, symbol="diamond", line=dict(color=T["bg"], width=1)),
+        x=u["predicted_rul"], y=labels, mode="markers+text", name=f"Predicted {spec.rul_short}",
+        text=[f"{v:.0f}" for v in u["predicted_rul"]], textposition="middle right",
+        textfont=dict(family=MONO, size=11, color=T["text_2"]),
+        marker=dict(color=colors, size=9, symbol="diamond", line=dict(color=T["bg"], width=1)),
         customdata=np.stack([u["unit"], u["rul_low"], u["rul_high"], u["state"].map(STATE_LABEL)], axis=1),
-        hovertemplate=f"{spec.unit_title} " + "%{y}<br>RUL %{x:.0f} (80%: %{customdata[1]:.0f} to %{customdata[2]:.0f})"
+        hovertemplate=f"{spec.unit_title} " + "%{y}<br>" + spec.rul_short + " %{x:.1f} " + spec.life_unit + " (80%: %{customdata[1]:.0f} to %{customdata[2]:.0f})"
                       "<br>%{customdata[3]}<extra></extra>"))
     fig.update_layout(height=max(260, 24 * len(u) + 70), barmode="overlay", showlegend=False, bargap=0.4,
                       margin=dict(t=24, b=40, l=44, r=12), hovermode="closest", clickmode="event+select")
-    fig.update_xaxes(title_text=f"remaining useful life ({spec.life_unit})", range=[0, spec.rul_cap + 2], side="bottom")
+    fig.update_xaxes(title_text=f"{spec.rul_long.lower()} ({spec.life_unit})", range=[0, spec.rul_cap * 1.08 + 2], side="bottom")
     fig.update_yaxes(autorange="reversed", type="category", tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
     return fig
 
@@ -481,9 +509,12 @@ def trend_chart(unit_history, row, threshold, critical, height=430):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08, row_heights=[0.58, 0.42])
     _band_zones(fig, row=1, col=1, spec=spec)
     if "predicted_rul" in unit_history:
-        fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name="Predicted RUL",
-                                 line=dict(color=T["accent"], width=2), hovertemplate="RUL %{y:.0f} " + spec.life_unit + "<extra></extra>"),
+        fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines", name=f"Predicted {spec.rul_short}",
+                                 line=dict(color=T["accent"], width=2.2),
+                                 hovertemplate=f"{spec.rul_short} " + "%{y:.1f} " + spec.life_unit + "<extra></extra>"),
                       row=1, col=1)
+        last = unit_history.iloc[-1]
+        _end_label(fig, last["cycle"], last["predicted_rul"], insights.life(last["predicted_rul"], spec), T["accent"], row=1, col=1)
     if "rul_low" in row:
         fig.add_trace(go.Scatter(
             x=[row["cycle"]], y=[row["predicted_rul"]], mode="markers", name=f"80% range, latest {spec.time_title.lower()}",
@@ -492,18 +523,18 @@ def trend_chart(unit_history, row, threshold, critical, height=430):
                          arrayminus=[row["predicted_rul"] - row["rul_low"]], color=T["accent"], thickness=1.5, width=8),
             hovertemplate="latest reading, 80%% range %s<extra></extra>" % (
                 f"{row['rul_low']:.0f} to {row['rul_high']:.0f}")), row=1, col=1)
-    fig.add_hline(y=threshold, line=dict(color=STATE_COLOR["DEGRADING"], width=1, dash="dash"), row=2, col=1, exclude_empty_subplots=False,
-                  annotation_text="abnormal", annotation_position="top left", annotation_font=dict(color=STATE_COLOR["DEGRADING"]))
-    fig.add_hline(y=critical, line=dict(color=STATE_COLOR["CRITICAL"], width=1, dash="dash"), row=2, col=1, exclude_empty_subplots=False,
-                  annotation_text="critical", annotation_position="top left", annotation_font=dict(color=STATE_COLOR["CRITICAL"]))
+    _threshold(fig, threshold, f"abnormal >{threshold:.2f}", STATE_COLOR["DEGRADING"], shift=-9, row=2, col=1)
+    _threshold(fig, critical, f"critical >{critical:.2f}", STATE_COLOR["CRITICAL"], shift=9, row=2, col=1)
     fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["health_score"], mode="lines", name="Health score",
-                             line=dict(color=T["accent_2"], width=1.6), hovertemplate="health %{y:.2f}<extra></extra>"),
+                             line=dict(color=T["accent_2"], width=1.8), hovertemplate="health %{y:.2f}<extra></extra>"),
                   row=2, col=1)
-    fig.update_yaxes(title_text=f"RUL ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
+    last = unit_history.iloc[-1]
+    _end_label(fig, last["cycle"], last["health_score"], f"{last['health_score']:.2f}", T["accent_2"], row=2, col=1)
+    fig.update_yaxes(title_text=f"{spec.rul_short} ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
     fig.update_yaxes(title_text="health score", row=2, col=1,
                      range=[min(-0.5, float(unit_history["health_score"].min()) - 0.2), max(critical * 1.3, float(unit_history["health_score"].max()) * 1.1)])
     fig.update_xaxes(title_text=spec.time_title.lower(), row=2, col=1)
-    fig.update_layout(height=height, margin=dict(t=30, b=40, l=56, r=12))
+    fig.update_layout(height=height, margin=dict(t=30, b=40, l=56, r=RIGHT_LABELS))
     return crosshair(fig)
 
 
@@ -533,7 +564,7 @@ def crosshair(fig):
     """Oscilloscope-style readout: a dotted cursor across the plot and one hover box per cycle."""
     fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor", spikethickness=1, spikedash="dot",
                      spikecolor=T["text_3"])
-    fig.update_layout(hovermode="x unified", spikedistance=-1)
+    fig.update_layout(hovermode="x unified", spikedistance=-1, hoverdistance=-1)
     return fig
 
 

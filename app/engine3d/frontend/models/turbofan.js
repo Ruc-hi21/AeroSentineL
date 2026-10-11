@@ -1,12 +1,12 @@
 /* Turbofan model: a sectioned two-spool turbofan with every C-MAPSS sensor at its station.
  * Rotors and airflow show a running engine; the hot section glows with LPT outlet temperature drift. */
-import { T, V2, metal, physical, lathe, axialCylinder, sectionCut, ring, boltCircle, canvasTexture, dispose } from './shared.js?v=5.1.0';
+import { T, V2, metal, physical, lathe, axialCylinder, sectionCut, ring, boltCircle, canvasTexture, dispose } from './shared.js?v=6.0.0';
 
 const MODULES = [
   { key: 'fan', name: 'Fan', explode: [-2.6, 0, 0], intro: [-7, 0, 0] }, { key: 'lpc', name: 'LPC', explode: [-1.6, 0, 0], intro: [-6, 0, 0] },
   { key: 'hpc', name: 'HPC', explode: [-0.55, 0, 0], intro: [0, -5, 0] }, { key: 'comb', name: 'Combustor', explode: [0.45, 0, 0], intro: [0, -5, 0] },
   { key: 'hpt', name: 'HPT', explode: [1.25, 0, 0], intro: [0, -5, 0] }, { key: 'lpt', name: 'LPT', explode: [2.15, 0, 0], intro: [6, 0, 0] },
-  { key: 'noz', name: 'Nozzle', explode: [3.2, 0, 0], intro: [7, 0, 0] }, { key: 'byp', name: 'Bypass', explode: [0, 2.8, 0], intro: [0, 6, 0] },
+  { key: 'noz', name: 'Nozzle', explode: [3.2, 0, 0], intro: [7, 0, 0] }, { key: 'byp', name: 'Bypass', explode: [0, 0, 0] },
 ];
 const LAYOUT = {
   sensor_1: { mod: 'fan', pos: [-4.7, 1.5, 0.6], side: 'L' }, sensor_5: { mod: 'fan', pos: [-4.7, -1.4, 0.7], side: 'L' },
@@ -171,7 +171,7 @@ export function build() {
       }
       void main(){
         float s = fract(aPh + uTime*aSp);
-        float x = mix(-7.0, 7.5, s);
+        float x = mix(-5.2, 6.2, s); // from just ahead of the inlet to a short plume behind the nozzle
         float r; vec3 c;
         if (aType < 0.5) {
           r = mix(pw(x, BX, BH), pw(x, BX, BT), aR);
@@ -187,7 +187,8 @@ export function build() {
         gl_Position = projectionMatrix*mv;
         gl_PointSize = aSize*uPix/(-mv.z);
         vCol = c;
-        vA = smoothstep(0.0, 0.06, s)*(1.0 - smoothstep(0.75, 1.0, s))*uFade;
+        vA = smoothstep(0.0, 0.06, s)*(1.0 - smoothstep(0.8, 1.0, s))*uFade;
+        if (aType < 0.5) vA *= 1.0 - smoothstep(1.7, 2.6, x); // bypass air leaves the nacelle and is gone
       }`,
     fragmentShader: `varying vec3 vCol; varying float vA;
       void main(){ float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(vCol, vA*smoothstep(0.5, 0.15, d)*0.32); }`,
@@ -208,6 +209,7 @@ export function build() {
 
   return {
     key: 'turbofan', root, mods, modules: MODULES, layout: LAYOUT, materials: M,
+    shells: [M.shell, M.core], // nacelle and core cowl ghost in the exploded view; the modules separate along the axis inside
     panels: { L: 'Temperature and pressure', R: 'Speed and flow' },
     view: { target: [-0.2, 0, 0], dir: [0.55, 0.34, 1], twin: [4.5, 2.8], hero: [5.9, 3.2], min: 7 },
     groundY: -2.9,

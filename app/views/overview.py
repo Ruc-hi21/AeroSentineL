@@ -23,16 +23,17 @@ result = get_result()
 status = model_status()
 
 # ---------------------------------------------------------------- empty state
-HERO = {"turbofan": "Turbofan", "battery": "Battery cell", "bearing": "Bearing"}
+HERO = {"turbofan": "Turbofan", "battery": "Battery cell", "bearing": "Gearbox", "hydraulic": "Hydraulics",
+        "power": "Power electronics"}
 if result is None or result.units is None:
     left, right = st.columns([1, 1.25], gap="large", vertical_alignment="center")
     with left:
         st.html("""<div class="as-hero" style="max-width:560px">
 <div class="eyebrow"><img src="app/static/brand/logo_mark.svg" alt=""><div><b>AEROSENTINEL</b><i>Predictive maintenance console</i></div></div>
 <h1>Component health, <span>remaining life</span> and failure risk</h1>
-<p>Turbofan engines, Li-ion battery cells and rolling bearings.
+<p>Turbofan engines, Li-ion battery cells, engine gearboxes, hydraulic systems and power electronics.
 Upload sensor data and a recognition model decides which component it comes from, then that component's own models
-predict condition, remaining life and risk, and explain why.</p></div>""")
+predict condition, remaining life (or condition margin) and risk, and explain why.</p></div>""")
         choice = sample_choice("hero_choice")
         b1, b2, _ = st.columns([1.3, 1.1, 1])
         with b1:
@@ -56,7 +57,7 @@ predict condition, remaining life and risk, and explain why.</p></div>""")
         theme.note("Input: one row per unit and cycle (or minute), with the component's channels. Turbofan files use the "
                    "NASA C-MAPSS layout; battery and bearing files are CSV with a header row (see Ingest data).")
     with right:
-        hero = st.segmented_control("3D model", list(HERO), default="turbofan", format_func=HERO.get, key="hero_component",
+        hero = st.pills("3D model", list(HERO), default="turbofan", format_func=HERO.get, key="hero_component",
                                     label_visibility="collapsed")
         engine_twin(mode="hero", height=440, key="hero_engine", component=hero or "turbofan")
     st.stop()
@@ -75,7 +76,7 @@ has_rul = "predicted_rul" in units
 left, right = st.columns([1.3, 1], gap="large")
 with left:
     show_all = st.session_state.get("fleet_all", False)
-    theme.section("RUL forecast", f"80% range and point estimate, {'all ' + spec.unit_plural if show_all else 'top 25 by urgency'}")
+    theme.section(f"{spec.rul_short} forecast", f"80% range and point estimate, {'all ' + spec.unit_plural if show_all else 'top 25 by urgency'}")
     st.toggle(f"Show all {spec.unit_plural}", key="fleet_all")
     limit = None if show_all else 25
     if has_rul:
@@ -104,7 +105,7 @@ with left:
     theme.note(f"Grey is within the healthy baseline. Colour starts at the abnormal threshold ({threshold:.2f}) "
                f"and reaches red at the critical level ({CRITICAL_HEALTH_MULTIPLE * threshold:.2f}).")
 with right:
-    theme.section("Fleet drivers", f"mean |SHAP| on predicted RUL, {spec.life_unit} per {spec.actions.get('noun', 'unit')}")
+    theme.section("Fleet drivers", f"mean |SHAP| on predicted {spec.rul_short}, {spec.life_unit} per {spec.actions.get('noun', 'unit')}")
     if "rul_factors" in units:
         total = {}
         for factors in units["rul_factors"]:
@@ -125,8 +126,14 @@ with right:
             theme.note("Battery life is set by capacity fade, so state of health, capacity and the charge timings that "
                        "track it are expected to lead; the operating settings show how temperature and load speed it up.")
         elif comp == "bearing":
-            theme.note("Bearing damage shows up as rising vibration energy and impulsiveness, so RMS, band energies and "
-                       "kurtosis are expected to lead, mostly in the last hour before failure.")
+            theme.note("Gearbox bearing damage shows up as rising vibration energy and impulsiveness on the casing, so RMS, "
+                       "band energies and kurtosis are expected to lead, mostly in the last hour before failure.")
+        elif comp == "hydraulic":
+            theme.note("Cooler fouling shows in the oil temperatures and cooling efficiency, valve lag in the pressure profile "
+                       "after the valve, and pump leakage in the main flow profile, so those channels are expected to lead.")
+        elif comp == "power":
+            theme.note("Thermal overstress wears the die attach and bond wires, so the on-state voltage, on-resistance and "
+                       "package temperature are expected to lead. Four devices only: read the drivers as indicative.")
         elif "Fan" in faults:
             theme.note(f"{esc(result.subset)} has two fault modes, {FAULT_TEXT['HPC']} and {FAULT_TEXT['Fan']}, so fan speed "
                        "and bypass channels can lead alongside the compressor pressures and temperatures.")

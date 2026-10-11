@@ -30,6 +30,9 @@ def status_payload(row, drift=None):
         "label": spec.label(row["unit"]),
         "time_title": spec.time_title,
         "life_unit": spec.life_unit,
+        "rul_short": spec.rul_short,
+        "rul_long": spec.rul_long,
+        "has_life": spec.has_life,
         "cycle": cycle,
         "state": {"key": state, "label": STATES[state]["label"], "color": STATES[state]["color"]},
         "reason": insights.state_reason(row, state),
@@ -54,11 +57,15 @@ def engine_status(payload, key=None, height=214):
 DRIFT_STATUS_COLORS = {"Critical": STATES["CRITICAL"]["color"], "Warning": STATES["WARNING"]["color"],
                        "Elevated": STATES["DEGRADING"]["color"]}
 SCHEMATIC_TITLES = {"turbofan": "Gas path, inlet to exhaust", "battery": "Cell cross-section, negative to positive",
-                    "bearing": "Bearing cross-section, drive end to free end"}
+                    "bearing": "Gearbox section, input shaft to output shaft",
+                    "hydraulic": "Hydraulic circuit, pump to cooler",
+                    "power": "IGBT module stack, gate drive to heat sink"}
 
 
 def condition_text(spec, last):
     """The operating condition of a reading in engineering units."""
+    if not spec.settings:
+        return {"hydraulic": "constant 60 s load cycle", "power": "square gate drive, package held above rating"}.get(spec.key, "")
     if spec.key == "turbofan":
         return f"{last['setting_1']:.0f} kft  M{last['setting_2']:.2f}  TRA {last['setting_3']:.0f}"
     if spec.key == "battery":
@@ -81,9 +88,18 @@ def gas_path_payload(row, drift, unit_history, profile=None):
             "drift": float(worst["drift"]) if worst is not None else None,
             "sensors": [{"code": r["code"], "drift": float(r["drift"]), "status": r["status"]} for _, r in part.iterrows()],
         })
+    # Parts with their own classifier (hydraulic) take the colour of their predicted condition.
+    by_module = {p["module"]: p for p in insights.parts(row)}
+    sev_status = {3: "Critical", 2: "Warning", 1: "Elevated"}
+    for m in modules:
+        p = by_module.get(m["key"])
+        if p is not None:
+            m["status"] = sev_status.get(p["severity"], "Nominal")
+            m["color"] = DRIFT_STATUS_COLORS.get(m["status"]) if m["status"] else None
+            m["sensors"] = [{"code": p["label"], "drift": 0.0, "status": m["status"] or "Nominal"}] + m["sensors"]
     last = unit_history.iloc[-1]
     condition = None
-    if set(spec.settings) <= set(unit_history.columns):
+    if spec.settings and set(spec.settings) <= set(unit_history.columns):
         condition = {"id": int(last["condition"]) if "condition" in last else None, "text": condition_text(spec, last),
                      "known": bool(last.get("condition_known", True)),
                      "corrected": bool((profile or {}).get("corrected"))}

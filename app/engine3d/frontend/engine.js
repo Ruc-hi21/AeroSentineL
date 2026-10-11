@@ -8,7 +8,9 @@
  * Rendering: physically based materials lit by a studio environment, a brand-blue rim light, soft
  * shadows on the floor and a restrained bloom so status colours and hot parts glow.
  *
- * Motion rules: a component assembles on arrival, then the view rests on the latest reading.
+ * Motion rules: a component is built up on arrival by a scan plane sweeping along it (nothing moves
+ * through anything else), then the view rests on the latest reading. In the exploded view outer shells
+ * fade to a ghost instead of travelling through the parts inside them.
  * Running parts (rotors, airflow, current, a turning shaft) show a working component. Every sensor
  * beyond the elevated drift limit is tied to its station by a leader line; warning and critical
  * stations pulse. Camera moves, the exploded view and event entries are GSAP tweens that explain a
@@ -16,11 +18,14 @@
  * freezes running parts and pulses and makes every transition instant.
  */
 import * as T from './vendor/three-bundle.js';
-import { build as buildTurbofan } from './models/turbofan.js?v=5.1.0';
-import { build as buildBattery } from './models/battery.js?v=5.1.0';
-import { build as buildBearing } from './models/bearing.js?v=5.1.0';
+import { build as buildTurbofan } from './models/turbofan.js?v=6.0.0';
+import { build as buildBattery } from './models/battery.js?v=6.0.0';
+import { build as buildGearbox } from './models/gearbox.js?v=6.0.1';
+import { build as buildHydraulic } from './models/hydraulic.js?v=6.0.0';
+import { build as buildPower } from './models/power.js?v=6.0.0';
 
-const BUILDERS = { turbofan: buildTurbofan, battery: buildBattery, bearing: buildBearing };
+// The gearbox model is keyed "bearing": its data is the FEMTO gearbox-bearing set.
+const BUILDERS = { turbofan: buildTurbofan, battery: buildBattery, bearing: buildGearbox, hydraulic: buildHydraulic, power: buildPower };
 const gsap = window.gsap;
 gsap.ticker.lagSmoothing(0); // keep tweens on wall-clock time even when a slow GPU drops frames
 const $ = (id) => document.getElementById(id);
@@ -60,7 +65,7 @@ const levelColor = (z) => { const i = level(z); return i < 0 ? C.text3 : LEVELS[
 const S = {
   mode: 'twin', data: null, dataId: null, N: 0, t: 0, playing: false, speed: 1, lastIdx: -1, maxBand: 0,
   critSeen: new Set(), selected: null, hovered: null, explode: 0, panels: true, rotate: false,
-  sensors: [], modLevel: {}, frame: 0, started: false, assembly: {}, reveal: 1, alarm: null, rendered: false,
+  sensors: [], modLevel: {}, frame: 0, started: false, reveal: 1, alarm: null, rendered: false,
 };
 let MODEL = null; // the component model on screen (see ./models/*.js)
 
@@ -71,6 +76,7 @@ const renderer = new T.WebGLRenderer({ canvas, antialias: false, powerPreference
 renderer.toneMapping = T.NeutralToneMapping; // keeps status colours true to the rest of the console
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
+renderer.localClippingEnabled = true; // the build-up scan clips the model behind a moving plane
 renderer.shadowMap.type = T.PCFShadowMap; // soft in r186 (shadow.radius)
 
 const scene = new T.Scene();
@@ -166,6 +172,60 @@ const ripples = [0, 1].map(() => {
   m.rotation.x = -Math.PI / 2; m.position.y = 0.012; floor.add(m); return m;
 });
 
+/* ------------------------------------------------------------------ build-up scan: a plane sweeps along the component */
+const scan = { plane: new T.Plane(new T.Vector3(-1, 0, 0), 0), tween: null };
+const scanGlow = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({
+  map: (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    const grd = g.createRadialGradient(128, 128, 40, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(95,212,248,0.05)'); grd.addColorStop(0.8, 'rgba(95,212,248,0.35)'); grd.addColorStop(1, 'rgba(95,212,248,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t;
+  })(),
+  transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, toneMapped: false,
+}));
+scanGlow.rotation.y = Math.PI / 2; scanGlow.visible = false; scene.add(scanGlow);
+function eachMaterial(fn) {
+  MODEL.root.traverse((o) => { (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach((m) => fn(m, o)); });
+}
+function setClip(on) {
+  eachMaterial((m) => { if (!m.isShaderMaterial) { m.clippingPlanes = on ? [scan.plane] : null; m.needsUpdate = true; } });
+  // custom-shader particles cannot be clipped: hold them back until the part they flow through exists
+  MODEL.root.traverse((o) => { if (o.isPoints) o.visible = !on; });
+}
+function scanIn(delay, dur) {
+  if (scan.tween) scan.tween.kill();
+  const box = new T.Box3();
+  MODEL.root.traverse((o) => { if (o.isMesh && o.geometry) box.expandByObject(o); });
+  if (box.isEmpty() || REDUCED) { setClip(false); scanGlow.visible = false; return; }
+  const size = box.getSize(new T.Vector3()), mid = box.getCenter(new T.Vector3());
+  scan.plane.constant = box.min.x - 0.05;
+  setClip(true);
+  scanGlow.visible = true;
+  scanGlow.scale.set(size.z * 1.25 + 0.4, size.y * 1.25 + 0.4, 1);
+  scanGlow.position.set(scan.plane.constant, mid.y, mid.z);
+  scan.tween = gsap.to(scan.plane, {
+    constant: box.max.x + 0.05, duration: dur, delay, ease: 'power2.inOut',
+    onUpdate: () => { scanGlow.position.x = scan.plane.constant; },
+    onComplete: () => { setClip(false); scanGlow.visible = false; scan.tween = null; },
+  });
+}
+
+/* ------------------------------------------------------------------ exploded view: shells fade to a ghost */
+function ghostShells(amount) {
+  for (const m of MODEL.shells || []) {
+    if (m.userData.baseOpacity === undefined) { m.userData.baseOpacity = m.opacity; m.userData.baseTransparent = m.transparent; }
+    const ghost = amount > 0.01;
+    if (ghost !== !!m.userData.ghosted) {
+      m.userData.ghosted = ghost;
+      m.transparent = ghost || m.userData.baseTransparent;
+      m.depthWrite = !ghost;
+      m.needsUpdate = true;
+    }
+    m.opacity = ghost ? m.userData.baseOpacity * (1 - 0.86 * amount) : m.userData.baseOpacity;
+  }
+}
+
 /* ------------------------------------------------------------------ sensor markers */
 const markerGeo = new T.SphereGeometry(0.06, 20, 14);
 const spriteTex = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 128; draw(c.getContext('2d')); return new T.CanvasTexture(c); };
@@ -179,11 +239,6 @@ let markers = {};
 const modEls = {};
 
 /* ------------------------------------------------------------------ component model */
-function introOffset(m) {
-  if (m.intro) return m.intro;
-  const e = m.explode, mag = Math.hypot(...e);
-  return mag > 0.01 ? e.map((v) => v * 1.7) : [0, 2.6, 0];
-}
 function useModel(key) {
   key = BUILDERS[key] ? key : 'turbofan';
   if (MODEL && MODEL.key === key) return false;
@@ -207,7 +262,8 @@ function useModel(key) {
     const sel = new T.Sprite(new T.SpriteMaterial({ map: ringTex, color: C.accent, depthTest: false, transparent: true }));
     sel.scale.setScalar(0.34); sel.visible = false; halo.visible = false;
     dot.renderOrder = 21; sel.renderOrder = 22; halo.renderOrder = 20;
-    g.add(halo, dot, sel); g.visible = false; MODEL.mods[L.mod].add(g);
+    g.add(halo, dot, sel); g.visible = false;
+    ((L.at && MODEL.layers && MODEL.layers[L.at]) || MODEL.mods[L.mod]).add(g); // a marker can ride on a moving layer
     markers[k] = { group: g, dot, sel, halo, pop: 1, phase: Math.random(), screen: new T.Vector2(-999, -999) };
   }
   $('modules').innerHTML = '';
@@ -217,7 +273,6 @@ function useModel(key) {
   home.target.fromArray(MODEL.view.target);
   home.dir.fromArray(MODEL.view.dir).normalize();
   controls.target.copy(home.target);
-  S.assembly = Object.fromEntries(MODEL.modules.map((m) => [m.key, 0]));
   resize();
   return true;
 }
@@ -313,7 +368,7 @@ function drawTimeline() {
     tlx.fillStyle = C.accent; tlx.beginPath(); tlx.arc(px, py, 3, 0, Math.PI * 2); tlx.fill();
   }
   // legend, right gutter
-  tlx.fillStyle = C.accent; tlx.fillRect(TL.l + w + 12, TL.t + 6, 10, 2); tlx.fillStyle = C.text2; tlx.fillText('RUL', TL.l + w + 28, TL.t + 7);
+  tlx.fillStyle = C.accent; tlx.fillRect(TL.l + w + 12, TL.t + 6, 10, 2); tlx.fillStyle = C.text2; tlx.fillText(d.rul_short || 'RUL', TL.l + w + 28, TL.t + 7);
   tlx.fillStyle = C.teal; tlx.fillRect(TL.l + w + 12, TL.t + 22, 10, 2); tlx.fillStyle = C.text2; tlx.fillText('Health', TL.l + w + 28, TL.t + 23);
   tlx.fillStyle = C.text3; tlx.fillText('Band', TL.l + w + 28, TL.t + h + 8);
 }
@@ -473,6 +528,11 @@ function applyState(dt, tsec, rawDt = dt) {
       if (lv >= 0 && (modLevel[mod] < 0 || lv < modLevel[mod])) modLevel[mod] = lv;
     }
   }
+  // Components with part classifiers (hydraulic) colour each part by its predicted condition instead.
+  if (d && d.parts) {
+    const i = clamp(Math.round(S.t), 0, S.N - 1);
+    for (const [mod, sev] of Object.entries(d.parts)) if (mod in modLevel) modLevel[mod] = [-1, 2, 1, 0][sev[i]];
+  }
   S.modLevel = modLevel;
   MODEL.apply({ modLevel, z, tsec, levels: LEVELS, reduced: REDUCED });
 
@@ -507,7 +567,8 @@ function applyState(dt, tsec, rawDt = dt) {
   $('state').textContent = STATE[state].label;
   const band = d.band ? d.band[idx] : null;
   const rul = d.rul ? Math.round(interp(d.rul, S.t)) : null;
-  $('band').innerHTML = [rul != null ? `RUL ${rul} ${d.life_unit || 'cycles'}` : null, band != null ? `${BAND_TXT[band]} ${Math.round(d.prob[idx] * 100)}%` : null]
+  const lifeTxt = (n) => ((d.life_unit || 'cycles') === '%' ? `${n}%` : `${n} ${d.life_unit || 'cycles'}`);
+  $('band').innerHTML = [rul != null ? `${d.rul_short || 'RUL'} ${lifeTxt(rul)}` : null, band != null ? `${BAND_TXT[band]} ${Math.round(d.prob[idx] * 100)}%` : null]
     .filter(Boolean).map((t) => `<span>${esc(t)}</span>`).join('');
   const counts = { L: [0, 0], R: [0, 0] };
   for (const s of S.sensors) {
@@ -656,15 +717,12 @@ function intro(withHud) {
   camera.position.copy(REDUCED ? home.pos : start);
   controls.target.copy(home.target);
   flyTo(home.pos, home.target, 1.9, 'power3.inOut');
-  (MODEL.introOrder || MODEL.modules.map((m) => m.key)).forEach((key, i) => {
-    S.assembly[key] = REDUCED ? 0 : 1;
-    gsap.to(S.assembly, { [key]: 0, duration: D(1.25), ease: 'expo.out', delay: D(0.1 + i * 0.09), overwrite: 'auto' });
-  });
+  scanIn(0.15, 1.5);
   const ms = Object.values(markers);
   ms.forEach((m) => { m.pop = REDUCED ? 1 : 0; });
-  gsap.to(ms, { pop: 1, duration: D(0.45), ease: 'back.out(2.2)', stagger: D(0.025), delay: D(0.95) });
+  gsap.to(ms, { pop: 1, duration: D(0.45), ease: 'back.out(2.2)', stagger: D(0.02), delay: D(1.55) });
   S.reveal = REDUCED ? 1 : 0;
-  gsap.to(S, { reveal: 1, duration: D(0.9), ease: 'power2.out', delay: D(1.35), overwrite: true });
+  gsap.to(S, { reveal: 1, duration: D(0.9), ease: 'power2.out', delay: D(1.8), overwrite: true });
   if (withHud && !REDUCED) {
     gsap.set('#hud', { opacity: 1 });
     const tlHud = gsap.timeline({ delay: 0.25 });
@@ -677,15 +735,8 @@ function intro(withHud) {
   } else gsap.set('#hud', { opacity: 1 });
 }
 
-/* hero: a slow turntable that opens the component now and then to show what is inside */
-let heroCycle = null;
-function heroMotion(on) {
-  if (heroCycle) { heroCycle.kill(); heroCycle = null; }
-  if (!on || REDUCED) return;
-  heroCycle = gsap.timeline({ repeat: -1, delay: 4.5, repeatDelay: 5 })
-    .to(S, { explode: 0.6, duration: 1.8, ease: 'power3.inOut' })
-    .to(S, { explode: 0, duration: 1.8, ease: 'power3.inOut' }, '+=2.6');
-}
+/* hero: a slow turntable; the component stays assembled */
+function heroMotion() { S.explode = 0; }
 
 /* ------------------------------------------------------------------ loop */
 let last = performance.now();
@@ -705,9 +756,9 @@ function frame() {
     }
   }
   for (const m of MODEL.modules) {
-    const g = MODEL.mods[m.key], a = S.assembly[m.key] || 0, io = introOffset(m);
-    g.position.set(m.explode[0] * S.explode + io[0] * a, m.explode[1] * S.explode + io[1] * a, m.explode[2] * S.explode + io[2] * a);
+    MODEL.mods[m.key].position.set(m.explode[0] * S.explode, m.explode[1] * S.explode, m.explode[2] * S.explode);
   }
+  ghostShells(S.explode);
   MODEL.tick(dt, tsec, { reduced: REDUCED, explode: S.explode });
   controls.autoRotate = !REDUCED && (S.rotate || (S.mode === 'hero' && !userTouched));
   controls.autoRotateSpeed = S.mode === 'hero' ? 0.6 : 0.35;

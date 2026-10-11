@@ -33,10 +33,31 @@ def spec_of(row_or_units):
 
 
 def life(n, spec):
-    """'1 cycle', '5 cycles', '12 minutes': n rounded to a whole life unit."""
+    """'1 cycle', '5 cycles', '12 minutes', '45%': n rounded to a whole life unit."""
     n = int(round(float(n)))
     unit = spec.life_unit
+    if unit == "%":
+        return f"{n}%"
     return f"{n} {unit[:-1]}" if n == 1 else f"{n} {unit}"
+
+
+def parts(row):
+    """Predicted condition of each labelled part (hydraulic): [{key, name, module, value, label, severity, p}]."""
+    spec = spec_of(row)
+    out = []
+    for d in spec.diagnosis:
+        if f"diag_{d.key}" not in row or pd.isna(row[f"diag_{d.key}"]):
+            continue
+        value = row[f"diag_{d.key}"]
+        label, severity = next(((lab, sev) for v, lab, sev in d.levels if v == value), (str(value), 0))
+        out.append({"key": d.key, "name": d.name, "module": d.module, "value": value, "label": label,
+                    "severity": severity, "p": float(row.get(f"diag_{d.key}_p", np.nan))})
+    return out
+
+
+def worst_part(row):
+    found = sorted(parts(row), key=lambda p: -p["severity"])
+    return found[0] if found and found[0]["severity"] > 0 else None
 
 
 def module_of(sensor):
@@ -133,17 +154,20 @@ def state_reason(row, state):
             return (f"Only {life(row['cycle'], spec)} observed; predictions need {spec.min_history} or more "
                     "to be reliable.")
         return f"No RUL or risk prediction is available for this {spec.actions.get('noun', 'unit')}."
+    what = spec.rul_short if spec.rul_short != "RUL" else "RUL"
     if rul is None:
-        return f"Risk band {row['risk_band'].replace('_', ' ').lower()}; RUL prediction unavailable."
+        return f"Risk band {row['risk_band'].replace('_', ' ').lower()}; {what} prediction unavailable."
+    part = worst_part(row)
+    tail = f" {part['name']}: {part['label'].lower()}." if part else ""
     if state == "CRITICAL":
-        return f"Predicted RUL {life(rul, spec)}, inside the failure-likely window ({band_window(spec, 'FAILURE_LIKELY')})."
+        return f"Predicted {what} {life(rul, spec)}, inside the failure-likely window ({band_window(spec, 'FAILURE_LIKELY')}).{tail}"
     if state == "WARNING":
-        return f"Predicted RUL {life(rul, spec)}, inside the high-risk window ({band_window(spec, 'HIGH_RISK')})."
+        return f"Predicted {what} {life(rul, spec)}, inside the high-risk window ({band_window(spec, 'HIGH_RISK')}).{tail}"
     if state == "DEGRADING":
         if rul <= spec.risk_limits["AT_RISK"]:
-            return f"Predicted RUL {life(rul, spec)}, inside the at-risk window ({band_window(spec, 'AT_RISK')})."
-        return f"Health score {row['health_score']:.2f} is above the abnormal threshold although RUL is {life(rul, spec)}."
-    return f"Predicted RUL {life(rul, spec)} and sensor drift within the healthy baseline."
+            return f"Predicted {what} {life(rul, spec)}, inside the at-risk window ({band_window(spec, 'AT_RISK')}).{tail}"
+        return f"Health score {row['health_score']:.2f} is above the abnormal threshold although {what} is {life(rul, spec)}."
+    return f"Predicted {what} {life(rul, spec)} and sensor drift within the healthy baseline."
 
 
 def sensor_drift(unit_history, health):
@@ -181,13 +205,19 @@ def recommendations(row, state, drift=None):
     hot = drift[drift["status"].isin(["Critical", "Warning"])] if drift is not None else pd.DataFrame()
     module = hot.iloc[0]["module"] if len(hot) else None  # drift is sorted, strongest first
     codes = ", ".join(hot[hot["module"] == module]["code"].head(3)) if module else ""
+    part = worst_part(row)
+    target = (part["name"] if part else module or noun).lower()  # the part to act on
+    fill = dict(module=target, life=life(row["rul_low"], spec) if has_rul else "", cycle=0)
 
     if state == "CRITICAL" and has_rul:
-        out.append({"action": say["remove"].format(cycle=cycle + round(row["rul_low"])),
-                    "why": f"Lower bound of the 80% RUL range is {life(row['rul_low'], spec)} from the latest reading."})
+        fill["cycle"] = cycle + round(row["rul_low"])
+        why = (f"{part['name']} condition: {part['label'].lower()} ({part['p']:.0%} confidence)." if part else
+               f"Lower bound of the 80% {spec.rul_short} range is {life(row['rul_low'], spec)} from the latest reading.")
+        out.append({"action": say["remove"].format(**fill), "why": why})
     elif state == "WARNING" and has_rul:
-        out.append({"action": say["schedule"].format(life=life(row["rul_low"], spec)),
-                    "why": f"80% RUL range {row['rul_low']:.0f} to {row['rul_high']:.0f} {spec.life_unit}; risk band is high."})
+        why = (f"{part['name']} condition: {part['label'].lower()}; remaining margin {life(row['predicted_rul'], spec)}." if part
+               else f"80% {spec.rul_short} range {row['rul_low']:.0f} to {row['rul_high']:.0f} {spec.life_unit}; risk band is high.")
+        out.append({"action": say["schedule"].format(**fill), "why": why})
     elif state == "DEGRADING":
         out.append({"action": "Add to the watch list and re-assess at the next data upload",
                     "why": f"Degradation has started but the {noun} is outside the high-risk window."})
@@ -199,7 +229,7 @@ def recommendations(row, state, drift=None):
                     "why": "Rolling features are incomplete, so RUL and risk are provisional."})
 
     if module and state in ("CRITICAL", "WARNING", "DEGRADING"):
-        out.append({"action": say["inspect"].format(module=module if spec.key == "turbofan" else module.lower()),
+        out.append({"action": say["inspect"].format(**{**fill, "module": module if spec.key == "turbofan" else module.lower()}),
                     "why": f"{codes} drifting beyond 2.4 sigma from the healthy baseline."})
     flags = confidence(row)["flags"]
     if "RUL and risk band disagree" in flags:

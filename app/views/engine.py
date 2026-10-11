@@ -17,7 +17,7 @@ units = result.units
 
 spec = result.spec
 noun = spec.actions.get("noun", "unit")
-theme.page_head(f"{spec.unit_title} status", f"Condition, remaining useful life, failure risk and the suggested next step for one {noun}.",
+theme.page_head(f"{spec.unit_title} status", f"Condition, {spec.rul_long.lower()}, failure risk and the suggested next step for one {noun}.",
                 f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} {spec.unit_plural}, "
                 f"model {esc(result.model_version)} {esc(result.subset or '')}")
 
@@ -38,14 +38,29 @@ engine_status(status_payload(row, drift), key="engine_status")
 # Where on the component: part condition on its schematic, and the operating condition of the latest reading.
 gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
 example = {"turbofan": "compressor wear shifts fan speed too", "battery": "capacity fade also lengthens charge times",
-           "bearing": "a race defect raises vibration in every band"}[spec.key]
-theme.note("Each part takes the colour of its most-drifted sensor; hover a part for its readings. Sensors also "
-           f"respond to faults elsewhere ({example}), so shading shows where the evidence is measured, not a confirmed root cause.")
+           "bearing": "a bearing defect raises vibration in every band", "hydraulic": "a worn cooler warms the whole circuit",
+           "power": "die-attach wear raises the package temperature too"}[spec.key]
+if spec.diagnosis:
+    theme.note("Each part takes the colour of its predicted condition (the part classifiers below); hover a part for its "
+               "readings.")
+else:
+    theme.note("Each part takes the colour of its most-drifted sensor; hover a part for its readings. Sensors also "
+               f"respond to faults elsewhere ({example}), so shading shows where the evidence is measured, not a confirmed root cause.")
+
+# Part condition, for components whose data labels it (hydraulic cooler, valve and pump).
+found = insights.parts(row)
+if found:
+    theme.section("Part condition", "predicted by one classifier per part, latest load cycle")
+    sev = {0: "HEALTHY", 1: "DEGRADING", 2: "WARNING", 3: "CRITICAL"}
+    theme.stats([theme.stat(p["name"], p["label"], foot=f"{p['p']:.0%} confidence",
+                            color=theme.STATES[sev[p["severity"]]]["color"]) for p in found])
+    if spec.not_assessed:
+        theme.note(esc(spec.not_assessed))
 
 # 4-5. What is changing.
 left, right = st.columns([1.5, 1], gap="large")
 with left:
-    theme.section("Trend", f"predicted RUL above health score, per {spec.time_title.lower()}")
+    theme.section("Trend", f"predicted {spec.rul_short} above health score, per {spec.time_title.lower()}")
     threshold = artifacts.health.threshold
     theme.chart(trend_chart(hist, row, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="engine_trend")
 with right:
@@ -65,9 +80,9 @@ with left:
                "Confirm against approved maintenance data before acting.")
 with right:
     factors = row.get("rul_factors")
-    theme.section("Why the model predicts this", f"SHAP contribution to the RUL estimate, {spec.life_unit}")
+    theme.section("Why the model predicts this", f"SHAP contribution to the {spec.rul_short} estimate, {spec.life_unit}")
     if isinstance(factors, list):
-        theme.chart(factor_chart(factors, f"change in predicted RUL ({spec.life_unit})", "#ff832b", TOKENS["accent"]), key="engine_shap")
+        theme.chart(factor_chart(factors, f"change in predicted {spec.rul_short} ({spec.life_unit})", "#ff832b", TOKENS["accent"]), key="engine_shap")
         theme.note("Bars to the left shortened the predicted life. SHAP shows correlation with the prediction, "
                    "not proof of a root cause.")
     else:

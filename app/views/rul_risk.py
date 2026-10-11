@@ -9,7 +9,9 @@ from src.config import RISK_BANDS, RUL_INTERVAL
 
 result = require_result()
 spec = result.spec
-theme.page_head("RUL and risk", f"XGBoost predicts the {spec.life_unit} left before failure with an 80% range; an XGBoost "
+theme.page_head("RUL and risk", (f"XGBoost predicts the {spec.life_unit} left before failure with an 80% range; an XGBoost "
+                if spec.has_life else "XGBoost predicts the remaining condition margin (%) of the weakest assessed part with an "
+                "80% range; an XGBoost ") + 
                 f"ensemble places the {spec.actions.get('noun', 'unit')} in one of four risk bands.")
 units = result.units
 interval_pct = round((RUL_INTERVAL[1] - RUL_INTERVAL[0]) * 100)

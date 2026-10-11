@@ -12,7 +12,10 @@ from src.explainability.sensor_names import SENSOR_INFO, describe
 artifacts = require_model()
 result = require_result()
 spec = result.spec
-WHAT = {"turbofan": "Sectioned turbofan", "battery": "Sectioned Li-ion cell", "bearing": "Sectioned ball bearing in its housing"}
+WHAT = {"turbofan": "Sectioned turbofan", "battery": "Sectioned Li-ion cell",
+        "bearing": "Sectioned engine gearbox with its shafts, gears and support bearings",
+        "hydraulic": "Hydraulic power unit with pump, valve, accumulator and cooler",
+        "power": "IGBT power module, from gate driver to heat sink"}
 theme.page_head("3D model", f"{WHAT[spec.key]} with each sensor at its station. Opens on the latest reading; Replay steps "
                 f"through the recorded history {spec.time_title.lower()} by {spec.time_title.lower()}.")
 
@@ -61,5 +64,5 @@ with right:
         theme.empty("Not modelled", f"{esc(describe(sensor))} carries no wear signal in {esc(result.subset)}, so the "
                     "model does not use it. It is shown for completeness.")
     impact = next((f["impact"] for f in factors if f["sensor"] == sensor), None)
-    theme.note(f"SHAP: this sensor changed the predicted RUL by {impact:+.1f} {spec.life_unit}." if impact is not None
-               else f"Not among this {spec.actions.get('noun', 'unit')}'s top five RUL drivers.")
+    theme.note(f"SHAP: this sensor changed the predicted {spec.rul_short} by {impact:+.1f} {spec.life_unit}." if impact is not None
+               else f"Not among this {spec.actions.get('noun', 'unit')}'s top five {spec.rul_short} drivers.")

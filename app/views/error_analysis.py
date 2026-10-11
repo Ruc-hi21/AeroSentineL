@@ -16,7 +16,7 @@ if not ready:
     theme.empty("No test predictions yet", "Run <code>python -m training.train</code> to generate test-set predictions.")
     st.stop()
 default = active_subset() if active_subset() in ready else ready[0]
-subset = st.segmented_control("Test set", ready, default=default, key="errors_subset", format_func=PROFILE_LABELS.get) or default
+subset = st.pills("Test set", ready, default=default, key="errors_subset", format_func=PROFILE_LABELS.get) or default
 spec = spec_of_profile(subset)
 u, lu = spec.unit_plural, spec.life_unit
 df = load_test_predictions(subset)

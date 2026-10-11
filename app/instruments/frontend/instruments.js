@@ -29,7 +29,7 @@
       z.style.left = `${(from / d.cap) * 100}%`;
       z.style.width = `${((l.at - from) / d.cap) * 100}%`;
       z.style.background = l.color;
-      z.title = `${l.label}: RUL ${l.at} or less`;
+      z.title = `${l.label}: ${d.rul_short || 'RUL'} ${l.at} or less`;
       track.appendChild(z);
       from = l.at;
     });
@@ -71,6 +71,7 @@
     const tt = (d.time_title || 'Cycle').toLowerCase();
     text('unit', `${d.label || `Engine ${String(d.unit).padStart(3, '0')}`}, ${tt} ${d.cycle}`);
     text('life-unit', d.life_unit || 'cycles');
+    $('l-rul').firstChild.nodeValue = d.rul_long || 'Remaining useful life';
     text('reason', d.reason);
 
     // RUL readout tweens numerically from the previous engine's value.
@@ -85,9 +86,10 @@
         onUpdate: () => text('rul', Math.round(shown.rul)),
       });
       text('rng', `80% range ${Math.round(d.low)} to ${Math.round(d.high)}`);
-      text('window', `end of life, ${tt} ${d.cycle + Math.round(d.low)} to ${d.cycle + Math.round(d.high)}`);
+      // Time-to-failure components get an end-of-life window; the hydraulic margin is a condition, not a time.
+      text('window', d.has_life === false ? 'weakest assessed part' : `end of life, ${tt} ${d.cycle + Math.round(d.low)} to ${d.cycle + Math.round(d.high)}`);
       $('scale').setAttribute('aria-label',
-        `Predicted RUL ${Math.round(d.rul)} ${d.life_unit || 'cycles'}, 80 percent range ${Math.round(d.low)} to ${Math.round(d.high)} on a 0 to ${d.cap} scale`);
+        `Predicted ${d.rul_short || 'RUL'} ${Math.round(d.rul)} ${d.life_unit || 'cycles'}, 80 percent range ${Math.round(d.low)} to ${Math.round(d.high)} on a 0 to ${d.cap} scale`);
     }
     place(d, animate);
 
@@ -121,7 +123,9 @@
    * is shaded by the strongest drift among its sensors.
    *  turbofan: two-spool gas path, inlet on the left, C-MAPSS stations 2, 24, 30, 50
    *  battery:  cylindrical cell, negative end on the left, positive cap on the right
-   *  bearing:  ball bearing in its housing, drive end on the left
+   *  bearing:  engine gearbox section, input shaft above the output shaft
+   *  hydraulic: circuit from tank and cooler through pump and valve to the accumulator
+   *  power:    IGBT module stack-up, gate driver on top, heat sink at the bottom
    * Motion: part colours tween when the unit changes; flow traces drift slowly and stop under
    * prefers-reduced-motion.
    */
@@ -175,23 +179,70 @@
       },
       flows: [['flow core', 'M 120 96 L 846 96 L 900 156', 5.0]],
     },
-    bearing: {
+    bearing: { // the engine gearbox (its data is the FEMTO gearbox-bearing set)
       parts: {
-        shaft: [{ pts: '40,180 920,180 920,214 40,214', label: 'SHAFT', lx: 160, ly: 202 }],
-        races: [{ pts: '380,150 580,150 580,178 380,178', label: 'INNER RACE', lx: 480, ly: 170 },
-                { pts: '380,62 580,62 580,90 380,90', label: 'OUTER RACE', lx: 480, ly: 80 }],
-        rolling: [{ pts: circle(480, 120, 27), label: 'BALL', lx: 480, ly: 124 }],
-        housing: [{ pts: '300,28 660,28 660,60 580,60 580,62 380,62 380,60 300,60', label: 'HOUSING', lx: 340, ly: 48 },
-                  { pts: '600,6 644,6 644,28 600,28', label: 'acc V', lx: 622, ly: 21 }],
+        housing: [{ pts: '160,20 800,20 800,32 160,32', label: 'CASING', lx: 240, ly: 29 },
+                  { pts: '160,194 800,194 800,206 160,206', label: '', lx: 0, ly: 0 },
+                  { pts: '160,32 172,32 172,194 160,194', label: '', lx: 0, ly: 0 },
+                  { pts: '788,32 800,32 800,194 788,194', label: '', lx: 0, ly: 0 },
+                  { pts: '600,6 644,6 644,20 600,20', label: 'acc V', lx: 622, ly: 17 }],
+        shaft: [{ pts: '56,56 860,56 860,66 56,66', label: 'INPUT', lx: 96, ly: 52 },
+                { pts: '100,136 904,136 904,146 100,146', label: 'OUTPUT', lx: 866, ly: 132 }],
+        rolling: [{ pts: circle(480, 61, 25, 32), label: 'PINION', lx: 480, ly: 64 },
+                  { pts: circle(480, 141, 54, 40), label: 'GEAR', lx: 480, ly: 176 }],
+        races: [{ pts: '172,48 208,48 208,74 172,74', label: 'B', lx: 190, ly: 65 },
+                { pts: '752,48 788,48 788,74 752,74', label: 'B', lx: 770, ly: 65 },
+                { pts: '172,126 208,126 208,156 172,156', label: 'B', lx: 190, ly: 145 },
+                { pts: '752,126 788,126 788,156 752,156', label: 'B', lx: 770, ly: 145 }],
       },
-      stations: [[120, 'drive end'], [480, 'bearing'], [840, 'free end']],
+      stations: [[110, 'input'], [480, 'mesh'], [850, 'output']],
       decor(svg) {
-        el('line', { x1: 444, y1: 120, x2: 516, y2: 120, class: 'layer' }, svg);
-        el('text', { x: 600, y: 124, class: 'shaft-l' }, svg).textContent = 'cage';
-        el('path', { class: 'load', d: 'M 700 8 L 700 25 M 693 18 L 700 26 L 707 18' }, svg);
-        el('text', { x: 712, y: 21, class: 'shaft-l' }, svg).textContent = 'radial load';
+        el('line', { x1: 174, y1: 182, x2: 786, y2: 182, class: 'layer' }, svg);
+        el('text', { x: 690, y: 178, class: 'shaft-l' }, svg).textContent = 'oil level';
+        el('text', { x: 520, y: 92, class: 'shaft-l' }, svg).textContent = 'mesh';
       },
-      flows: [['flow core', 'M 60 196 L 920 196', 2.4]],
+      flows: [],
+    },
+    hydraulic: {
+      parts: {
+        cooler: [{ pts: '40,128 200,128 200,206 40,206', label: 'TANK', lx: 120, ly: 172 },
+                 { pts: '40,34 200,34 200,92 40,92', label: 'COOLER', lx: 120, ly: 67 }],
+        pump: [{ pts: '262,128 382,128 382,206 262,206', label: 'PUMP', lx: 322, ly: 172 }],
+        valve: [{ pts: '470,42 610,42 610,108 470,108', label: 'VALVE', lx: 540, ly: 80 }],
+        accumulator: [{ pts: circle(780, 158, 42, 36), label: 'ACC', lx: 780, ly: 162 }],
+      },
+      stations: [[120, 'tank and cooler'], [322, 'pump'], [540, 'valve'], [780, 'accumulator']],
+      decor(svg) {
+        [['M 200 184 L 262 184', 'suction'], ['M 382 160 L 430 160 L 430 76 L 470 76', ''], ['M 610 76 L 780 76 L 780 116', ''],
+         ['M 540 42 L 540 16 L 120 16 L 120 34', 'return'], ['M 120 92 L 120 128', '']].forEach(([d, t]) => el('path', { class: 'tab', d }, svg));
+        el('text', { x: 210, y: 178, class: 'shaft-l' }, svg).textContent = 'suction';
+        el('text', { x: 640, y: 70, class: 'shaft-l' }, svg).textContent = 'working line';
+      },
+      flows: [['flow core', 'M 200 184 L 262 184 L 382 160 L 430 160 L 430 76 L 610 76 L 780 76 L 780 116', 3.0]],
+    },
+    power: {
+      parts: {
+        gate: [{ pts: '200,22 760,22 760,38 200,38', label: 'GATE DRIVER', lx: 480, ly: 33 }],
+        die: [{ pts: '300,116 410,116 410,132 300,132', label: 'IGBT', lx: 355, ly: 127 },
+              { pts: '550,116 660,116 660,132 550,132', label: 'DIODE', lx: 605, ly: 127 },
+              { pts: '240,136 720,136 720,150 240,150', label: 'DBC', lx: 480, ly: 146 },
+              { pts: '222,52 238,52 238,136 222,136', label: '', lx: 0, ly: 0 }],
+        bond: [{ pts: '300,132 410,132 410,136 300,136', label: '', lx: 0, ly: 0 },
+               { pts: '550,132 660,132 660,136 550,136', label: '', lx: 0, ly: 0 },
+               { pts: '240,150 720,150 720,156 240,156', label: '', lx: 0, ly: 0 }],
+        thermal: [{ pts: '200,156 760,156 760,174 200,174', label: 'BASEPLATE', lx: 480, ly: 168 },
+                  { pts: '180,178 780,178 780,200 180,200', label: 'HEAT SINK', lx: 480, ly: 193 },
+                  { pts: '190,46 200,46 200,156 190,156', label: '', lx: 0, ly: 0 },
+                  { pts: '760,46 770,46 770,156 760,156', label: '', lx: 0, ly: 0 }],
+      },
+      stations: [[230, 'terminal'], [355, 'IGBT die'], [605, 'diode'], [770, 'case']],
+      decor(svg) {
+        [[320, 470], [345, 500], [570, 690], [595, 712]].forEach(([a, b]) =>
+          el('path', { class: 'tab', d: `M ${a} 116 Q ${(a + b) / 2} 80 ${b} 136` }, svg));
+        el('text', { x: 430, y: 96, class: 'shaft-l' }, svg).textContent = 'bond wires';
+        el('text', { x: 790, y: 172, class: 'shaft-l' }, svg).textContent = 'die attach and solder';
+      },
+      flows: [],
     },
   };
   let gpPrev = null, gpComponent = null;

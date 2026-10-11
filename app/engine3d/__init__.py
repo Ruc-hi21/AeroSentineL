@@ -63,7 +63,12 @@ def twin_payload(result, unit, health, source=""):
         "corrected": bool((getattr(result, "profile", None) or {}).get("corrected")),
         "time_title": spec.time_title,
         "life_unit": spec.life_unit,
+        "rul_short": spec.rul_short,
+        "has_life": spec.has_life,
         "rul_cap": spec.rul_cap,
+        # Hydraulic parts carry a predicted condition per cycle; the 3D model colours them by it.
+        "parts": {d.module: [next((s for v, _, s in d.levels if v == x), 0) for x in hist[f"diag_{d.key}"]]
+                  for d in spec.diagnosis if f"diag_{d.key}" in hist} or None,
         "min_history": spec.min_history,
         # Operating condition per cycle (turbofan: altitude, Mach, throttle), shown while replaying.
         "conditions": {k: _round(hist[k], 3) for k in spec.settings} if set(spec.settings) <= set(has) else None,

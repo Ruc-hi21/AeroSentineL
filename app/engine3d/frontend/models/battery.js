@@ -3,14 +3,14 @@
  * separator, copper foil coated with graphite anode. Parts take the colour of their drifting channels,
  * the can warms with temperature drift, lithium ions shuttle across the separators while the cell
  * discharges and a current trace runs along the tabs to the terminals. */
-import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=5.1.0';
+import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=6.0.0';
 
 const MODULES = [
   { key: 'stack', name: 'Electrode stack', explode: [0, 0, 0], intro: [-7, 0, 0] },
   { key: 'interface', name: 'Electrode interface', explode: [0, 0, 0], intro: [-7, 0, 0] },
   { key: 'electrolyte', name: 'Electrolyte', explode: [0, 0, 0], intro: [-7, 0, 0] },
   { key: 'terminal', name: 'Terminals', explode: [1.1, 0, 0], intro: [3.8, 0, 0] },
-  { key: 'can', name: 'Can and thermal', explode: [0, 2.6, 0], intro: [0, 4.6, 0] },
+  { key: 'can', name: 'Can and thermal', explode: [0, 0, 0] },
 ];
 // Thermocouple strip on the front of the can, 25 degrees below the cut edge (r 1.36 = can r 1.33 + clearance).
 const TC = 25 * Math.PI / 180;
@@ -171,6 +171,7 @@ export function build() {
   let rate = 0.15;
   return {
     key: 'battery', root, mods, modules: MODULES, layout: LAYOUT, materials: M,
+    shells: [M.can, M.wrap, M.wrapEdge, M.insul, M.patch], // the can ghosts in the exploded view; the cap slides off
     introOrder: ['can', 'stack', 'interface', 'electrolyte', 'terminal'],
     panels: { L: 'Capacity and charge', R: 'Resistance, voltage and temperature' },
     view: { target: [0.05, 0, 0], dir: [0.55, 0.34, 1], twin: [3.9, 1.9], hero: [4.6, 2.3], min: 6 },

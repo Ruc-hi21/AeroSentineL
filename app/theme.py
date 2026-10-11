@@ -326,17 +326,20 @@ def motion():
 # ---------------------------------------------------------------- Plotly
 def _register_plotly_template():
     t = TOKENS
-    axis = dict(gridcolor=t["line"], gridwidth=1, zeroline=False, linecolor=t["line_strong"], ticks="outside",
-                tickcolor=t["line_strong"], ticklen=4, tickfont=dict(family=MONO, size=11, color=t["text_3"]),
-                title=dict(font=dict(family=SANS, size=12, color=t["text_2"]), standoff=8), showspikes=False, automargin=True)
+    # Readable at a glance: 12 px mono ticks one step brighter, light grid, thousands separators, axis titles in sans.
+    axis = dict(gridcolor="#20252b", gridwidth=1, zeroline=False, linecolor=t["line_strong"], ticks="outside",
+                tickcolor=t["line_strong"], ticklen=4, tickfont=dict(family=MONO, size=12, color="#98a0aa"),
+                title=dict(font=dict(family=SANS, size=13, color=t["text_2"]), standoff=10), showspikes=False,
+                automargin=True, separatethousands=True, nticks=8)
     pio.templates["aerosentinel"] = go.layout.Template(layout=dict(
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=SANS, color=t["text_2"], size=12),
         colorway=[t["accent"], t["accent_2"], t["text_2"], "#f1c21b", "#ff832b"],
         xaxis=axis, yaxis=axis,
-        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=12, color=t["text_2"]), orientation="h", y=1.02, x=0,
-                    yanchor="bottom"),
-        hoverlabel=dict(bgcolor=t["surface"], bordercolor=t["line_strong"], font=dict(family=MONO, size=12, color=t["text_1"])),
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=13, color=t["text_2"]), orientation="h", y=1.02, x=0,
+                    yanchor="bottom", itemwidth=40),
+        hoverlabel=dict(bgcolor="#11151a", bordercolor=t["accent"], align="left",
+                        font=dict(family=MONO, size=13, color=t["text_1"])),
         margin=dict(t=28, b=36, l=48, r=16),
         annotationdefaults=dict(font=dict(family=SANS, size=11, color=t["text_3"])),
     ))

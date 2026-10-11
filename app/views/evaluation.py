@@ -11,7 +11,7 @@ from app.components import (
     PROFILE_LABELS, active_subset, band_label, confusion_chart, cross_chart, get_result, load_benchmark, require_model,
     subset_summary,
 )
-from app.theme import MONO, TOKENS
+from app.theme import MONO, TOKENS, esc
 from src.components import get, spec_of_profile
 from src.models.artifacts import available_subsets
 
@@ -93,7 +93,7 @@ if bench and bench.get("subsets"):
 # ---------------------------------------------------------------- one subset in detail
 trained = available_subsets()
 default = active_subset() if active_subset() in trained else (trained[0] if trained else None)
-subset = st.segmented_control("Model in detail", trained, default=default, key="eval_subset",
+subset = st.pills("Model in detail", trained, default=default, key="eval_subset",
                               format_func=PROFILE_LABELS.get) or default
 artifacts = require_model(subset)
 spec = spec_of_profile(subset)
@@ -186,6 +186,22 @@ for tab, m, key in [(tab_val, val_risk, "val"), (tab_test, test_risk, "test")]:
             theme.note(f"Recall on failure likely matters most: it is the share of {u} close to failure that were caught.")
         with right:
             theme.chart(confusion_chart(m["confusion_matrix"], u), key=f"cm_{key}")
+
+diagnosis = metrics.get("diagnosis")
+if diagnosis:
+    theme.section("Part condition classifiers", "one XGBoost classifier per part; test = every load cycle of the held-out blocks")
+    theme.stats([theme.stat(d["name"], f"{d['test_accuracy']:.1%}", foot=f"test; grouped CV {d['cv_accuracy']:.1%}")
+                 for d in diagnosis.values()])
+    cols = st.columns(len(diagnosis), gap="large")
+    for col, (key, d) in zip(cols, diagnosis.items()):
+        with col:
+            cm = pd.DataFrame(d["confusion_matrix"], index=d["labels"], columns=d["labels"])
+            st.caption(f"{d['name']}: rows true, columns predicted")
+            st.dataframe(cm, width="stretch")
+    if spec.not_assessed:
+        theme.note(esc(spec.not_assessed))
+    theme.note("Grouped CV holds out whole test blocks; when a fold holds out every block at one cooler level, that "
+               "level is unseen in training, which is why the cooler's CV accuracy sits below its test accuracy.")
 
 conditions = meta.get("conditions") or []
 if len(conditions) > 1:

@@ -25,10 +25,11 @@ from src.models.artifacts import available_subsets
 from src.router import load_router
 
 T = TOKENS
-COMPONENT_COLORS = {"turbofan": T["accent"], "battery": "#3ddbd9", "bearing": "#be95ff", "unknown": T["text_3"]}
+COMPONENT_COLORS = {"turbofan": T["accent"], "battery": "#3ddbd9", "bearing": "#be95ff", "hydraulic": "#5fd4f8",
+                    "power": "#f1c21b", "unknown": T["text_3"]}
 
-theme.page_head("Ingest data", "Upload sensor data from a turbofan engine, a Li-ion battery cell or a rolling bearing. "
-                "Each row is one cycle (or minute) of one unit.")
+theme.page_head("Ingest data", "Upload sensor data from a turbofan engine, a Li-ion battery cell, an engine gearbox, a "
+                "hydraulic system or a power-electronics switch. Each row is one cycle (or minute) of one unit.")
 require_model()
 
 left, right = st.columns([1.6, 1], gap="large")
@@ -40,8 +41,12 @@ with right:
 <code>setting_1..3</code>, <code>sensor_1..21</code></dd>
 <dt>Battery</dt><dd>.csv: <code>cell</code>, <code>cycle</code>, <code>ambient_c</code>, <code>load_a</code>, capacity, timing,
 voltage, resistance and temperature per discharge, from the cell's first cycles</dd>
-<dt>Bearing</dt><dd>.csv: <code>bearing</code>, <code>minute</code>, <code>speed_rpm</code>, <code>load_kn</code>, vibration
-features per axis (<code>h_rms</code>, <code>v_kurt</code>, ...)</dd></dl>""")
+<dt>Gearbox</dt><dd>.csv: <code>bearing</code>, <code>minute</code>, <code>speed_rpm</code>, <code>load_kn</code>, casing
+vibration features per axis (<code>h_rms</code>, <code>v_kurt</code>, ...)</dd>
+<dt>Hydraulics</dt><dd>.csv: <code>session</code>, <code>cycle</code>, the 17 rig sensors' cycle means (<code>ps1</code> ..
+<code>se</code>) and PS2 / FS1 in six 10 s windows (<code>ps2_w0</code> .. <code>fs1_w5</code>)</dd>
+<dt>Power electronics</dt><dd>.csv: <code>device</code>, <code>minute</code>, <code>vce_on</code>, <code>r_on</code>,
+<code>vce_ripple</code>, <code>vce_off</code>, <code>ice_on</code>, <code>vge_on</code>, <code>pkg_temp</code></dd></dl>""")
     sample = sample_choice("ingest_sample")
     use_sample = st.button(f"Use the {PROFILE_LABELS[sample]} sample file", key="use_sample")
     summary = subset_summary(sample)
@@ -214,7 +219,7 @@ st.html(f'<div class="as-steps" style="--n:{len(steps)}">' + "".join(
 for warning in v["warnings"]:
     st.caption(f"Data warning: {warning}")
 
-if set(spec.settings) <= set(result.history.columns):
+if spec.settings and set(spec.settings) <= set(result.history.columns):
     left, right = st.columns([1.3, 1], gap="large")
     with left:
         theme.section("Operating envelope", "conditions in this file; rings are the conditions the model was trained on")
