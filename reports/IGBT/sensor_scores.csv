@@ -1,0 +1,8 @@
+sensor,std,corr_with_rul,monotonicity,kept
+vce_on,1.0577,-0.5746,0.8421,True
+r_on,0.2524,-0.6288,0.8,True
+vce_ripple,0.0202,0.1003,0.2684,True
+vce_off,1.0308,-0.5599,0.8105,True
+ice_on,0.411,0.397,0.6632,True
+vge_on,2.8452,0.34,0.1158,True
+pkg_temp,59.3773,-0.4107,0.7053,True

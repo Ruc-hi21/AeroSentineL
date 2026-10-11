@@ -33,7 +33,9 @@ def _table(profile, kind):
         path = path.with_name(f"sample_{profile}.csv")
     if not path.exists():
         return None
-    return to_canonical(read_sensor_file(path), spec_of_profile(profile))
+    spec = spec_of_profile(profile)
+    # Uploads never carry training labels (hydraulic margin and part conditions), so neither do the examples.
+    return to_canonical(read_sensor_file(path), spec).drop(columns=spec.label_columns, errors="ignore")
 
 
 def slice_table(df, rng):

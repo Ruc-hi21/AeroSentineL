@@ -27,6 +27,7 @@ FILES = {
     "risk": "risk_classifier.joblib",
 }
 CONDITIONS_FILE = "conditions.joblib"  # v3+; older versions fall back to a single condition
+DIAGNOSIS_FILE = "diagnosis.joblib"  # components with labelled part conditions (hydraulic)
 
 
 @dataclass
@@ -41,6 +42,7 @@ class Artifacts:
     conditions: ConditionNormalizer
     rul_explainer: Explainer
     risk_explainer: Explainer
+    diagnosis: dict | None = None  # part key -> {"model", "values"}
 
     @property
     def sensors(self):
@@ -71,9 +73,11 @@ def model_dir(version=MODEL_VERSION, subset=DATASET):
     return flat / spec_of_profile(subset).key / subset
 
 
-def save_artifacts(health, rul, risk, conditions, metadata, version=MODEL_VERSION, subset=DATASET):
+def save_artifacts(health, rul, risk, conditions, metadata, version=MODEL_VERSION, subset=DATASET, diagnosis=None):
     folder = model_dir(version, subset)
     folder.mkdir(parents=True, exist_ok=True)  # create parent dirs if this is the first run
+    if diagnosis:
+        joblib.dump(diagnosis, folder / DIAGNOSIS_FILE, compress=3)
     for key, obj in {"health": health, "rul": rul, "risk": risk}.items():
         joblib.dump(obj, folder / FILES[key], compress=3)
     joblib.dump(conditions, folder / CONDITIONS_FILE, compress=3)
@@ -97,7 +101,9 @@ def load_artifacts(version=MODEL_VERSION, subset=DATASET):
     metadata = json.loads((folder / "metadata.json").read_text(encoding="utf-8"))
     conditions_path = folder / CONDITIONS_FILE
     conditions = joblib.load(conditions_path) if conditions_path.exists() else identity_normalizer()
+    diagnosis_path = folder / DIAGNOSIS_FILE
     return Artifacts(
+        diagnosis=joblib.load(diagnosis_path) if diagnosis_path.exists() else None,
         version=version,
         subset=metadata.get("subset", metadata.get("dataset", subset)),
         metadata=metadata,

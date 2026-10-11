@@ -39,7 +39,7 @@ from sklearn.metrics import accuracy_score, f1_score, root_mean_squared_error
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from xgboost import XGBRegressor
+from xgboost import XGBClassifier, XGBRegressor
 
 from src.analysis.degradation import select_sensors
 from src.analysis.health import HealthAnalyzer
@@ -74,9 +74,30 @@ def load_labeled(profile):
     spec = spec_of_profile(profile)
     raw = load_train(profile)
     validate_dataset(raw, spec.channel_keys)
-    df, _ = clean_data(raw, spec.columns)
+    df, _ = clean_data(raw, spec.columns + spec.label_columns)
     # Derived channels (battery state of health) come from the raw readings, before condition correction.
-    return add_rul(derive_channels(df, spec), spec.rul_cap)
+    df = derive_channels(df, spec)
+    if spec.target:  # condition-labelled data (hydraulic): the target is in the file
+        df = df.copy()
+        df["rul"] = df[spec.target].clip(0, spec.rul_cap)
+        return df
+    return add_rul(df, spec.rul_cap)
+
+
+def groups_of(df, spec):
+    """What validation must keep together: units, or larger groups when units share a setting (hydraulic blocks)."""
+    return df[spec.group].to_numpy() if spec.group else df["unit"].to_numpy()
+
+
+def split_groups(df, spec):
+    """80/20 split by unit, or by group for components that define one."""
+    if not spec.group:
+        return split_by_unit(df)
+    groups = np.sort(df[spec.group].unique())
+    rng = np.random.default_rng(SEED)
+    val = rng.choice(groups, size=max(1, round(len(groups) * 0.2)), replace=False)
+    mask = df[spec.group].isin(val)
+    return df[~mask].copy(), df[mask].copy()
 
 
 def fit_conditions(df, profile):
@@ -89,7 +110,7 @@ def fit_conditions(df, profile):
 
 def prepare_split(df, profile):
     spec = spec_of_profile(profile)
-    train, val = split_by_unit(df)
+    train, val = split_groups(df, spec)
     conditions = fit_conditions(train, profile)  # learned on training units only
     train, val = conditions.transform(train), conditions.transform(val)
     sensors, sensor_scores = select_sensors(train, spec.model_channels)
@@ -208,6 +229,49 @@ def evaluate_test(profile, conditions, health, sensors, rul, risk):
     return metrics, predictions
 
 
+def train_diagnosis(spec, full, X_full, groups):
+    """One classifier per labelled part (hydraulic cooler, valve, pump), with grouped CV accuracy."""
+    models, metrics = {}, {}
+    for d in spec.diagnosis:
+        values = [v for v, _, _ in d.levels]
+        y = full[d.key].map({v: i for i, v in enumerate(values)}).to_numpy()
+        params = dict(n_estimators=300, max_depth=4, learning_rate=0.08, subsample=0.9, colsample_bytree=0.8,
+                      random_state=SEED, n_jobs=-1, verbosity=0)
+        oof = np.zeros(len(y), dtype=int)
+        folds = min(REPORT_CV_FOLDS, len(np.unique(groups)))
+        for tr, te in GroupKFold(n_splits=folds).split(X_full, y, groups):
+            clf = XGBClassifier(**params).fit(X_full.iloc[tr], _dense(y[tr]))
+            oof[te] = np.asarray(_classes(y[tr]))[clf.predict(X_full.iloc[te])]
+        models[d.key] = {"model": XGBClassifier(**params).fit(X_full, y), "values": values}
+        metrics[d.key] = {"name": d.name, "cv_accuracy": round(float((oof == y).mean()), 4)}
+    return models, metrics
+
+
+def _classes(y):
+    return np.unique(y)
+
+
+def _dense(y):
+    """XGBoost needs classes 0..k-1; a fold can miss one."""
+    return np.searchsorted(np.unique(y), y)
+
+
+def evaluate_diagnosis(profile, conditions, health, sensors, diagnosis, metrics):
+    """Every cycle of the held-out units against labels_<profile>.csv."""
+    spec = spec_of_profile(profile)
+    df = health.transform(conditions.transform(derive_channels(clean_data(load_test(profile), spec.columns)[0], spec)))
+    X = model_features(df, sensors, spec)
+    labels = pd.read_csv(data_file("labels", profile)).rename(columns={spec.id_column: "unit", spec.time_column: "cycle"})
+    truth = df[["unit", "cycle"]].merge(labels, on=["unit", "cycle"], how="left")
+    for key, part in diagnosis.items():
+        pred = np.asarray(part["values"])[part["model"].predict_proba(X).argmax(axis=1)]
+        true = truth[key].to_numpy()
+        cm = pd.crosstab(pd.Categorical(true, part["values"]), pd.Categorical(pred, part["values"]), dropna=False)
+        metrics[key].update({"test_accuracy": round(float((pred == true).mean()), 4),
+                             "labels": [str(v) for v in part["values"]], "confusion_matrix": cm.to_numpy().tolist()})
+    return metrics
+
+
 def capped_rmse(true, pred, cap):
     """RMSE with the true RUL capped like the training target: the convention most C-MAPSS papers use."""
     return {"rmse_capped": round(float(root_mean_squared_error(np.minimum(true, cap), pred)), 3)}
@@ -254,7 +318,7 @@ def train_subset(profile, trials):
     X_train, X_val = model_features(train, sensors, spec), model_features(val, sensors, spec)
     y_train, y_val = train["rul"].to_numpy(), val["rul"].to_numpy()
     b_train, b_val = rul_to_band(y_train, spec.risk_limits), rul_to_band(y_val, spec.risk_limits)
-    groups = train["unit"].to_numpy()
+    groups = groups_of(train, spec)
     log.info("[%s] Features per cycle: %d", profile, X_train.shape[1])
 
     rul_params, risk_params = DEFAULT_RUL_PARAMS, DEFAULT_RISK_PARAMS
@@ -279,11 +343,18 @@ def train_subset(profile, trials):
 
     test_metrics, test_predictions = evaluate_test(profile, final_conditions, final_health, sensors,
                                                    final_rul, final_risk)
+    diagnosis, diagnosis_metrics = train_diagnosis(spec, full, X_full, groups_of(full, spec))
+    if diagnosis:
+        diagnosis_metrics = evaluate_diagnosis(profile, final_conditions, final_health, sensors, diagnosis,
+                                               diagnosis_metrics)
+        log.info("[%s] Part diagnosis: %s", profile, {k: v.get("test_accuracy") for k, v in diagnosis_metrics.items()})
     log.info("[%s] Test RUL %s", profile, test_metrics["rul"])
     log.info("[%s] Test risk accuracy=%s macro_f1=%s", profile,
              test_metrics["risk"]["accuracy"], test_metrics["risk"]["macro_f1"])
 
     metrics = {"validation": {"rul": rul_results, "risk": risk_results}, "test": test_metrics}
+    if diagnosis:
+        metrics["diagnosis"] = diagnosis_metrics
     metadata = {
         "version": MODEL_VERSION,
         "component": spec.key,
@@ -309,7 +380,8 @@ def train_subset(profile, trials):
         "metrics": metrics,
         "environment": {"python": platform.python_version(), "platform": platform.platform()},
     }
-    folder = save_artifacts(final_health, final_rul, final_risk, final_conditions, metadata, MODEL_VERSION, profile)
+    folder = save_artifacts(final_health, final_rul, final_risk, final_conditions, metadata, MODEL_VERSION, profile,
+                            diagnosis=diagnosis)
     log.info("[%s] Saved model artifacts to %s", profile, folder)
 
     # End-to-end check: the saved models, run through the real pipeline, give the same answers.

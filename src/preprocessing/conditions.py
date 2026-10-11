@@ -51,8 +51,10 @@ class ConditionNormalizer:
             centers = km.cluster_centers_
         else:
             centers = np.median(settings, axis=0, keepdims=True)
-        # Condition ids 1..n in order of altitude, then Mach, so they read like a flight envelope.
-        order = np.lexsort((centers[:, 1], centers[:, 0]))
+        # Condition ids 1..n in order of the first setting, then the second (altitude, then Mach for the
+        # turbofan), so they read like a flight envelope. Components without settings have one condition.
+        keys = [centers[:, k] for k in range(min(2, centers.shape[1]))][::-1]
+        order = np.lexsort(keys) if keys else np.arange(len(centers))
         self.centers = centers[order]
         self.ids = np.arange(1, len(order) + 1)
         labels = self._nearest(settings)[0]

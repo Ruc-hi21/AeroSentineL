@@ -151,6 +151,30 @@ def test_bearing_file_is_recognised_and_scored():
     assert result.units["predicted_rul"].between(0, 60).all()
 
 
+HYDRAULIC_FILE = RAW_DATA_DIR / "test_UCI.csv"
+POWER_FILE = RAW_DATA_DIR / "sample_IGBT.csv"
+
+
+@pytest.mark.skipif(not ROUTER_READY or "UCI" not in available_subsets() or not HYDRAULIC_FILE.exists(),
+                    reason="router, hydraulic model or data not available")
+def test_hydraulic_file_is_recognised_scored_and_diagnosed():
+    result = analyze(HYDRAULIC_FILE)
+    assert result.status == "COMPLETED", result.error
+    assert result.component == "hydraulic" and result.subset == "UCI"
+    assert result.units["predicted_rul"].between(0, 100).all()  # remaining condition margin, %
+    for part in ("cooler", "valve", "pump"):
+        assert f"diag_{part}" in result.units and f"diag_{part}" in result.history
+
+
+@pytest.mark.skipif(not ROUTER_READY or "IGBT" not in available_subsets() or not POWER_FILE.exists(),
+                    reason="router, IGBT model or data not available")
+def test_power_file_is_recognised_and_scored():
+    result = analyze(POWER_FILE)
+    assert result.status == "COMPLETED", result.error
+    assert result.component == "power" and result.subset == "IGBT"
+    assert result.units["predicted_rul"].between(0, 40).all()
+
+
 @pytest.mark.skipif(not ROUTER_READY, reason="router not trained")
 def test_unrelated_table_is_not_routed_to_any_model():
     from sklearn.datasets import load_wine

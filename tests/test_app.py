@@ -1,5 +1,5 @@
 """Dashboard smoke tests with Streamlit's AppTest: every page renders without an exception,
-for turbofan, battery and bearing results."""
+for every component's results (turbofan, battery, gearbox, hydraulic, power electronics)."""
 
 import pytest
 
@@ -10,8 +10,9 @@ from src.pipeline import analyze
 streamlit_testing = pytest.importorskip("streamlit.testing.v1")
 APP = str(ROOT / "app" / "streamlit_app.py")
 TEST_FILE = RAW_DATA_DIR / f"test_{DATASET}.txt"
-FILES = {"turbofan": TEST_FILE, "battery": RAW_DATA_DIR / "sample_PCOE.csv", "bearing": RAW_DATA_DIR / "test_FEMTO.csv"}
-PROFILE = {"turbofan": DATASET, "battery": "PCOE", "bearing": "FEMTO"}
+FILES = {"turbofan": TEST_FILE, "battery": RAW_DATA_DIR / "sample_PCOE.csv", "bearing": RAW_DATA_DIR / "test_FEMTO.csv",
+         "hydraulic": RAW_DATA_DIR / "test_UCI.csv", "power": RAW_DATA_DIR / "sample_IGBT.csv"}
+PROFILE = {"turbofan": DATASET, "battery": "PCOE", "bearing": "FEMTO", "hydraulic": "UCI", "power": "IGBT"}
 pytestmark = pytest.mark.skipif(
     not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",

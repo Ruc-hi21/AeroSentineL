@@ -1,6 +1,7 @@
 """What AeroSentinel needs to know about a monitored component.
 
-Every component (turbofan, battery cell, bearing) is described once by a ComponentSpec. The
+Every component (turbofan, battery cell, engine gearbox, hydraulic system, power electronics) is
+described once by a ComponentSpec. The
 pipeline, the component-recognition model and the console all read from it, so adding a component
 means adding a spec, a data builder and a trained model, not changing the pipeline.
 
@@ -37,6 +38,16 @@ class Profile:
 
 
 @dataclass(frozen=True)
+class Diagnosis:
+    """A part whose condition the data labels directly (hydraulic cooler, valve, pump), predicted by
+    its own classifier. levels: (value in the data, label, severity 0 nominal .. 3 near failure)."""
+    key: str  # label column in the training data
+    name: str
+    module: str
+    levels: tuple
+
+
+@dataclass(frozen=True)
 class ComponentSpec:
     key: str
     name: str  # "Turbofan engine"
@@ -63,6 +74,24 @@ class ComponentSpec:
     unit_digits: int = 3
     actions: dict = field(default_factory=dict)  # wording of suggested actions
     data_note: str = ""  # one line on where the training data comes from
+    # Components whose data labels condition, not time to failure, train on a target column instead
+    # (hydraulic: remaining condition margin, %). Healthy baseline = rows at the cap when baseline_cycles is 0.
+    target: str = ""
+    rul_short: str = "RUL"  # what the console calls the prediction
+    rul_long: str = "Remaining useful life"
+    diagnosis: tuple = ()  # Diagnosis, ... (parts with labelled condition)
+    not_assessed: str = ""  # a part the data cannot support, and why (shown in the console)
+    group: str = ""  # training column that groups units for validation (hydraulic: test block)
+
+    @property
+    def has_life(self):
+        """True when the prediction is time to failure (it has an end-of-life window)."""
+        return not self.target
+
+    @property
+    def label_columns(self):
+        return [*([self.target] if self.target else []), *(d.key for d in self.diagnosis),
+                *([self.group] if self.group else [])]
 
     @property
     def channel_keys(self):
@@ -91,7 +120,7 @@ class ComponentSpec:
         return f"{self.unit_title} {self.unit_id(unit)}"
 
     def unit_id(self, unit):
-        if self.key == "bearing":  # FEMTO naming: condition _ index
+        if self.key == "bearing":  # FEMTO test-bearing naming: condition _ index
             u = int(unit)
             return f"{u // 10}_{u % 10}"
         return f"{self.unit_prefix}{int(unit):0{self.unit_digits}d}"

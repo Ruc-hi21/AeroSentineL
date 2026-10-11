@@ -1,11 +1,12 @@
 """Download the public datasets and build data/raw/ for every component.
 
 Usage:
-    python -m scripts.download_data                  # turbofan (FD001-FD004), battery and bearing
+    python -m scripts.download_data                  # every component
     python -m scripts.download_data turbofan         # NASA C-MAPSS only (or name subsets: FD001 FD003)
-    python -m scripts.download_data battery bearing  # NASA PCoE batteries, FEMTO bearings
+    python -m scripts.download_data battery bearing  # NASA PCoE batteries, FEMTO gearbox bearings
+    python -m scripts.download_data hydraulic power  # UCI hydraulic rig, NASA PCoE IGBTs
 
-Large archives (battery 0.2 GB, bearing 1.2 GB) are kept in a cache outside the project
+Large archives (battery 0.2 GB, gearbox 1.2 GB, hydraulic 0.08 GB, IGBT 0.24 GB) are kept in a cache outside the project
 (AEROSENTINEL_CACHE, default ~/.cache/aerosentinel); only the small per-cycle tables go to data/raw/.
 """
 
@@ -23,6 +24,8 @@ MIRROR = "https://phm-datasets.s3.amazonaws.com/NASA/"
 URL = MIRROR + "6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip"
 BATTERY_URL = MIRROR + "5.+Battery+Data+Set.zip"
 BEARING_URL = MIRROR + "10.+FEMTO+Bearing.zip"
+IGBT_URL = MIRROR + "8.+IGBT+Accelerated+Aging.zip"
+HYDRAULIC_URL = "https://archive.ics.uci.edu/static/public/447/condition+monitoring+of+hydraulic+systems.zip"
 CACHE = Path(os.environ.get("AEROSENTINEL_CACHE", Path.home() / ".cache" / "aerosentinel"))
 
 
@@ -101,18 +104,56 @@ def bearing():
     print("  bearings train/test:", splits.write_bearing(table, RAW_DATA_DIR))
 
 
+def hydraulic():
+    from src.components import hydraulic_data, splits
+
+    if (RAW_DATA_DIR / "train_UCI.csv").exists():
+        print("Hydraulic tables already present")
+        return
+    archive = _fetch(HYDRAULIC_URL, CACHE / "hydraulic.zip")
+    folder = CACHE / "hydraulic"
+    if not (folder / "profile.txt").exists():
+        zipfile.ZipFile(archive).extractall(folder)
+    print("Reducing the hydraulic rig cycles (about 20 s) ...", flush=True)
+    print("  hydraulic sessions train/test:", splits.write_hydraulic(hydraulic_data.build(folder), RAW_DATA_DIR))
+
+
+def power():
+    from src.components import power_data, splits
+
+    if (RAW_DATA_DIR / "train_IGBT.csv").exists():
+        print("IGBT tables already present")
+        return
+    archive = _fetch(IGBT_URL, CACHE / "igbt.zip")
+    folder = CACHE / "igbt"
+    if not (folder / "IGBTAgingData_04022009").exists():
+        outer = zipfile.ZipFile(archive)
+        inner = next(n for n in outer.namelist() if n.endswith("IGBTAgingData_04022009.zip"))
+        zipfile.ZipFile(io.BytesIO(outer.read(inner))).extractall(folder)
+    print("Extracting IGBT switching features (about 2 minutes) ...", flush=True)
+    table = power_data.build(folder / "IGBTAgingData_04022009" / "Data")
+    print("  IGBT devices train/test:", splits.write_power(table, RAW_DATA_DIR))
+
+
+ALL = ["turbofan", "battery", "bearing", "hydraulic", "power"]
+
+
 def main(args):
-    args = [a.upper() if a.upper().startswith("FD") else a.lower() for a in args] or ["turbofan", "battery", "bearing"]
+    args = [a.upper() if a.upper().startswith("FD") else a.lower() for a in args] or ALL
     subsets = [a for a in args if a in SUBSETS]
     if "turbofan" in args or subsets:
         turbofan(subsets or list(SUBSETS))
     if "battery" in args:
         battery()
-    if "bearing" in args:
+    if "bearing" in args or "gearbox" in args:
         bearing()
-    unknown = [a for a in args if a not in SUBSETS and a not in ("turbofan", "battery", "bearing")]
+    if "hydraulic" in args:
+        hydraulic()
+    if "power" in args:
+        power()
+    unknown = [a for a in args if a not in SUBSETS and a not in (*ALL, "gearbox")]
     if unknown:
-        sys.exit(f"Unknown argument(s): {', '.join(unknown)}. Use turbofan, battery, bearing or {', '.join(SUBSETS)}.")
+        sys.exit(f"Unknown argument(s): {', '.join(unknown)}. Use {', '.join(ALL)} or {', '.join(SUBSETS)}.")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 {
   "version": "v4",
-  "trained_at": "2026-10-10T15:16:22+00:00",
+  "trained_at": "2026-10-10T19:58:51+00:00",
   "classes": [
     "turbofan",
     "battery",
     "bearing",
+    "hydraulic",
+    "power",
     "unknown"
   ],
   "threshold": 0.8,
@@ -40,17 +42,21 @@
     "corr_mean"
   ],
   "metrics": {
-    "test_examples": 600,
-    "accuracy": 0.9983,
+    "test_examples": 960,
+    "accuracy": 0.999,
     "per_class_recall": {
       "turbofan": 1.0,
       "battery": 1.0,
       "bearing": 1.0,
-      "unknown": 0.995
+      "hydraulic": 1.0,
+      "power": 1.0,
+      "unknown": 0.9969
     },
     "confusion_matrix": [
       [
         160,
+        0,
+        0,
         0,
         0,
         0
@@ -58,6 +64,8 @@
       [
         0,
         160,
+        0,
+        0,
         0,
         0
       ],
@@ -65,27 +73,49 @@
         0,
         0,
         80,
+        0,
+        0,
         0
       ],
       [
         0,
+        0,
+        0,
+        80,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        160,
+        0
+      ],
+      [
+        0,
+        0,
         1,
         0,
-        199
+        0,
+        319
       ]
     ],
     "classes": [
       "turbofan",
       "battery",
       "bearing",
+      "hydraulic",
+      "power",
       "unknown"
     ],
     "threshold": 0.8,
-    "known_routed_correctly": 1.0,
-    "known_held_back": 0.0,
+    "known_routed_correctly": 0.9891,
+    "known_held_back": 0.0109,
     "known_misrouted": 0.0,
-    "unknown_rejected": 0.995
+    "unknown_rejected": 1.0
   },
-  "train_examples": 1320,
+  "train_examples": 1980,
   "note": "Trained on slices of training files; scored on slices of test and sample files (unseen units)."
 }

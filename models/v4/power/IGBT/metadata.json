@@ -1,0 +1,404 @@
+{
+  "version": "v4",
+  "component": "power",
+  "subset": "IGBT",
+  "dataset": "IGBT",
+  "run_id": "8ab6d596",
+  "trained_at": "2026-10-10T19:54:58+00:00",
+  "seed": 42,
+  "fault_modes": [
+    "latch-up after thermal overstress"
+  ],
+  "conditions": [
+    {
+      "id": 1,
+      "settings": {},
+      "share": 1.0,
+      "reference": true
+    }
+  ],
+  "train_units": [
+    4,
+    5
+  ],
+  "val_units": [
+    2
+  ],
+  "final_fit": "all training units (train + validation units), after CV model selection",
+  "sensors": [
+    "vce_on",
+    "r_on",
+    "vce_ripple",
+    "vce_off",
+    "ice_on",
+    "vge_on",
+    "pkg_temp"
+  ],
+  "features": [
+    "cycle",
+    "vce_on",
+    "r_on",
+    "vce_ripple",
+    "vce_off",
+    "ice_on",
+    "vge_on",
+    "pkg_temp",
+    "vce_on__mean5",
+    "vce_on__mean15",
+    "vce_on__mean30",
+    "vce_on__mean60",
+    "vce_on__std5",
+    "vce_on__std15",
+    "vce_on__std30",
+    "vce_on__std60",
+    "vce_on__ewm0.05",
+    "vce_on__ewm0.1",
+    "vce_on__ewm0.3",
+    "vce_on__slope15",
+    "vce_on__slope30",
+    "vce_on__slope50",
+    "vce_on__slope90",
+    "vce_on__drift",
+    "r_on__mean5",
+    "r_on__mean15",
+    "r_on__mean30",
+    "r_on__mean60",
+    "r_on__std5",
+    "r_on__std15",
+    "r_on__std30",
+    "r_on__std60",
+    "r_on__ewm0.05",
+    "r_on__ewm0.1",
+    "r_on__ewm0.3",
+    "r_on__slope15",
+    "r_on__slope30",
+    "r_on__slope50",
+    "r_on__slope90",
+    "r_on__drift",
+    "vce_ripple__mean5",
+    "vce_ripple__mean15",
+    "vce_ripple__mean30",
+    "vce_ripple__mean60",
+    "vce_ripple__std5",
+    "vce_ripple__std15",
+    "vce_ripple__std30",
+    "vce_ripple__std60",
+    "vce_ripple__ewm0.05",
+    "vce_ripple__ewm0.1",
+    "vce_ripple__ewm0.3",
+    "vce_ripple__slope15",
+    "vce_ripple__slope30",
+    "vce_ripple__slope50",
+    "vce_ripple__slope90",
+    "vce_ripple__drift",
+    "vce_off__mean5",
+    "vce_off__mean15",
+    "vce_off__mean30",
+    "vce_off__mean60",
+    "vce_off__std5",
+    "vce_off__std15",
+    "vce_off__std30",
+    "vce_off__std60",
+    "vce_off__ewm0.05",
+    "vce_off__ewm0.1",
+    "vce_off__ewm0.3",
+    "vce_off__slope15",
+    "vce_off__slope30",
+    "vce_off__slope50",
+    "vce_off__slope90",
+    "vce_off__drift",
+    "ice_on__mean5",
+    "ice_on__mean15",
+    "ice_on__mean30",
+    "ice_on__mean60",
+    "ice_on__std5",
+    "ice_on__std15",
+    "ice_on__std30",
+    "ice_on__std60",
+    "ice_on__ewm0.05",
+    "ice_on__ewm0.1",
+    "ice_on__ewm0.3",
+    "ice_on__slope15",
+    "ice_on__slope30",
+    "ice_on__slope50",
+    "ice_on__slope90",
+    "ice_on__drift",
+    "vge_on__mean5",
+    "vge_on__mean15",
+    "vge_on__mean30",
+    "vge_on__mean60",
+    "vge_on__std5",
+    "vge_on__std15",
+    "vge_on__std30",
+    "vge_on__std60",
+    "vge_on__ewm0.05",
+    "vge_on__ewm0.1",
+    "vge_on__ewm0.3",
+    "vge_on__slope15",
+    "vge_on__slope30",
+    "vge_on__slope50",
+    "vge_on__slope90",
+    "vge_on__drift",
+    "pkg_temp__mean5",
+    "pkg_temp__mean15",
+    "pkg_temp__mean30",
+    "pkg_temp__mean60",
+    "pkg_temp__std5",
+    "pkg_temp__std15",
+    "pkg_temp__std30",
+    "pkg_temp__std60",
+    "pkg_temp__ewm0.05",
+    "pkg_temp__ewm0.1",
+    "pkg_temp__ewm0.3",
+    "pkg_temp__slope15",
+    "pkg_temp__slope30",
+    "pkg_temp__slope50",
+    "pkg_temp__slope90",
+    "pkg_temp__drift"
+  ],
+  "config": {
+    "rul_cap": 40,
+    "life_unit": "minutes",
+    "risk_bands": [
+      "NORMAL",
+      "AT_RISK",
+      "HIGH_RISK",
+      "FAILURE_LIKELY"
+    ],
+    "risk_limits": {
+      "FAILURE_LIKELY": 5,
+      "HIGH_RISK": 10,
+      "AT_RISK": 20
+    },
+    "rul_interval": [
+      0.1,
+      0.9
+    ],
+    "health_threshold": 0.1003,
+    "baseline_cycles": 3,
+    "rolling_windows": [
+      5,
+      15,
+      30,
+      60
+    ],
+    "ewm_alphas": [
+      0.05,
+      0.1,
+      0.3
+    ],
+    "slope_windows": [
+      15,
+      30,
+      50,
+      90
+    ],
+    "baseline_cycles_per_unit": 15,
+    "risk_blend": 0.0,
+    "risk_blend_sigma": 8.0,
+    "optuna_trials": 0
+  },
+  "params": {
+    "rul": {
+      "n_estimators": 700,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "subsample": 0.8,
+      "colsample_bytree": 0.5,
+      "min_child_weight": 5
+    },
+    "risk": {
+      "n_estimators": 700,
+      "max_depth": 5,
+      "learning_rate": 0.04,
+      "subsample": 0.8,
+      "colsample_bytree": 0.5,
+      "min_child_weight": 5
+    }
+  },
+  "metrics": {
+    "validation": {
+      "rul": {
+        "baselines": {
+          "linear_regression": {
+            "rmse": 9.795,
+            "mae": 7.984,
+            "r2": 0.477
+          },
+          "random_forest": {
+            "rmse": 12.693,
+            "mae": 11.837,
+            "r2": 0.121
+          }
+        },
+        "xgboost": {
+          "rmse": 12.333,
+          "mae": 11.695,
+          "r2": 0.171,
+          "interval_coverage": 0.121,
+          "cv_rmse": 21.127
+        }
+      },
+      "risk": {
+        "baselines": {
+          "logistic_regression": {
+            "accuracy": 0.591,
+            "macro_f1": 0.307
+          },
+          "random_forest": {
+            "accuracy": 0.424,
+            "macro_f1": 0.193
+          },
+          "xgboost_classifier_only": {
+            "accuracy": 0.515,
+            "macro_f1": 0.172
+          }
+        },
+        "xgboost": {
+          "accuracy": 0.515,
+          "macro_f1": 0.172,
+          "per_band": {
+            "NORMAL": {
+              "precision": 0.63,
+              "recall": 0.756,
+              "f1": 0.687,
+              "roc_auc": 0.631,
+              "support": 45
+            },
+            "AT_RISK": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "roc_auc": 0.386,
+              "support": 10
+            },
+            "HIGH_RISK": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "roc_auc": 0.551,
+              "support": 5
+            },
+            "FAILURE_LIKELY": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "roc_auc": 0.975,
+              "support": 6
+            }
+          },
+          "confusion_matrix": [
+            [
+              34,
+              5,
+              6,
+              0
+            ],
+            [
+              10,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              1,
+              0,
+              0
+            ]
+          ],
+          "cv_accuracy": 0.4593,
+          "cv_macro_f1": 0.2109,
+          "blend": 0.0,
+          "blend_scores": {
+            "0.0": 0.4593,
+            "0.25": 0.4,
+            "0.5": 0.363,
+            "0.75": 0.3259,
+            "1.0": 0.3259
+          }
+        }
+      }
+    },
+    "test": {
+      "rul": {
+        "rmse": 6.889,
+        "mae": 6.889,
+        "r2": NaN,
+        "rmse_capped": 6.889,
+        "interval_coverage": 0.0,
+        "interval_coverage_capped": 0.0
+      },
+      "risk": {
+        "accuracy": 1.0,
+        "macro_f1": 0.25,
+        "per_band": {
+          "NORMAL": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": null,
+            "support": 0
+          },
+          "AT_RISK": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "roc_auc": null,
+            "support": 1
+          },
+          "HIGH_RISK": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": null,
+            "support": 0
+          },
+          "FAILURE_LIKELY": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": null,
+            "support": 0
+          }
+        },
+        "confusion_matrix": [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      }
+    }
+  },
+  "environment": {
+    "python": "3.14.5",
+    "platform": "Windows-11-10.0.26300-SP0"
+  }
+}

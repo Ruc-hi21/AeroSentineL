@@ -1,0 +1,181 @@
+{
+  "validation": {
+    "rul": {
+      "baselines": {
+        "linear_regression": {
+          "rmse": 9.795,
+          "mae": 7.984,
+          "r2": 0.477
+        },
+        "random_forest": {
+          "rmse": 12.693,
+          "mae": 11.837,
+          "r2": 0.121
+        }
+      },
+      "xgboost": {
+        "rmse": 12.333,
+        "mae": 11.695,
+        "r2": 0.171,
+        "interval_coverage": 0.121,
+        "cv_rmse": 21.127
+      }
+    },
+    "risk": {
+      "baselines": {
+        "logistic_regression": {
+          "accuracy": 0.591,
+          "macro_f1": 0.307
+        },
+        "random_forest": {
+          "accuracy": 0.424,
+          "macro_f1": 0.193
+        },
+        "xgboost_classifier_only": {
+          "accuracy": 0.515,
+          "macro_f1": 0.172
+        }
+      },
+      "xgboost": {
+        "accuracy": 0.515,
+        "macro_f1": 0.172,
+        "per_band": {
+          "NORMAL": {
+            "precision": 0.63,
+            "recall": 0.756,
+            "f1": 0.687,
+            "roc_auc": 0.631,
+            "support": 45
+          },
+          "AT_RISK": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": 0.386,
+            "support": 10
+          },
+          "HIGH_RISK": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": 0.551,
+            "support": 5
+          },
+          "FAILURE_LIKELY": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "roc_auc": 0.975,
+            "support": 6
+          }
+        },
+        "confusion_matrix": [
+          [
+            34,
+            5,
+            6,
+            0
+          ],
+          [
+            10,
+            0,
+            0,
+            0
+          ],
+          [
+            5,
+            0,
+            0,
+            0
+          ],
+          [
+            5,
+            1,
+            0,
+            0
+          ]
+        ],
+        "cv_accuracy": 0.4593,
+        "cv_macro_f1": 0.2109,
+        "blend": 0.0,
+        "blend_scores": {
+          "0.0": 0.4593,
+          "0.25": 0.4,
+          "0.5": 0.363,
+          "0.75": 0.3259,
+          "1.0": 0.3259
+        }
+      }
+    }
+  },
+  "test": {
+    "rul": {
+      "rmse": 6.889,
+      "mae": 6.889,
+      "r2": NaN,
+      "rmse_capped": 6.889,
+      "interval_coverage": 0.0,
+      "interval_coverage_capped": 0.0
+    },
+    "risk": {
+      "accuracy": 1.0,
+      "macro_f1": 0.25,
+      "per_band": {
+        "NORMAL": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "roc_auc": null,
+          "support": 0
+        },
+        "AT_RISK": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "roc_auc": null,
+          "support": 1
+        },
+        "HIGH_RISK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "roc_auc": null,
+          "support": 0
+        },
+        "FAILURE_LIKELY": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "roc_auc": null,
+          "support": 0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  }
+}

@@ -258,8 +258,20 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=Non
         if result.stages.get("risk") == "ok":
             units["risk_factors"] = artifacts.risk_explainer.explain(X_last, class_index=band_codes)
 
+    def diagnose():
+        # Condition of each labelled part (hydraulic cooler, valve, pump), every cycle.
+        for key, part in artifacts.diagnosis.items():
+            proba = part["model"].predict_proba(X)
+            values = np.asarray(part["values"])[proba.argmax(axis=1)]
+            history[f"diag_{key}"] = values
+            history[f"diag_{key}_p"] = np.round(proba.max(axis=1), 3)
+            units[f"diag_{key}"] = history.loc[last, f"diag_{key}"].to_numpy()
+            units[f"diag_{key}_p"] = history.loc[last, f"diag_{key}_p"].to_numpy()
+
     _run_stage(result, "rul", predict_rul)
     _run_stage(result, "risk", classify_risk)
+    if artifacts.diagnosis:
+        _run_stage(result, "diagnosis", diagnose)
     _run_stage(result, "explain", explain)
 
     if result.stages["rul"] != "ok" and result.stages["risk"] != "ok":

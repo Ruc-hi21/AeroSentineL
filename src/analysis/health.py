@@ -17,9 +17,15 @@ class HealthAnalyzer:
     def fit(self, train_df, sensors, baseline_cycles=BASELINE_CYCLES):
         """Learn the healthy baseline from training data that has a `rul` column."""
         self.sensors = list(sensors)
-        baseline = train_df[train_df["cycle"] <= baseline_cycles]
+        if baseline_cycles > 0:
+            baseline = train_df[train_df["cycle"] <= baseline_cycles]
+        else:  # condition-labelled data (hydraulic): healthy = every row at the full target
+            baseline = train_df[train_df["rul"] >= train_df["rul"].max()]
         self.mean = baseline[self.sensors].mean()
-        self.std = baseline[self.sensors].std().replace(0, 1)  # avoid zero division for constant sensors
+        span_all = train_df[self.sensors].max() - train_df[self.sensors].min()
+        # Noise floor: 2% of the sensor's training span, so a near noise-free healthy baseline (the hydraulic
+        # rig's steady load cycles) does not turn small shifts into hundreds of sigma. Zero spans fall back to 1.
+        self.std = baseline[self.sensors].std().clip(lower=0.02 * span_all).replace(0, 1)
         # +1 if the sensor rises as RUL falls, -1 if it drops.
         self.direction = -np.sign(train_df[self.sensors].corrwith(train_df["rul"]))
 

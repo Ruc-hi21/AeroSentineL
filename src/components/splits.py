@@ -1,4 +1,4 @@
-"""Write battery and bearing data in the same shape as NASA C-MAPSS.
+"""Write battery, gearbox, hydraulic and power-electronics data in the same shape as NASA C-MAPSS.
 
 train_<profile>.csv  every training unit, run until end of life
 test_<profile>.csv   held-out units cut off at a random point before end of life
@@ -19,6 +19,10 @@ BATTERY_TEST_CELLS = (6, 34, 44, 47)
 BATTERY_EXCLUDED = (41, 49, 51)  # too few valid discharges, or end of life within 8 cycles of the start
 BEARING_TEST = (13, 17, 24, 26, 33)  # Bearing1_3, 1_7, 2_4, 2_6, 3_3
 CUT_RANGE = (0.3, 0.9)  # test units stop between 30% and 90% of their life
+# Hydraulic: hold out whole blocks (one cooler and accumulator setting each), one per cooler level,
+# so test sessions come from setting combinations the model never saw.
+HYDRAULIC_TEST_BLOCKS = (2, 6, 10)
+POWER_TEST = (3,)  # IGBT device 3
 
 
 def _cut(df, units, rng):
@@ -70,3 +74,34 @@ def write_bearing(table, out_dir):
     test, rul = _cut(df, [u for u in sorted(df["unit"].unique()) if u in BEARING_TEST], rng)
     _write(spec, "FEMTO", train, test, rul, out_dir)
     return len(train["unit"].unique()), len(rul)
+
+
+def write_hydraulic(table, out_dir):
+    """Sessions of the held-out blocks are the test set, whole (the target is a condition, not a life)."""
+    spec = get("hydraulic")
+    df = table.rename(columns={"session": "unit"})
+    test_mask = df["block"].isin(HYDRAULIC_TEST_BLOCKS)
+    train, test = df[~test_mask], df[test_mask]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rename = {"unit": spec.id_column, "cycle": spec.time_column}
+    labels = spec.label_columns
+    train.rename(columns=rename)[spec.upload_columns + labels].to_csv(out_dir / "train_UCI.csv", index=False)
+    test.rename(columns=rename)[spec.upload_columns].to_csv(out_dir / "test_UCI.csv", index=False)
+    last = test.groupby("unit").tail(1)
+    (out_dir / "RUL_UCI.txt").write_text("\n".join(f"{m:g}" for m in last["margin"]) + "\n")
+    test.rename(columns=rename)[[spec.id_column, spec.time_column, *labels]].to_csv(out_dir / "labels_UCI.csv", index=False)
+    return train["unit"].nunique(), test["unit"].nunique()
+
+
+def write_power(table, out_dir):
+    spec = get("power")
+    df = table.rename(columns={"device": "unit", "minute": "cycle"})
+    rng = np.random.default_rng(SEED)
+    train = df[~df["unit"].isin(POWER_TEST)]
+    test, rul = _cut(df, [u for u in sorted(df["unit"].unique()) if u in POWER_TEST], rng)
+    _write(spec, "IGBT", train, test, rul, out_dir)
+    # Sample fleet for the console: every device, cut part-way, so each shows a different state.
+    sample, _ = _cut(df, sorted(df["unit"].unique()), np.random.default_rng(SEED + 1))
+    sample.rename(columns={"unit": spec.id_column, "cycle": spec.time_column})[spec.upload_columns].to_csv(
+        out_dir / "sample_IGBT.csv", index=False)
+    return train["unit"].nunique(), len(rul)

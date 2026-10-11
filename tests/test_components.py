@@ -20,7 +20,7 @@ def test_every_profile_names_its_component_and_channels_are_unique():
 def test_unit_labels_read_like_the_component():
     assert get("turbofan").label(34) == "Engine 034"
     assert get("battery").label(6) == "Cell B0006"
-    assert get("bearing").label(13) == "Bearing 1_3"
+    assert get("bearing").label(13) == "Gearbox 1_3"
 
 
 def test_component_columns_map_to_unit_and_cycle():

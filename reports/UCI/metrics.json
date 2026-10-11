@@ -1,0 +1,274 @@
+{
+  "validation": {
+    "rul": {
+      "baselines": {
+        "linear_regression": {
+          "rmse": 11.8,
+          "mae": 5.418,
+          "r2": 0.765
+        },
+        "random_forest": {
+          "rmse": 9.755,
+          "mae": 3.481,
+          "r2": 0.839
+        }
+      },
+      "xgboost": {
+        "rmse": 9.228,
+        "mae": 3.281,
+        "r2": 0.856,
+        "interval_coverage": 0.498,
+        "cv_rmse": 12.388
+      }
+    },
+    "risk": {
+      "baselines": {
+        "logistic_regression": {
+          "accuracy": 0.903,
+          "macro_f1": 0.704
+        },
+        "random_forest": {
+          "accuracy": 0.91,
+          "macro_f1": 0.762
+        },
+        "xgboost_classifier_only": {
+          "accuracy": 0.994,
+          "macro_f1": 0.982
+        }
+      },
+      "xgboost": {
+        "accuracy": 0.981,
+        "macro_f1": 0.952,
+        "per_band": {
+          "NORMAL": {
+            "precision": 0.875,
+            "recall": 1.0,
+            "f1": 0.933,
+            "roc_auc": 0.999,
+            "support": 21
+          },
+          "AT_RISK": {
+            "precision": 0.838,
+            "recall": 1.0,
+            "f1": 0.912,
+            "roc_auc": 1.0,
+            "support": 31
+          },
+          "HIGH_RISK": {
+            "precision": 1.0,
+            "recall": 0.95,
+            "f1": 0.974,
+            "roc_auc": 1.0,
+            "support": 20
+          },
+          "FAILURE_LIKELY": {
+            "precision": 1.0,
+            "recall": 0.98,
+            "f1": 0.99,
+            "roc_auc": 0.997,
+            "support": 394
+          }
+        },
+        "confusion_matrix": [
+          [
+            21,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            19,
+            0
+          ],
+          [
+            3,
+            5,
+            0,
+            386
+          ]
+        ],
+        "cv_accuracy": 0.8761,
+        "cv_macro_f1": 0.8508,
+        "blend": 0.5,
+        "blend_scores": {
+          "0.0": 0.8299,
+          "0.25": 0.8433,
+          "0.5": 0.8761,
+          "0.75": 0.8716,
+          "1.0": 0.8709
+        }
+      }
+    }
+  },
+  "test": {
+    "rul": {
+      "rmse": 11.678,
+      "mae": 4.7,
+      "r2": 0.811,
+      "rmse_capped": 11.678,
+      "interval_coverage": 0.833,
+      "interval_coverage_capped": 0.833
+    },
+    "risk": {
+      "accuracy": 0.938,
+      "macro_f1": 0.911,
+      "per_band": {
+        "NORMAL": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "roc_auc": 1.0,
+          "support": 3
+        },
+        "AT_RISK": {
+          "precision": 0.571,
+          "recall": 1.0,
+          "f1": 0.727,
+          "roc_auc": 1.0,
+          "support": 4
+        },
+        "HIGH_RISK": {
+          "precision": 1.0,
+          "recall": 0.909,
+          "f1": 0.952,
+          "roc_auc": 0.993,
+          "support": 11
+        },
+        "FAILURE_LIKELY": {
+          "precision": 1.0,
+          "recall": 0.933,
+          "f1": 0.966,
+          "roc_auc": 0.994,
+          "support": 30
+        }
+      },
+      "confusion_matrix": [
+        [
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          10,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          28
+        ]
+      ]
+    }
+  },
+  "diagnosis": {
+    "cooler": {
+      "name": "Cooler",
+      "cv_accuracy": 0.8056,
+      "test_accuracy": 1.0,
+      "labels": [
+        "100",
+        "20",
+        "3"
+      ],
+      "confusion_matrix": [
+        [
+          133,
+          0,
+          0
+        ],
+        [
+          0,
+          133,
+          0
+        ],
+        [
+          0,
+          0,
+          133
+        ]
+      ]
+    },
+    "valve": {
+      "name": "Switching valve",
+      "cv_accuracy": 0.9806,
+      "test_accuracy": 1.0,
+      "labels": [
+        "100",
+        "90",
+        "80",
+        "73"
+      ],
+      "confusion_matrix": [
+        [
+          129,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          90,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          90,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          90
+        ]
+      ]
+    },
+    "pump": {
+      "name": "Pump",
+      "cv_accuracy": 0.9507,
+      "test_accuracy": 0.9799,
+      "labels": [
+        "0",
+        "1",
+        "2"
+      ],
+      "confusion_matrix": [
+        [
+          148,
+          5,
+          0
+        ],
+        [
+          0,
+          123,
+          0
+        ],
+        [
+          0,
+          3,
+          120
+        ]
+      ]
+    }
+  }
+}

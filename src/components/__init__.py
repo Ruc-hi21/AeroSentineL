@@ -1,11 +1,13 @@
 """Registry of monitored components. See src/components/base.py for what a component defines."""
 
-from src.components.base import Channel, ComponentSpec, Profile
+from src.components.base import Channel, ComponentSpec, Diagnosis, Profile
 from src.components.battery import BATTERY
 from src.components.bearing import BEARING
+from src.components.hydraulic import HYDRAULIC
+from src.components.power import POWER
 from src.components.turbofan import TURBOFAN
 
-COMPONENTS = {c.key: c for c in (TURBOFAN, BATTERY, BEARING)}
+COMPONENTS = {c.key: c for c in (TURBOFAN, BATTERY, BEARING, HYDRAULIC, POWER)}
 DEFAULT_COMPONENT = TURBOFAN.key
 _CHANNELS = {ch.key: (spec, ch) for spec in COMPONENTS.values() for ch in (*spec.channels, *spec.derived)}
 # Operating settings as pseudo-channels, so labels and explanations can name them.
@@ -20,7 +22,7 @@ for _spec in COMPONENTS.values():
 # Profile keys are unique across components, so a profile alone names its component.
 PROFILES = {p: spec for spec in COMPONENTS.values() for p in spec.profiles}
 
-__all__ = ["COMPONENTS", "DEFAULT_COMPONENT", "PROFILES", "Channel", "ComponentSpec", "Profile", "get", "channel",
+__all__ = ["COMPONENTS", "DEFAULT_COMPONENT", "PROFILES", "Channel", "ComponentSpec", "Diagnosis", "Profile", "get", "channel",
            "spec_of_channel", "spec_of_profile", "to_canonical"]
 
 
