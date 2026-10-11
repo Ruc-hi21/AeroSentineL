@@ -18,11 +18,11 @@
  * freezes running parts and pulses and makes every transition instant.
  */
 import * as T from './vendor/three-bundle.js';
-import { build as buildTurbofan } from './models/turbofan.js?v=6.0.0';
-import { build as buildBattery } from './models/battery.js?v=6.0.0';
-import { build as buildGearbox } from './models/gearbox.js?v=6.0.1';
-import { build as buildHydraulic } from './models/hydraulic.js?v=6.0.0';
-import { build as buildPower } from './models/power.js?v=6.0.0';
+import { build as buildTurbofan } from './models/turbofan.js?v=6.1.0';
+import { build as buildBattery } from './models/battery.js?v=6.1.0';
+import { build as buildGearbox } from './models/gearbox.js?v=6.1.0';
+import { build as buildHydraulic } from './models/hydraulic.js?v=6.1.0';
+import { build as buildPower } from './models/power.js?v=6.1.0';
 
 // The gearbox model is keyed "bearing": its data is the FEMTO gearbox-bearing set.
 const BUILDERS = { turbofan: buildTurbofan, battery: buildBattery, bearing: buildGearbox, hydraulic: buildHydraulic, power: buildPower };

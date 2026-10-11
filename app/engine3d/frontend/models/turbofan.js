@@ -1,6 +1,6 @@
 /* Turbofan model: a sectioned two-spool turbofan with every C-MAPSS sensor at its station.
  * Rotors and airflow show a running engine; the hot section glows with LPT outlet temperature drift. */
-import { T, V2, metal, physical, lathe, axialCylinder, sectionCut, ring, boltCircle, canvasTexture, dispose } from './shared.js?v=6.0.0';
+import { T, V2, metal, physical, lathe, axialCylinder, sectionCut, ring, boltCircle, canvasTexture, dispose } from './shared.js?v=6.1.0';
 
 const MODULES = [
   { key: 'fan', name: 'Fan', explode: [-2.6, 0, 0], intro: [-7, 0, 0] }, { key: 'lpc', name: 'LPC', explode: [-1.6, 0, 0], intro: [-6, 0, 0] },

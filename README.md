@@ -91,13 +91,21 @@ on hot parts and alarms):
 - a two-spool turbofan with a painted spinner swirl, polished inlet lip, chevron exhausts, bolted case flanges, running
   rotors, airflow and a combustor that glows with exhaust-temperature drift;
 - an 18650 Li-ion cell cut open to show every electrode layer to scale (aluminium and copper foils, cathode, anode,
-  separators), a printed sleeve, a vented cap, and lithium ions crossing the separators while it discharges;
-- an engine gearbox cut away at the front: a pinion and gear that stay in mesh as they turn, two shafts on four ball
-  bearings, couplings, oil in the sump and two cabled accelerometers that radiate rings at the measured vibration level;
-- a hydraulic power unit: reservoir, motor-driven pump, flow meter, switching valve, bladder accumulator and air-oil
-  cooler joined by pipes, with oil running round the circuit (warm before the cooler, cool after) and live gauges;
-- an IGBT power module from heat sink to gate-driver board: DBC substrate, dies, bond wires carrying current pulses at
-  the switching rate, and dies that warm with temperature drift.
+  separators), lithium ions crossing the separators while it discharges, mounted at the front of its module: two more
+  cells in moulded holders, spot-welded nickel interconnects, HV terminals, a battery-management board with chasing
+  LEDs and sense wires, and a liquid cooling plate with its coolant loop; discharge pulses run through the busbars;
+- an engine accessory gearbox cut away at the front: a two-stage helical reduction (three shafts, six sealed ball
+  bearings) whose gears stay in mesh as they turn, a ribbed casing with bolted bearing caps, inspection cover, lifting
+  eyes and nameplate, oil thrown from the output gear, and a GSAP load cycle that ramps the speed and the mesh-contact
+  glow; two cabled accelerometers radiate rings at the measured vibration level;
+- a hydraulic test rig: reservoir, motor-driven pump, filters, relief valve, switching valve, bladder accumulator and
+  air-oil cooler joined by pipes, a working cylinder that strokes a load sled, and a control cabinet with a live HMI.
+  A GSAP timeline runs the load cycle: the valve shifts, the rod extends under load while pressure and flow rise,
+  holds and retracts; oil runs round the circuit (warm before the cooler, cool after);
+- a 3-phase inverter stack: the monitored IGBT module cut open (DBC substrate, dies, bond wires carrying current
+  pulses, dies that warm with temperature drift) next to the V and W phase modules with their gate drivers, a DC-link
+  capacitor bank and laminated busbar, AC outputs through Hall current sensors, and a fan pushing air along the heat
+  sink fins; GSAP fires the three phases 120 degrees apart.
 
 A scan plane builds the component up when it opens, and in the exploded view the outer shells fade to a ghost while
 the parts inside separate along clear paths, so nothing ever passes through anything else. **Every sensor beyond the elevated drift limit is tied to its
@@ -112,7 +120,7 @@ each escalation. Keys: `Space` replay or pause, `E` exploded view, `H` hide pane
     <td width="50%"><img src="assets/screenshot_gearbox_3d.png" alt="3D model of the engine gearbox with leader lines to every drifting sensor" /></td>
   </tr>
   <tr>
-    <td><sub>Battery cell: every electrode layer in the cut, the printed sleeve and thermocouple, and the state of health over its life.</sub></td>
+    <td><sub>Battery cell: every electrode layer in the cut, at the front of its module with BMS, interconnects and cooling plate.</sub></td>
     <td><sub>Gearbox near failure: a leader line from every drifting vibration channel to its accelerometer, bearing, gear mesh or shaft.</sub></td>
   </tr>
   <tr>
@@ -120,8 +128,8 @@ each escalation. Keys: `Space` replay or pause, `E` exploded view, `H` hide pane
     <td width="50%"><img src="assets/screenshot_power_3d.png" alt="3D model of an IGBT power module" /></td>
   </tr>
   <tr>
-    <td><sub>Hydraulic system: pump, valve, accumulator and cooler, coloured by each part's predicted condition.</sub></td>
-    <td><sub>Power electronics: the IGBT module stack, with the on-state voltage and on-resistance drifting before latch-up.</sub></td>
+    <td><sub>Hydraulic rig: power unit, working cylinder and control cabinet; parts coloured by their predicted condition.</sub></td>
+    <td><sub>Power electronics: the monitored IGBT module in its 3-phase inverter stack, on-state voltage and on-resistance drifting before latch-up.</sub></td>
   </tr>
 </table>
 

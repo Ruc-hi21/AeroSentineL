@@ -7,7 +7,8 @@
  *
  * Exploded view: a classic stack-up. Every layer rises more than the one below it, so the layers
  * separate in order; the frame walls lie outside the substrate and the lid and frame ghost. */
-import { T, physical, metal, canvasTexture, dispose } from './shared.js?v=6.0.0';
+import { T, physical, metal, canvasTexture, dispose } from './shared.js?v=6.1.0';
+import { stackContext } from './power_stack.js?v=6.1.0';
 
 const MODULES = [
   { key: 'gate', name: 'Gate drive', explode: [0, 0, 0] },
@@ -67,8 +68,7 @@ export function build() {
 
   // Heat sink with fins, thermal grease, copper baseplate (with a thermistor).
   const sink = layer('sink', 'thermal');
-  sink.add(box(4.6, 0.3, 3.0, M.sink, 0, Y.sink - 0.15, 0, 0.03));
-  for (let i = 0; i < 14; i++) sink.add(box(0.07, 0.75, 2.9, M.sink, -2.15 + i * 0.33, Y.sink - 0.68, 0, 0.015));
+  // the heat sink itself is shared by all three phases (power_stack.js)
   sink.add(box(4.0, 0.03, 2.5, M.grease, 0, Y.grease - 0.015, 0, 0.005));
   const base = layer('base', 'thermal');
   base.add(box(4.0, 0.17, 2.5, M.copper, 0, Y.base - 0.085, 0, 0.02));
@@ -131,13 +131,16 @@ export function build() {
   pcb.add(...gatePins);
   const led = new T.Mesh(new T.SphereGeometry(0.04, 12, 10), M.led); led.position.set(1.3, Y.base + 1.6, 0.05); pcb.add(led);
 
+  // The rest of the 3-phase inverter around this module: phases V and W, DC link, AC outputs, fan.
+  const stack = stackContext(root, layers.sink, M);
+
   let heat = 0, rate = 1.0, phase = 0;
   const tmp = new T.Vector3();
   return {
     key: 'power', root, mods, modules: MODULES, layout: LAYOUT, materials: M, layers,
-    shells: [M.frame, M.lid],
+    shells: [M.frame, M.lid, ...stack.materials],
     panels: { L: 'On-state and blocking', R: 'Current, gate and temperature' },
-    view: { target: [0, -1.0, 0], dir: [0.5, 0.85, 1], twin: [3.0, 1.9], hero: [3.4, 2.2], min: 6 },
+    view: { target: [0.4, -0.9, -2.6], dir: [0.55, 0.7, 1], twin: [4.6, 2.6], hero: [5.2, 3.0], min: 8 },
     groundY: Y.sink - 1.06,
     labels: { gate: [2.3, Y.base + 1.6, -0.5], die: [2.3, Y.die, 0.4], bond: [2.3, Y.die + 0.35, 0.0], thermal: [2.6, Y.sink - 0.3, 0] },
     apply({ modLevel, z, levels }) {
@@ -151,12 +154,14 @@ export function build() {
       tint([M.copper, M.frame], 'thermal', [0.12, 0.08, 0.04]);
       // The dies glow with temperature and on-state voltage drift (heat from the degrading die attach).
       heat = Math.max(0, Math.min(1, Math.max(z.pkg_temp || 0, z.vce_on || 0) / 4));
+      stack.setHeat(heat);
       [M.igbt, M.diode].forEach((m) => { m.emissive.setRGB(1.0 * heat, 0.35 * heat, 0.08 * heat); m.emissiveIntensity = 1.4; });
       rate = 0.8 + Math.max(0, Math.min(1, (z.ice_on || 0) / 4)) * 0.6;
     },
     tick(dt, tsec, { reduced, explode }) {
       // Exploded view: each layer rises more than the one below it.
       for (const [name, g] of Object.entries(layers)) g.position.y = (RISE[name] ?? 0) * explode;
+      stack.tick(dt, explode, reduced);
       pMat.opacity = 0.9 * (1 - explode);
       if (reduced) return;
       phase += dt * rate;
@@ -172,6 +177,6 @@ export function build() {
     },
     resize() {},
     conditionText() { return 'square gate drive, package held above rating'; },
-    dispose() { dispose(root); },
+    dispose() { stack.dispose(); dispose(root); },
   };
 }

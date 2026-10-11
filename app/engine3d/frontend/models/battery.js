@@ -3,7 +3,8 @@
  * separator, copper foil coated with graphite anode. Parts take the colour of their drifting channels,
  * the can warms with temperature drift, lithium ions shuttle across the separators while the cell
  * discharges and a current trace runs along the tabs to the terminals. */
-import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=6.0.0';
+import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=6.1.0';
+import { moduleContext } from './battery_module.js?v=6.1.0';
 
 const MODULES = [
   { key: 'stack', name: 'Electrode stack', explode: [0, 0, 0], intro: [-7, 0, 0] },
@@ -168,14 +169,18 @@ export function build() {
   const ionMat = new T.PointsMaterial({ color: 0x8fe6ff, size: 0.035, transparent: true, opacity: 0.85, depthWrite: false, blending: T.AdditiveBlending });
   const ions = new T.Points(ionGeo, ionMat); ions.frustumCulled = false; mods.stack.add(ions);
 
+  // The monitored cell sits at the front of its module (battery_module.js).
+  const mod = moduleContext(root, mods, M);
+
   let rate = 0.15;
   return {
     key: 'battery', root, mods, modules: MODULES, layout: LAYOUT, materials: M,
-    shells: [M.can, M.wrap, M.wrapEdge, M.insul, M.patch], // the can ghosts in the exploded view; the cap slides off
+    // the can and the whole module ghost in the exploded view; the cap (with its + interconnect) slides off
+    shells: [M.can, M.wrap, M.wrapEdge, M.insul, M.patch, ...mod.materials],
     introOrder: ['can', 'stack', 'interface', 'electrolyte', 'terminal'],
     panels: { L: 'Capacity and charge', R: 'Resistance, voltage and temperature' },
-    view: { target: [0.05, 0, 0], dir: [0.55, 0.34, 1], twin: [3.9, 1.9], hero: [4.6, 2.3], min: 6 },
-    groundY: -2.1,
+    view: { target: [0.1, 0.1, -1.6], dir: [0.6, 0.42, 1], twin: [4.6, 2.6], hero: [5.4, 3.0], min: 7 },
+    groundY: -1.66,
     labels: { stack: [-0.3, -1.75, 0], terminal: [3.5, -1.75, 0], can: [0, 1.75, 0] },
     apply({ modLevel, z, levels }) {
       const tint = (mats, mod, strength) => {
@@ -190,11 +195,13 @@ export function build() {
       // The can warms with peak-temperature drift.
       const heat = Math.max(0, Math.min(1, (z.temp_max_c || 0) / 4));
       M.can.emissive.setRGB(1.0 * heat, 0.42 * heat, 0.12 * heat); M.can.emissiveIntensity = 0.5;
+      mod.setHeat(heat);
       const elv = modLevel.electrolyte;
       M.electrolyte.color.set(elv < 0 ? 0x3fa2ff : levels[elv].color);
       rate = 0.12 + 0.12 * Math.max(0, Math.min(1, -(z.capacity_ah || 0) / 4));
     },
     tick(dt, tsec, { reduced, explode }) {
+      mod.tick(dt, explode);
       flowMat.opacity = 0.6 * (1 - explode);
       ionMat.opacity = 0.85 * (1 - explode);
       M.electrolyte.opacity = 0.07 * (1 - explode);
@@ -218,6 +225,6 @@ export function build() {
     },
     resize() {},
     conditionText(c, i) { return c ? `${Math.round(c.ambient_c[i])} °C ambient  ${c.load_a[i].toFixed(1)} A discharge` : ''; },
-    dispose() { dispose(root); },
+    dispose() { mod.dispose(); dispose(root); },
   };
 }

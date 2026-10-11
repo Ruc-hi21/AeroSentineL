@@ -5,7 +5,8 @@
  * valve's indicator steps with the load cycle. Parts take the colour of their predicted condition.
  *
  * Exploded view: the pipes ghost and each unit lifts straight up off the skid; nothing is above them. */
-import { T, V2, physical, metal, lathe, cable, canvasTexture, dispose } from './shared.js?v=6.0.0';
+import { T, V2, physical, metal, lathe, cable, canvasTexture, dispose } from './shared.js?v=6.1.0';
+import { rigContext } from './hydraulic_rig.js?v=6.1.0';
 
 const MODULES = [
   { key: 'pump', name: 'Pump and motor', explode: [0, 1.3, 0] },
@@ -145,6 +146,9 @@ export function build() {
   mods.accumulator.add(box(0.7, 0.12, 0.7, M.skid, 2.95, FLOOR + 0.2, -0.25, 0.02));
   const g3 = gauge(M, [2.95, -1.25, 0.2], [0, 0.2, 1]); mods.accumulator.add(g3.group);
 
+  // The working side of the rig: cylinder and load, control cabinet, filters (hydraulic_rig.js).
+  const rig = rigContext(root, mods, M);
+
   // Pipes: pressure line (steel) and suction, return and cooling lines (hose). They ghost in the exploded view.
   const runs = {
     suction: [P.tankOut, [-1.2, -1.45, 0.55], P.pumpIn],
@@ -175,9 +179,9 @@ export function build() {
   let flowRate = 0.3, fanRate = 1, heat = 0, needle = [0, 0, 0];
   return {
     key: 'hydraulic', root, mods, modules: MODULES, layout: LAYOUT, materials: M,
-    shells: [M.pipe, M.hose],
+    shells: [M.pipe, M.hose, ...rig.materials],
     panels: { L: 'Pump and valve', R: 'Flow, accumulator and cooling' },
-    view: { target: [0.1, -0.7, 0], dir: [0.45, 0.55, 1], twin: [4.4, 2.0], hero: [4.6, 2.3], min: 7 },
+    view: { target: [0.9, -0.75, 0.1], dir: [0.42, 0.55, 1], twin: [5.2, 2.2], hero: [5.4, 2.5], min: 8 },
     groundY: FLOOR,
     labels: { pump: [-0.4, 0.4, 0.9], valve: [1.85, 1.3, 0.6], accumulator: [2.95, 1.1, -0.2], cooler: [-1.4, 1.4, -0.6] },
     apply({ modLevel, z, levels }) {
@@ -197,13 +201,16 @@ export function build() {
     },
     tick(dt, tsec, { reduced, explode }) {
       oilMat.opacity = 0.85 * (1 - explode);
-      [g1, g2, g3].forEach((g, i) => { g.needle.rotation.z = -(0.15 + 0.12 * Math.max(-3, Math.min(3, needle[i]))); });
+      // Gauges: the drift sets the baseline, the load cycle swings the valve and accumulator pressures.
+      const swing = [0.25 * rig.cyc.press, 1.2 * rig.cyc.press, -0.5 * rig.cyc.press];
+      [g1, g2, g3].forEach((g, i) => { g.needle.rotation.z = -(0.15 + 0.12 * Math.max(-3, Math.min(3, needle[i])) + swing[i]); });
+      rig.tick(dt, explode);
       if (reduced) return;
       fan.rotation.z += dt * 9 * fanRate;
       coupling.rotation.x += dt * 12;
-      led.material.color.set(Math.floor(tsec / 3) % 2 ? 0x5fd4f8 : 0x0f2a3a); // valve switches with the load cycle
+      led.material.color.set(Math.abs(rig.cyc.spool) > 0.5 ? (rig.cyc.spool > 0 ? 0x5fd4f8 : 0xf1c21b) : 0x0f2a3a); // solenoid A / B energised
       for (let i = 0; i < N; i++) {
-        ph[i] += dt * flowRate * (run[i] === 1 ? 1.6 : 1);
+        ph[i] += dt * flowRate * rig.cyc.flow * (run[i] === 1 ? 1.6 : 1);
         if (ph[i] >= 1) { ph[i] -= 1; run[i] = (run[i] + 1) % order.length; }
         curves[order[run[i]]].getPointAt(ph[i], tmp);
         pos[i * 3] = tmp.x; pos[i * 3 + 1] = tmp.y; pos[i * 3 + 2] = tmp.z;
@@ -216,6 +223,6 @@ export function build() {
     },
     resize() {},
     conditionText() { return 'constant 60 s load cycle'; },
-    dispose() { dispose(root); },
+    dispose() { rig.dispose(); dispose(root); },
   };
 }
