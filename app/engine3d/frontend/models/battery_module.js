@@ -6,7 +6,7 @@
  * BMS LEDs chase while it balances. Coolant runs through the hoses every frame, warming with the cell.
  * Everything here is context: it stays put and ghosts in the exploded view (the + interconnect moves with
  * the monitored cell's cap, so the cap never slides through it). */
-import { T, V2, physical, metal, lathe, cable, canvasTexture } from './shared.js?v=6.1.0';
+import { T, V2, physical, metal, lathe, cable, canvasTexture } from './shared.js?v=7.0.0';
 
 const PITCH = 2.85;   // cell spacing along Z
 const CELLS_Z = [-PITCH, -2 * PITCH];
@@ -52,9 +52,9 @@ export function moduleContext(root, mods, Mcell) {
     holder: physical(0x2a2f37, 0.55, 0.15, { clearcoat: 0.25 }),
     nickel: physical(0xc9ced3, 0.28, 1.0, { emissive: 0x000000 }),
     weld: metal(0x8d949c, 0.5, 0.9),
-    plate: physical(0x9aa4af, 0.35, 0.85),
+    plate: physical(0x8a939e, 0.62, 0.6, { clearcoat: 0 }),
     pad: new T.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.9 }),
-    endplate: physical(0x6c7681, 0.35, 0.8, { clearcoat: 0.3 }),
+    endplate: physical(0x5c6671, 0.55, 0.6, { clearcoat: 0.1 }),
     bolt: physical(0xa3abb4, 0.3, 0.95),
     pcb: new T.MeshStandardMaterial({ map: bmsTex(), roughness: 0.55, metalness: 0.1 }),
     chip: physical(0x15181c, 0.45, 0.2), res: physical(0x2b3038, 0.5, 0.3), conn: physical(0xe6e8eb, 0.5, 0.1),

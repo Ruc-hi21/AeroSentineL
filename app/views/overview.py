@@ -5,8 +5,8 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    FAULT_TEXT, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec, require_model, sample_button,
-    sample_choice, sensor_label, show_table,
+    FAULT_TEXT, PROFILE_LABELS, SAMPLES, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec,
+    require_model, run_analysis, sample_button, sensor_label, show_table,
 )
 from app.engine3d import engine_twin
 from app.theme import MONO, SANS, TOKENS, esc
@@ -22,44 +22,96 @@ def open_engine(unit):
 result = get_result()
 status = model_status()
 
-# ---------------------------------------------------------------- empty state
-HERO = {"turbofan": "Turbofan", "battery": "Battery cell", "bearing": "Gearbox", "hydraulic": "Hydraulics",
-        "power": "Power electronics"}
+# ---------------------------------------------------------------- landing page (nothing loaded yet)
+# Each card: component key, sample profile, name, what the 3D model shows, the data behind the model.
+CARDS = [
+    ("turbofan", "FD001", "Turbofan engine", "Two-spool turbofan, 21 sensors along the gas path",
+     "NASA C-MAPSS, 4 fleets, 709 engines"),
+    ("battery", "PCOE", "Li-ion battery cell", "Sectioned 18650 cell in its module with BMS and cooling",
+     "NASA PCoE ageing tests, 34 cells"),
+    ("bearing", "FEMTO", "Engine gearbox", "Two-stage helical gearbox with casing accelerometers",
+     "FEMTO-ST PRONOSTIA run-to-failure, 17 tests"),
+    ("hydraulic", "UCI", "Hydraulic system", "Test rig with pump, valve, accumulator, cooler and cylinder",
+     "ZeMA hydraulic rig, 2,205 load cycles"),
+    ("power", "IGBT", "Power electronics", "Three-phase IGBT inverter, monitored module cut open",
+     "NASA PCoE IGBT thermal-overstress ageing"),
+]
+
+
+def card_metric(bench, profile):
+    """The honest headline for a card: test and cross-validated risk-band accuracy of its model."""
+    rows = (bench or {}).get("subsets", {})
+    row = rows.get(profile)
+    if not row:
+        return "model not trained"
+    if profile == "FD001":
+        turbo = [r["test_accuracy"] for r in rows.values() if r.get("component", "turbofan") == "turbofan"]
+        return f"{min(turbo):.0%} to {max(turbo):.0%} risk band, test"
+    if profile == "IGBT":
+        return f"{row['cv_accuracy']:.0%} cross-validated; 4 devices, indicative"
+    return f"{row['test_accuracy']:.0%} risk band test, {row['cv_accuracy']:.0%} cross-validated"
+
+
+# A card link (?sample=<profile>) opens that sample fleet: load it, clear the link, show the fleet.
+_sample = st.query_params.get("sample")
+if _sample in SAMPLES and SAMPLES[_sample].exists():
+    with st.spinner(f"Analyzing the {PROFILE_LABELS[_sample].lower()} sample fleet"):
+        run_analysis(SAMPLES[_sample].name, SAMPLES[_sample].read_bytes(), subset=_sample)
+    st.query_params.clear()
+    st.rerun()
+
 if result is None or result.units is None:
-    left, right = st.columns([1, 1.25], gap="large", vertical_alignment="center")
+    bench = load_benchmark()
+    router = (bench or {}).get("router") or {}
+    left, right = st.columns([1, 1.2], gap="large", vertical_alignment="center")
     with left:
-        st.html("""<div class="as-hero" style="max-width:560px">
+        st.html("""<div class="as-hero" style="max-width:580px">
 <div class="eyebrow"><img src="app/static/brand/logo_mark.svg" alt=""><div><b>AEROSENTINEL</b><i>Predictive maintenance console</i></div></div>
-<h1>Component health, <span>remaining life</span> and failure risk</h1>
-<p>Turbofan engines, Li-ion battery cells, engine gearboxes, hydraulic systems and power electronics.
-Upload sensor data and a recognition model decides which component it comes from, then that component's own models
-predict condition, remaining life (or condition margin) and risk, and explain why.</p></div>""")
-        choice = sample_choice("hero_choice")
-        b1, b2, _ = st.columns([1.3, 1.1, 1])
+<h1>Which component fails next, <span>how soon</span>, and why</h1>
+<p>Drop in a sensor log. A recognition model works out whether it comes from a turbofan, a battery cell, a gearbox, a
+hydraulic system or power electronics; that component's own models forecast remaining life and risk, point to the
+sensors driving it, and suggest what to do.</p></div>""")
+        b1, b2 = st.columns([1.25, 1])
         with b1:
-            sample_button(key="hero_sample", subset=choice)
+            sample_button(key="hero_sample", subset=DATASET, label="Try the NASA fleet", width="stretch")
         with b2:
-            st.page_link("views/upload.py", label="Upload a file", icon=":material/upload:")
-        bench = load_benchmark()
-        if bench and bench.get("subsets"):
-            rows = bench["subsets"]
-            turbo = [r for r in rows.values() if r.get("component", "turbofan") == "turbofan"]
-            acc = [r["test_accuracy"] for r in turbo]
-            router = bench.get("router") or {}
-            items = [theme.stat("Component models", f"{len({r.get('component', 'turbofan') for r in rows.values()})}",
-                                foot=f"{len(rows)} trained profiles")]
-            if router:
-                items.append(theme.stat("Files routed correctly", f"{router['known_routed_correctly']:.0%}",
-                                        foot=f"recognition model, {router['test_examples']} unseen test files"))
-            if acc:
-                items.append(theme.stat("Turbofan risk accuracy", f"{min(acc):.0%} to {max(acc):.0%}", foot="NASA test sets"))
-            theme.stats(items)
-        theme.note("Input: one row per unit and cycle (or minute), with the component's channels. Turbofan files use the "
-                   "NASA C-MAPSS layout; battery and bearing files are CSV with a header row (see Ingest data).")
+            st.page_link("views/upload.py", label="Upload data", icon=":material/upload:", width="stretch")
+        kpis = [(str(len(CARDS)), "component models", "public run-to-failure and test-rig data")]
+        if router:
+            wrong = round(router["known_misrouted"] * router["test_examples"])
+            kpis.append((str(wrong), "files sent to a wrong model", f"of {router['test_examples']} unseen test files"))
+        turbo = [r["test_accuracy"] for r in (bench or {}).get("subsets", {}).values() if r.get("component", "turbofan") == "turbofan"]
+        if turbo:
+            kpis.append((f"{max(turbo):.0%}", "turbofan risk band", f"best NASA test fleet; worst {min(turbo):.0%}"))
+        st.html('<div class="as-kpis">' + "".join(
+            f'<div class="as-stat"><div class="v">{esc(v)}</div><div class="l">{esc(l)}</div><div class="f">{esc(f)}</div></div>'
+            for v, l, f in kpis) + "</div>")
     with right:
-        hero = st.pills("3D model", list(HERO), default="turbofan", format_func=HERO.get, key="hero_component",
-                                    label_visibility="collapsed")
-        engine_twin(mode="hero", height=440, key="hero_engine", component=hero or "turbofan")
+        engine_twin(mode="hero", height=500, key="hero_engine", component="turbofan")
+
+    # How it works: four steps with a pulse travelling along them (the path a file takes).
+    theme.section("How it works", "from a raw sensor log to a maintenance decision, in about a second")
+    steps = [
+        ("01", "Profile", "Read any table and check its shape, gaps, outliers and correlations.", "EDA before any model"),
+        ("02", "Recognise", "Fingerprint the data and route it to the right component, or stop.",
+         f"{router['test_examples']} unseen files, none misrouted" if router else "XGBoost with an 80% gate"),
+        ("03", "Predict", "Correct for the operating condition, score health, forecast life or margin and risk.",
+         "XGBoost, 80% range, 4 risk bands"),
+        ("04", "Explain and act", "Rank the sensors behind each forecast and suggest the next step.", "SHAP for every unit"),
+    ]
+    st.html('<div class="as-flow">' + "".join(
+        f'<div class="st"><span class="n">{n}</span><b>{esc(t)}</b><p>{esc(d)}</p><i>{esc(m)}</i></div>' for n, t, d, m in steps)
+        + '<div class="pulse"></div></div>')
+
+    # The five components: what the model sees, how well it does, and a one-click sample.
+    theme.section("Five component models", "open any sample fleet; the recognition model picks the component on its own")
+    # One responsive grid (5, 3, 2 or 1 across); each card is a link that opens its sample fleet.
+    st.html('<div class="as-cards">' + "".join(
+        f'<a class="as-card" href="?sample={profile}" target="_self">'
+        f'<div class="img"><img src="app/static/brand/thumb_{key}.jpg" alt="3D model of the {esc(name)}"></div>'
+        f'<div class="body"><b>{esc(name)}</b><p>{esc(shows)}</p><span class="data">{esc(data)}</span>'
+        f'<span class="metric">{esc(card_metric(bench, profile))}</span><span class="go">Open sample fleet</span></div></a>'
+        for key, profile, name, shows, data in CARDS) + "</div>")
     st.stop()
 
 # ---------------------------------------------------------------- fleet

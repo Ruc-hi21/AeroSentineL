@@ -5,8 +5,8 @@
  * valve's indicator steps with the load cycle. Parts take the colour of their predicted condition.
  *
  * Exploded view: the pipes ghost and each unit lifts straight up off the skid; nothing is above them. */
-import { T, V2, physical, metal, lathe, cable, canvasTexture, dispose } from './shared.js?v=6.1.0';
-import { rigContext } from './hydraulic_rig.js?v=6.1.0';
+import { T, V2, physical, metal, lathe, cable, canvasTexture, dispose } from './shared.js?v=7.0.0';
+import { rigContext } from './hydraulic_rig.js?v=7.0.0';
 
 const MODULES = [
   { key: 'pump', name: 'Pump and motor', explode: [0, 1.3, 0] },

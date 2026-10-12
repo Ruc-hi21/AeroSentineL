@@ -4,12 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AeroSentinel component model</title>
-  <link rel="stylesheet" href="./style.css?v=6.0.0" />
+  <link rel="stylesheet" href="./style.css?v=7.0.0" />
 </head>
 <body>
   <div id="app" class="mode-twin">
     <canvas id="gl" aria-label="3D cutaway of the component with sensor locations"></canvas>
     <canvas id="lines" aria-hidden="true"></canvas>
+
+    <nav id="hero-tabs" aria-label="Component"></nav>
+    <div id="hero-caption"></div>
 
     <div id="loader" role="status" aria-live="polite">
       <img src="./logo_mark.svg" alt="" width="64" height="64" />
@@ -50,6 +53,6 @@
     </div>
   </div>
   <script src="./vendor/gsap.min.js"></script>
-  <script type="module" src="./engine.js?v=6.1.0"></script>
+  <script type="module" src="./engine.js?v=7.0.1"></script>
 </body>
 </html>

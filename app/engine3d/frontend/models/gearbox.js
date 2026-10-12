@@ -9,7 +9,7 @@
  * and how much oil the output gear throws. Accelerometers radiate rings at the measured vibration level.
  * Exploded view: the casing ghosts; the gear train slides out of the open front, the stages part along
  * their shafts and the bearings move outward. No part ever passes through another. */
-import { T, physical, metal, lathe, V2, boltCircle, cable, canvasTexture, dispose } from './shared.js?v=6.1.0';
+import { T, physical, metal, lathe, V2, boltCircle, cable, canvasTexture, dispose } from './shared.js?v=7.0.0';
 
 const MODULES = [
   { key: 'shaft', name: 'Shafts', explode: [0, 0, 1.6] },

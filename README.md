@@ -71,6 +71,12 @@ operating condition, and answers four questions for every unit:
 
 ## Inside the console
 
+![Landing page: headline numbers, a live 3D showcase with component tabs, how it works, and the five component models](assets/screenshot_landing.png)
+
+The **landing page** shows what the console does before anything is loaded: a live 3D showcase (switch components
+inside the view, no reload), the headline numbers, the four steps a file goes through, and a card per component with
+its data, its honest accuracy and a one-click sample fleet.
+
 ![Engine status page for an FD004 engine, with the gas-path schematic](assets/screenshot_engine_status.png)
 
 **Unit status** puts everything about one engine, cell, gearbox, hydraulic session or power switch on a single screen: its condition, RUL on a banded

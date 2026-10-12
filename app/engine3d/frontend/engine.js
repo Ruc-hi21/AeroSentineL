@@ -18,11 +18,11 @@
  * freezes running parts and pulses and makes every transition instant.
  */
 import * as T from './vendor/three-bundle.js';
-import { build as buildTurbofan } from './models/turbofan.js?v=6.1.0';
-import { build as buildBattery } from './models/battery.js?v=6.1.0';
-import { build as buildGearbox } from './models/gearbox.js?v=6.1.0';
-import { build as buildHydraulic } from './models/hydraulic.js?v=6.1.0';
-import { build as buildPower } from './models/power.js?v=6.1.0';
+import { build as buildTurbofan } from './models/turbofan.js?v=7.0.0';
+import { build as buildBattery } from './models/battery.js?v=7.0.0';
+import { build as buildGearbox } from './models/gearbox.js?v=7.0.0';
+import { build as buildHydraulic } from './models/hydraulic.js?v=7.0.0';
+import { build as buildPower } from './models/power.js?v=7.0.0';
 
 // The gearbox model is keyed "bearing": its data is the FEMTO gearbox-bearing set.
 const BUILDERS = { turbofan: buildTurbofan, battery: buildBattery, bearing: buildGearbox, hydraulic: buildHydraulic, power: buildPower };
@@ -90,8 +90,28 @@ scene.background = (() => {
 })();
 scene.fog = new T.Fog(0x0d1014, 22, 46);
 const pmrem = new T.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new T.RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.45;
+// Studio environment for reflections: a dark-to-grey dome with three dim soft boxes. (Three's RoomEnvironment has
+// ceiling panels bright enough to blow flat metal out to white when the camera looks down on it.)
+function studioEnvironment() {
+  const s = new T.Scene();
+  s.add(new T.Mesh(new T.SphereGeometry(20, 32, 16), new T.ShaderMaterial({
+    side: T.BackSide,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vP;
+      void main(){ float h = vP.y * 0.5 + 0.5;
+        vec3 c = mix(vec3(0.015, 0.02, 0.028), vec3(0.2, 0.23, 0.28), smoothstep(0.3, 1.0, h));
+        c += vec3(0.02, 0.05, 0.11) * smoothstep(0.55, 0.0, abs(h - 0.45)); // faint blue horizon band
+        gl_FragColor = vec4(c, 1.0); }`,
+  })));
+  const box = (w, h, pos, k) => {
+    const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: new T.Color(k, k, k * 1.04), side: T.DoubleSide }));
+    m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+  };
+  box(9, 3, [2, 13, 5], 1.15); box(4, 7, [-13, 3, -4], 0.55); box(3, 7, [12, 2, 7], 0.75);
+  return s;
+}
+scene.environment = pmrem.fromScene(studioEnvironment(), 0.035).texture;
+scene.environmentIntensity = 0.62;
 scene.add(new T.HemisphereLight(0xc9d6e6, 0x0c0f14, 0.75));
 const keyLight = new T.DirectionalLight(0xffffff, 1.45); keyLight.position.set(3.5, 10, 6); scene.add(keyLight);
 keyLight.castShadow = true;
@@ -120,7 +140,7 @@ controls.addEventListener('start', () => { userTouched = true; gsap.killTweensOf
 const composer = new T.EffectComposer(renderer, new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: 4 }));
 composer.addPass(new T.RenderPass(scene, camera));
 // Threshold 1.0: only HDR values bloom (boosted status markers, hot sections, polished-steel glints).
-const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.42, 0.45, 1.0);
+const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.36, 0.42, 1.2);
 composer.addPass(bloom);
 composer.addPass(new T.OutputPass());
 
@@ -162,7 +182,7 @@ const radialTex = (stops) => {
   const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t;
 };
 const stage = new T.Mesh(new T.PlaneGeometry(16, 16), new T.MeshBasicMaterial({
-  map: radialTex([[0, 'rgba(31,131,242,0.4)'], [0.35, 'rgba(22,90,190,0.13)'], [1, 'rgba(10,40,100,0)']]),
+  map: radialTex([[0, 'rgba(31,131,242,0.22)'], [0.35, 'rgba(22,90,190,0.08)'], [1, 'rgba(10,40,100,0)']]),
   transparent: true, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false,
 }));
 stage.rotation.x = -Math.PI / 2; stage.position.y = 0.008; floor.add(stage);
@@ -173,7 +193,8 @@ const ripples = [0, 1].map(() => {
 });
 
 /* ------------------------------------------------------------------ build-up scan: a plane sweeps along the component */
-const scan = { plane: new T.Plane(new T.Vector3(-1, 0, 0), 0), tween: null };
+const OPEN = 1e5; // the scan plane parked far away: nothing is clipped
+const scan = { plane: new T.Plane(new T.Vector3(-1, 0, 0), OPEN), tween: null };
 const scanGlow = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({
   map: (() => {
     const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
@@ -189,8 +210,9 @@ function eachMaterial(fn) {
   MODEL.root.traverse((o) => { (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach((m) => fn(m, o)); });
 }
 function setClip(on) {
-  eachMaterial((m) => { if (!m.isShaderMaterial) { m.clippingPlanes = on ? [scan.plane] : null; m.needsUpdate = true; } });
-  // custom-shader particles cannot be clipped: hold them back until the part they flow through exists
+  // Materials keep the plane for good (assigned once per model); moving it costs nothing, toggling it would
+  // recompile every shader. Custom-shader particles cannot be clipped: hold them back during the scan.
+  if (!on) scan.plane.constant = OPEN;
   MODEL.root.traverse((o) => { if (o.isPoints) o.visible = !on; });
 }
 function scanIn(delay, dur) {
@@ -239,21 +261,41 @@ let markers = {};
 const modEls = {};
 
 /* ------------------------------------------------------------------ component model */
+// Built models are kept, so switching back to a component is instant (geometry, textures and compiled
+// shaders all stay warm).
+const CACHE = new Map();
 function useModel(key) {
   key = BUILDERS[key] ? key : 'turbofan';
   if (MODEL && MODEL.key === key) return false;
-  if (MODEL) { scene.remove(MODEL.root); MODEL.dispose(); }
-  MODEL = BUILDERS[key]();
+  if (MODEL) scene.remove(MODEL.root);
+  const hit = CACHE.get(key);
+  if (hit) { MODEL = hit.model; markers = hit.markers; }
+  else { MODEL = BUILDERS[key](); MODEL.fresh = true; markers = buildMarkers(); prepareModel(); CACHE.set(key, { model: MODEL, markers }); }
+  Object.values(markers).forEach((m) => { m.group.visible = false; });
+  scene.add(MODEL.root);
+  floor.position.y = MODEL.groundY;
+  $('modules').innerHTML = '';
+  Object.keys(modEls).forEach((k) => delete modEls[k]);
+  MODEL.modules.forEach((m) => { const el = document.createElement('div'); el.className = 'mod'; el.textContent = m.name; $('modules').appendChild(el); modEls[m.key] = el; });
+  $('panel-l').textContent = MODEL.panels.L; $('panel-r').textContent = MODEL.panels.R;
+  home.target.fromArray(MODEL.view.target);
+  home.dir.fromArray(MODEL.view.dir).normalize();
+  controls.target.copy(home.target);
+  syncTabs();
+  resize();
+  return true;
+}
+function prepareModel() {
   MODEL.root.traverse((o) => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    if (mats.some((m) => m.transparent || m.blending === T.AdditiveBlending)) return;
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    mats.forEach((m) => { if (!m.isShaderMaterial) m.clippingPlanes = [scan.plane]; });
+    if (!o.isMesh || mats.some((m) => m.transparent || m.blending === T.AdditiveBlending)) return;
     o.castShadow = true;
     if (o.userData.receive !== false) o.receiveShadow = true;
   });
-  scene.add(MODEL.root);
-  floor.position.y = MODEL.groundY;
-  markers = {};
+}
+function buildMarkers() {
+  const out = {};
   for (const [k, L] of Object.entries(MODEL.layout)) {
     const g = new T.Group(); g.position.fromArray(L.pos);
     const dot = new T.Mesh(markerGeo, new T.MeshBasicMaterial({ color: 0x9aa3ad, depthTest: false, transparent: true }));
@@ -264,18 +306,34 @@ function useModel(key) {
     dot.renderOrder = 21; sel.renderOrder = 22; halo.renderOrder = 20;
     g.add(halo, dot, sel); g.visible = false;
     ((L.at && MODEL.layers && MODEL.layers[L.at]) || MODEL.mods[L.mod]).add(g); // a marker can ride on a moving layer
-    markers[k] = { group: g, dot, sel, halo, pop: 1, phase: Math.random(), screen: new T.Vector2(-999, -999) };
+    out[k] = { group: g, dot, sel, halo, pop: 1, phase: Math.random(), screen: new T.Vector2(-999, -999) };
   }
-  $('modules').innerHTML = '';
-  Object.keys(modEls).forEach((k) => delete modEls[k]);
-  MODEL.modules.forEach((m) => { const el = document.createElement('div'); el.className = 'mod'; el.textContent = m.name; $('modules').appendChild(el); modEls[m.key] = el; });
-  $('panel-l').textContent = MODEL.panels.L; $('panel-r').textContent = MODEL.panels.R;
-  home.target.fromArray(MODEL.view.target);
-  home.dir.fromArray(MODEL.view.dir).normalize();
-  controls.target.copy(home.target);
-  resize();
-  return true;
+  return out;
 }
+
+/* ------------------------------------------------------------------ hero tabs: switch component inside the view
+ * (no Streamlit rerun, no page reload) */
+const HERO_TABS = [
+  ['turbofan', 'Turbofan', 'Two-spool turbofan, sectioned: rotors turning, air through the bypass and core, combustor glowing.'],
+  ['battery', 'Battery', 'Li-ion cell cut open in its module: every electrode layer, the BMS, interconnects and cooling plate.'],
+  ['bearing', 'Gearbox', 'Two-stage helical accessory gearbox: three shafts, six bearings, oil thrown from the output gear.'],
+  ['hydraulic', 'Hydraulics', 'Hydraulic test rig: pump, valve, accumulator and cooler; the cylinder strokes on every load cycle.'],
+  ['power', 'Power electronics', 'Three-phase IGBT inverter: the monitored module cut open, phases firing 120 degrees apart.'],
+];
+function syncTabs() {
+  document.querySelectorAll('#hero-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.key === MODEL.key));
+  const t = HERO_TABS.find((x) => x[0] === MODEL.key);
+  if ($('hero-caption') && t) $('hero-caption').textContent = t[2];
+}
+(() => {
+  const bar = $('hero-tabs');
+  if (!bar) return;
+  HERO_TABS.forEach(([key, label]) => {
+    const b = document.createElement('button'); b.className = 'tab'; b.dataset.key = key; b.textContent = label;
+    b.onclick = () => { if (useModel(key)) intro(false); };
+    bar.appendChild(b);
+  });
+})();
 
 /* ------------------------------------------------------------------ HUD */
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -541,7 +599,7 @@ function applyState(dt, tsec, rawDt = dt) {
     const lv = s.modeled ? level(s.zDisp) : -1;
     // Danger stations glow (colour above the bloom threshold); nominal ones stay matte grey.
     if (lv < 0) m.dot.material.color.set(s.modeled ? '#9aa3ad' : '#4a525c');
-    else m.dot.material.color.copy(tmpColor.set(LEVELS[lv].color)).multiplyScalar([3.4, 3.0, 1.7][lv]);
+    else m.dot.material.color.copy(tmpColor.set(LEVELS[lv].color)).multiplyScalar([4.6, 4.0, 2.2][lv]);
     const active = s.key === S.selected || s.key === S.hovered;
     m.dot.scale.setScalar((active ? 1.6 : lv === 0 ? 1.25 : 1) * m.pop);
     // Warning and critical stations pulse; critical twice as fast.
@@ -709,7 +767,26 @@ function loadPayload(p) {
     S.reveal = 0; gsap.to(S, { reveal: 1, duration: D(0.7), ease: 'power2.out', overwrite: true });
   }
 }
+let introToken = 0;
 function intro(withHud) {
+  const token = ++introToken;
+  if (MODEL.fresh && renderer.compileAsync) {
+    // First time this component is shown: compile its shaders in parallel (behind the loader) rather than
+    // stalling the first frames.
+    MODEL.fresh = false;
+    S.compiling = true;
+    gsap.set('#loader', { autoAlpha: 1 });
+    renderer.compileAsync(scene, camera).catch(() => {}).then(() => {
+      S.compiling = false;
+      gsap.to('#loader', { autoAlpha: 0, duration: D(0.3) });
+      if (token === introToken) runIntro(withHud);
+    });
+    return;
+  }
+  MODEL.fresh = false;
+  runIntro(withHud);
+}
+function runIntro(withHud) {
   resize();
   // The component assembles module by module while the camera sweeps in to the working view.
   const start = home.target.clone().addScaledVector(home.dir.clone().applyAxisAngle(new T.Vector3(0, 1, 0), 0.75)
@@ -777,10 +854,32 @@ function frame() {
     rp.position.set(home.target.x, 0.012, home.target.z);
   });
   stage.position.set(home.target.x, 0.008, home.target.z);
-  composer.render(dt);
+  if (!S.compiling) composer.render(dt);
   drawOverlay(tsec);
   if (S.mode === 'twin') drawTimeline();
   if (!S.rendered) { S.rendered = true; gsap.to('#loader', { autoAlpha: 0, duration: D(0.45), delay: D(0.1) }); }
+}
+
+/* Landing page: once the first component is up, build and compile the others in idle time, one per idle
+ * slot, so the first switch to each is as instant as a revisit. */
+function warmUp() {
+  const todo = HERO_TABS.map((t) => t[0]).filter((k) => !CACHE.has(k));
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 300));
+  const next = () => {
+    const k = todo.shift();
+    if (!k || CACHE.has(k)) { if (k) next(); return; }
+    idle(() => {
+      if (CACHE.has(k)) { next(); return; }
+      const keep = MODEL, keepMarkers = markers;
+      MODEL = BUILDERS[k](); markers = buildMarkers(); prepareModel();
+      const built = { model: MODEL, markers };
+      MODEL = keep; markers = keepMarkers;
+      CACHE.set(k, built);
+      const done = () => { built.model.fresh = false; setTimeout(next, 400); };
+      if (renderer.compileAsync) renderer.compileAsync(built.model.root, camera, scene).then(done, done); else done();
+    }, { timeout: 3000 });
+  };
+  setTimeout(next, 2500);
 }
 
 /* ------------------------------------------------------------------ args from Streamlit */
@@ -789,8 +888,7 @@ function onRender(args) {
   if (mode !== S.mode) { S.mode = mode; app.className = `mode-${mode}`; heroMotion(mode === 'hero'); resize(); }
   Bridge.height(args.height || (mode === 'hero' ? 420 : 820));
   if (mode === 'hero') {
-    const switched = useModel(args.component || 'turbofan');
-    if (!S.started || switched) { S.started = true; intro(false); heroMotion(true); }
+    if (!S.started) { S.started = true; useModel(args.component || 'turbofan'); intro(false); heroMotion(true); warmUp(); }
     return;
   }
   const p = args.payload;
@@ -798,7 +896,7 @@ function onRender(args) {
 }
 window.addEventListener('message', (e) => { const m = e.data; if (m && m.type === 'streamlit:render') onRender(m.args || {}); });
 
-useModel('turbofan');
+useModel(new URLSearchParams(location.search).get('component') || 'turbofan');
 resize();
 setHome();
 camera.position.copy(home.pos);

@@ -237,7 +237,45 @@ button:focus-visible, a:focus-visible, [role="tab"]:focus-visible { outline: 2px
 .as-hero h1 span { background: linear-gradient(90deg, #3fa2ff, #5fd4f8); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .as-hero p { font-size: 15px; color: var(--text-2); margin: 0; line-height: 1.55; max-width: 60ch; }
 
+/* landing: how it works */
+.as-flow { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 4px 0 6px;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
+.as-flow .st { padding: 16px 18px 16px 0; position: relative; }
+.as-flow .st + .st { padding-left: 18px; border-left: 1px solid var(--line); }
+.as-flow .n { font-family: var(--mono); font-size: 12px; color: var(--brand-cyan); letter-spacing: .08em; }
+.as-flow b { display: block; font-size: 15px; font-weight: 600; color: var(--text-1); margin: 4px 0 6px; }
+.as-flow p { font-size: 13px; color: var(--text-2); margin: 0 0 8px; line-height: 1.45; }
+.as-flow i { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+.as-flow .pulse { position: absolute; left: 0; top: -1px; height: 2px; width: 18%;
+  background: linear-gradient(90deg, transparent, #5fd4f8, transparent); animation: as-flow 3.6s var(--ease) infinite; }
+@keyframes as-flow { from { transform: translateX(-100%); } to { transform: translateX(560%); } }
+
+/* landing: component cards */
+.as-card { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); margin-bottom: 8px;
+  transition: border-color var(--t-std) var(--ease), transform var(--t-std) var(--ease-out), box-shadow var(--t-std) var(--ease); }
+.as-card:hover { border-color: rgba(63, 162, 255, .55); transform: translateY(-3px); box-shadow: 0 14px 30px -18px rgba(22, 131, 242, .7); }
+.as-card .img { aspect-ratio: 16 / 10; overflow: hidden; background: #0b0d10; }
+.as-card .img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s var(--ease-out); }
+.as-card:hover .img img { transform: scale(1.06); }
+.as-card .body { padding: 12px 14px 14px; }
+.as-card b { display: block; font-size: 14px; font-weight: 600; color: var(--text-1); }
+.as-card p { font-size: 12px; color: var(--text-2); margin: 4px 0 8px; line-height: 1.45; min-height: 3.4em; }
+.as-card .data { display: block; font-size: 11px; color: var(--text-3); }
+.as-card .metric { display: block; font-family: var(--mono); font-size: 11px; color: var(--brand-cyan); margin-top: 6px; }
+.as-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; margin-top: 6px; }
+a.as-card { text-decoration: none !important; color: inherit; display: block; margin: 0; }
+.as-card .go { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--accent); }
+.as-card .go::after { content: "→"; transition: transform var(--t-std) var(--ease-out); }
+.as-card:hover .go::after { transform: translateX(4px); }
+.as-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 0 18px; margin-top: 18px; }
+.as-kpis .as-stat { padding: 10px 0 10px 14px !important; border-left: 2px solid var(--line-strong) !important; }
+.as-kpis .as-stat:first-child { border-left-color: var(--accent) !important; }
+.as-kpis .v { font-family: var(--mono); font-size: 26px; font-weight: 500; color: var(--text-1); line-height: 1.2; }
+.as-kpis .l { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.as-kpis .f { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
 @media (max-width: 900px) {
+  .as-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .as-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .as-dist .keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   [data-testid="stMainBlockContainer"] { padding: 2rem 1rem 3rem; }
@@ -264,7 +302,7 @@ MOTION_JS = r"""
   const P = window.parent, doc = P.document;
   if (P.__asMotion) return; P.__asMotion = 1;
   if (P.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const REVEAL = '.as-head, .as-hero, .as-sec, .as-stats, .as-dist, .as-spec, .as-steps, .as-kv, .as-actions, .as-empty, .as-note, '
+  const REVEAL = '.as-head, .as-hero, .as-flow, .as-kpis, .as-cards, .as-sec, .as-stats, .as-dist, .as-spec, .as-steps, .as-kv, .as-actions, .as-empty, .as-note, '
     + '[data-testid="stPlotlyChart"], [data-testid="stDataFrame"], [data-testid="stCustomComponentV1"], [data-testid="stImage"]';
   const COUNT = '.as-stat .v, .as-dist .k .n, .as-steps .v';
   const seen = new WeakSet(), last = new Map();

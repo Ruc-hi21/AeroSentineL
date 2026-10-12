@@ -3,8 +3,8 @@
  * separator, copper foil coated with graphite anode. Parts take the colour of their drifting channels,
  * the can warms with temperature drift, lithium ions shuttle across the separators while the cell
  * discharges and a current trace runs along the tabs to the terminals. */
-import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=6.1.0';
-import { moduleContext } from './battery_module.js?v=6.1.0';
+import { T, V2, physical, metal, lathe, axialCylinder, sectionCut, ring, canvasTexture, dispose } from './shared.js?v=7.0.0';
+import { moduleContext } from './battery_module.js?v=7.0.0';
 
 const MODULES = [
   { key: 'stack', name: 'Electrode stack', explode: [0, 0, 0], intro: [-7, 0, 0] },
@@ -84,7 +84,7 @@ function wrapTexture() {
 export function build() {
   const M = {
     can: physical(0x8a929c, 0.32, 0.95, { emissive: 0x000000, side: T.DoubleSide, clearcoat: 0.2 }),
-    wrap: new T.MeshPhysicalMaterial({ map: wrapTexture(), roughness: 0.35, metalness: 0.05, clearcoat: 0.8, clearcoatRoughness: 0.18, side: T.DoubleSide }),
+    wrap: new T.MeshPhysicalMaterial({ map: wrapTexture(), roughness: 0.45, metalness: 0.05, clearcoat: 0.3, clearcoatRoughness: 0.35, side: T.DoubleSide }),
     wrapEdge: new T.MeshStandardMaterial({ color: 0x0b2350, roughness: 0.4, side: T.DoubleSide }),
     stack: new T.MeshStandardMaterial({ color: 0x2b3038, metalness: 0.3, roughness: 0.6, side: T.DoubleSide, emissive: 0x000000 }),
     stackCut: new T.MeshStandardMaterial({ map: stackTexture(null), metalness: 0.15, roughness: 0.55, side: T.DoubleSide, emissive: 0x000000 }),

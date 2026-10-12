@@ -87,13 +87,13 @@ def sample_choice(key, label="Sample fleet"):
     return choice or options[0]
 
 
-def sample_button(key, primary=True, subset=None):
+def sample_button(key, primary=True, subset=None, label=None, width="content"):
     """Load a bundled sample fleet in one click."""
     subset = subset or DATASET
     path = SAMPLES[subset]
     spec = spec_of_profile(subset)
-    label = "Load NASA sample fleet" if subset == DATASET else f"Load {PROFILE_LABELS[subset].lower()} fleet"
-    if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key):
+    label = label or ("Load NASA sample fleet" if subset == DATASET else f"Load {PROFILE_LABELS[subset].lower()} fleet")
+    if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key, width=width):
         with st.spinner(f"Analyzing the {PROFILE_LABELS[subset]} sample fleet ({spec.unit_plural})"):
             run_analysis(path.name, path.read_bytes(), subset=subset)
         st.rerun()

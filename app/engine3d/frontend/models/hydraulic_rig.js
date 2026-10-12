@@ -6,7 +6,7 @@
  * GSAP runs the rig's load cycle (the 60 s cycle of the test rig, compressed to 6 s): the valve shifts, the
  * rod extends against the load while pressure and flow rise, holds, then the valve shifts back and the rod
  * retracts. The power unit reads the cycle state to set its gauges and oil flow. */
-import { T, V2, physical, metal, lathe, cable, canvasTexture } from './shared.js?v=6.1.0';
+import { T, V2, physical, metal, lathe, cable, canvasTexture } from './shared.js?v=7.0.0';
 
 const CYL = { x0: 1.05, x1: 2.55, y: -1.4, z: 1.18, r: 0.2 };
 const STROKE = 0.95;

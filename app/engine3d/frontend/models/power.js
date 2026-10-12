@@ -7,8 +7,8 @@
  *
  * Exploded view: a classic stack-up. Every layer rises more than the one below it, so the layers
  * separate in order; the frame walls lie outside the substrate and the lid and frame ghost. */
-import { T, physical, metal, canvasTexture, dispose } from './shared.js?v=6.1.0';
-import { stackContext } from './power_stack.js?v=6.1.0';
+import { T, physical, metal, canvasTexture, dispose } from './shared.js?v=7.0.0';
+import { stackContext } from './power_stack.js?v=7.0.0';
 
 const MODULES = [
   { key: 'gate', name: 'Gate drive', explode: [0, 0, 0] },

@@ -6,7 +6,7 @@
  * GSAP drives 3-phase PWM: each phase's gate LED and AC bar pulse in turn, 120 degrees apart, and the DC
  * link ripples with them. Cooling air runs through the fin channels every frame, warming as it passes the
  * modules. Everything here is context: it stays put and ghosts in the exploded view. */
-import { T, physical, metal, canvasTexture } from './shared.js?v=6.1.0';
+import { T, physical, metal, canvasTexture } from './shared.js?v=7.0.0';
 
 const PHASE_Z = [0, -3.4, -6.8]; // U (the monitored module), V, W
 const SINK = { x0: -2.3, x1: 2.3, z0: -8.4, z1: 1.6, top: -1.6 };
