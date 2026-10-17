@@ -64,12 +64,11 @@ def test_upload_sample_and_analyze():
 
 
 
-def test_empty_page_launches_sample():
+def test_empty_page_points_to_ingest_only():
+    """Samples live on Ingest data only: an empty page shows no sample button."""
     at = run_page("twin")
-    launch = next(b for b in at.button if "NASA sample engine" in b.label)
-    launch.click().run()
     assert not at.exception, at.exception
-    assert at.session_state["result"].status == "COMPLETED"
+    assert not any("sample" in b.label.lower() for b in at.button)
 
 
 def test_engine_page_steps_through_units(results):
@@ -111,4 +110,5 @@ def test_overview_is_the_landing_page_even_with_data_loaded(results):
     """Fleet overview never changes after an upload: the landing page, with its sample button, stays as it is."""
     at = run_page("overview", results["turbofan"])
     assert not at.exception, at.exception
-    assert any(b.label == "Try a NASA engine" for b in at.button)
+    assert not any("sample" in b.label.lower() or "NASA" in b.label for b in at.button)  # samples: Ingest data only
+    assert any("Which component fails next" in str(e.proto) for e in at.get("html"))  # the landing page itself

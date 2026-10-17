@@ -1,23 +1,19 @@
-"""Fleet overview: the landing page, the same whether or not a file is loaded. What the console does, one-click
-samples and the five component models. The loaded fleet itself is on Fleet details."""
+"""Fleet overview: the landing page, the same whether or not a file is loaded. What the console does, how a file
+flows through it, and the five component models. The loaded fleet itself is on Fleet details."""
 
 import streamlit as st
 
 from app import theme
-from app.components import (
-    SAMPLES, load_benchmark, load_sample, sample_button, sample_for,
-)
+from app.components import load_benchmark
 from app.engine3d import engine_twin
 from app.theme import esc
-from src.components import spec_of_profile
-from src.config import DATASET
 from src.models.artifacts import model_status
 
 
 status = model_status()
 
 # ---------------------------------------------------------------- landing page (nothing loaded yet)
-# Each card: component key, sample profile, name, what the 3D model shows, the data behind the model.
+# Each card: component key, model profile, name, what the 3D model shows, the data behind the model.
 CARDS = [
     ("turbofan", "FD001", "Turbofan engine", "Two-spool turbofan, 21 sensors along the gas path",
      "NASA C-MAPSS, 4 fleets, 709 engines"),
@@ -46,13 +42,6 @@ def card_metric(bench, profile):
     return f"{row['test_accuracy']:.0%} risk band test, {row['cv_accuracy']:.0%} cross-validated"
 
 
-# A card link (?sample=<profile>, or a sample key like FD001_healthy) opens that sample unit's page.
-_sample = st.query_params.get("sample")
-_sample = _sample if _sample in SAMPLES else sample_for(_sample) if _sample else None
-if _sample in SAMPLES and SAMPLES[_sample].exists():
-    st.query_params.clear()
-    load_sample(_sample, then="views/engine.py")
-
 bench = load_benchmark()
 router = (bench or {}).get("router") or {}
 left, right = st.columns([1, 1.2], gap="large", vertical_alignment="center")
@@ -63,11 +52,8 @@ with left:
 <p>Drop in a sensor log. A recognition model works out whether it comes from a turbofan, a battery cell, a gearbox, a
 hydraulic system or power electronics; that component's own models forecast remaining life and risk, point to the
 sensors driving it, and suggest what to do.</p></div>""")
-    b1, b2 = st.columns([1.25, 1])
+    b1, _ = st.columns([1, 1.25])
     with b1:
-        sample_button(key="hero_sample", subset=DATASET, label="Try a NASA engine", width="stretch",
-                      then="views/engine.py")
-    with b2:
         st.page_link("views/upload.py", label="Upload data", icon=":material/upload:", width="stretch")
     kpis = [(str(len(CARDS)), "component models", "public run-to-failure and test-rig data")]
     if router:
@@ -96,12 +82,12 @@ st.html('<div class="as-flow">' + "".join(
     f'<div class="st"><span class="n">{n}</span><b>{esc(t)}</b><p>{esc(d)}</p><i>{esc(m)}</i></div>' for n, t, d, m in steps)
     + '<div class="pulse"></div></div>')
 
-# The five components: what the model sees, how well it does, and a one-click sample.
-theme.section("Five component models", "open a sample unit; the recognition model picks the component on its own")
-# One responsive grid (5, 3, 2 or 1 across); each card is a link that opens its sample unit.
+# The five components: what the model sees and how well it does.
+theme.section("Five component models", "the recognition model picks the component on its own")
+# One responsive grid (5, 3, 2 or 1 across).
 st.html('<div class="as-cards">' + "".join(
-    f'<a class="as-card" href="?sample={profile}" target="_self">'
+    f'<div class="as-card">'
     f'<div class="img"><img src="app/static/brand/thumb_{key}.jpg" alt="3D model of the {esc(name)}"></div>'
     f'<div class="body"><b>{esc(name)}</b><p>{esc(shows)}</p><span class="data">{esc(data)}</span>'
-    f'<span class="metric">{esc(card_metric(bench, profile))}</span><span class="go">Open a sample {esc(spec_of_profile(profile).unit_title.lower())}</span></div></a>'
+    f'<span class="metric">{esc(card_metric(bench, profile))}</span></div></div>'
     for key, profile, name, shows, data in CARDS) + "</div>")

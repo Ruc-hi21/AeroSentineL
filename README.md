@@ -75,7 +75,7 @@ operating condition, and answers four questions for every unit:
 
 The **landing page** shows what the console does before anything is loaded: a live 3D showcase (switch components
 inside the view, no reload), the headline numbers, the four steps a file goes through, and a card per component with
-its data, its honest accuracy and a one-click sample unit.
+its data and its honest accuracy. Samples are loaded on *Ingest data* only.
 
 ![Engine status page for an FD004 engine, with the gas-path schematic](assets/screenshot_engine_status.png)
 
@@ -162,9 +162,9 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 
 | Section | Page | What it is for |
 |---|---|---|
-| Fleet | **Fleet overview** | The landing page, the same before and after a file is loaded: what the console does, a one-click NASA engine and a card per component model. |
+| Fleet | **Fleet overview** | The landing page, the same before and after a file is loaded: what the console does, how a file flows through it, and a card per component model. |
 | | **Fleet details** | Three tabs. *Overview*: units by condition, what needs attention with its next step, and time left per unit. *Forecast and history*: forecasts with 80% ranges, the health-history heatmap, fleet drivers and a filterable table of every unit. *Data check*: the file's data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
-| | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit. |
+| | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit (for a sample, with its known true remaining life). The only page with samples. |
 | Engine, Cell, Gearbox, Session or Device | **Unit status** | Condition and time left (likely range, risk band), what to do, and why, in plain words. The section is named after the loaded component. |
 | | **Unit detail** | The engineering view: status instrument, schematic, trend, full sensor drift, failure outlook, "can it wait" check, and SHAP for the RUL and the risk band. |
 | | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones and the sensors that show it; then *Every sensor* (drift table and raw curves) and *All units* (by health) tabs. |
@@ -205,11 +205,11 @@ The download fetches NASA C-MAPSS (about 12 MB), the NASA PCoE battery data (0.2
 (1.2 GB, about 2 minutes of feature extraction), the UCI hydraulic rig (0.08 GB) and the NASA PCoE IGBT data (0.24 GB). The large archives stay in `~/.cache/aerosentinel`; only small
 per-cycle tables are written to `data/raw/`. Use `python -m scripts.download_data turbofan` to fetch just C-MAPSS.
 
-Open **http://localhost:8501** and press **Try a NASA engine**, or open any component card. `data/samples/` holds
+Open **http://localhost:8501**, go to **Ingest data**, pick a sample and press **Use this sample**, then **Run analysis**. `data/samples/` holds
 a **failing** and a **healthy** unit for every component (two of each for the turbofan: FD001 flies at one operating
 condition, FD004 at six with fan wear as well). Every sample is a held-out unit the models never saw in training,
-with its history from its first record; the samples are committed, so they work without the download. When one is
-open, the unit page shows its known true remaining life next to the prediction.
+with its history from its first record; the samples are committed, so they work without the download. After a sample
+runs, Ingest data shows its known true remaining life next to the prediction.
 
 | Sample file | Rows | True remaining life | Prediction | Band |
 | --- | --- | --- | --- | --- |

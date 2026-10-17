@@ -5,7 +5,7 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    SAMPLE_INFO, SAMPLES, fleet, require_model, run_analysis, sample_choice, sample_truth, subset_summary,
+    SAMPLE_INFO, SAMPLES, fleet, require_model, run_analysis, sample_choice, sample_of_file, sample_truth, subset_summary,
 )
 from app.theme import STATES, esc
 
@@ -90,6 +90,11 @@ if "predicted_rul" in top and top["predicted_rul"] == top["predicted_rul"]:
     items.append(theme.stat(f"{spec.rul_short} left", insights.life(top["predicted_rul"], spec)))
 theme.stats(items)
 theme.actions(insights.recommendations(top, state)[:1])
+_sample = sample_of_file(st.session_state.get("source_name", ""))
+if _sample and "predicted_rul" in top and top["predicted_rul"] == top["predicted_rul"]:
+    st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(_sample)} "
+            f"left at its latest reading. The model predicts {insights.life(top['predicted_rul'], spec)}.",
+            icon=":material/fact_check:")
 links = st.columns([1, 1, 2])
 links[0].page_link("views/overview.py", label="Open fleet overview", icon=":material/grid_view:")
 links[1].page_link("views/engine.py", label=f"Open {spec.unit_title.lower()} status", icon=":material/speed:")

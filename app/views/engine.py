@@ -5,7 +5,7 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    reason_text, require_model, require_result, sample_of_file, sample_truth, step_unit, unit_picker,
+    reason_text, require_model, require_result, step_unit, unit_picker,
 )
 from app.theme import BAND_COLORS, BAND_TEXT, STATES, esc
 
@@ -29,11 +29,6 @@ drift = insights.sensor_drift(hist, artifacts.health)
 state = insights.engine_state(row)
 has_rul = "predicted_rul" in row and row["predicted_rul"] == row["predicted_rul"]
 
-_sample = sample_of_file(st.session_state.get("source_name", ""))
-if _sample and has_rul:
-    st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(_sample)} "
-            f"left at its latest reading. The model predicts {insights.life(row['predicted_rul'], spec)}.",
-            icon=":material/fact_check:")
 
 # 1. Condition and time left.
 theme.section(f"1. Condition and {insights.life_word(spec)} left", f"at its latest reading, {spec.time_title.lower()} {int(row['cycle'])}")

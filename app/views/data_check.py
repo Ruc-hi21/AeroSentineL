@@ -28,7 +28,7 @@ require_model()
 
 pending = st.session_state.get("last_file")
 if pending is None:
-    theme.empty("No file analysed yet", "Upload a file or load a sample on Ingest data; its data check appears here.")
+    theme.empty("No file analysed yet", "Upload a file on Ingest data; its data check appears here.")
     st.page_link("views/upload.py", label="Go to Ingest data", icon=":material/upload:")
     st.stop()
 name, content = pending

@@ -136,7 +136,7 @@ def load_sample(sample, then=None):
 
 def upload_link():
     """Link to the page that loads a file: Ingest data in the main console, Data in the admin console."""
-    for page, label in (("views/upload.py", "Upload a file"), ("views/admin_data.py", "Load a file")):
+    for page, label in (("views/upload.py", "Go to Ingest data"),):
         try:
             st.page_link(page, label=label, icon=":material/upload:")
             return
@@ -149,13 +149,8 @@ def require_result():
     result = get_result()
     if result is None or result.units is None:
         from app.theme import empty
-        empty("No data loaded",
-              "Upload sensor data, or load a sample unit to populate this view.")
-        left, right, _ = st.columns([1, 1, 3])
-        with left:
-            sample_button(key="empty_sample")
-        with right:
-            upload_link()
+        empty("No data loaded", "Upload a sensor file on Ingest data to populate this view.")
+        upload_link()
         st.stop()
     return result
 
