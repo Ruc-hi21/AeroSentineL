@@ -13,7 +13,8 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    PROFILE_LABELS, SAMPLES, envelope_chart, fleet, require_model, run_analysis, sample_choice, subset_summary,
+    SAMPLE_INFO, SAMPLES, envelope_chart, fleet, require_model, run_analysis, sample_choice, sample_truth,
+    subset_summary,
 )
 from app.engine3d import engine_twin, twin_payload
 from app.theme import MONO, STATES, TOKENS, esc
@@ -48,9 +49,10 @@ vibration features per axis (<code>h_rms</code>, <code>v_kurt</code>, ...)</dd>
 <dt>Power electronics</dt><dd>.csv: <code>device</code>, <code>minute</code>, <code>vce_on</code>, <code>r_on</code>,
 <code>vce_ripple</code>, <code>vce_off</code>, <code>ice_on</code>, <code>vge_on</code>, <code>pkg_temp</code></dd></dl>""")
     sample = sample_choice("ingest_sample")
-    use_sample = st.button(f"Use the {PROFILE_LABELS[sample]} sample file", key="use_sample")
-    summary = subset_summary(sample)
-    st.caption(summary[0].upper() + summary[1:] + ".")
+    use_sample = st.button("Use this sample file", key="use_sample")
+    summary = subset_summary(SAMPLE_INFO[sample]["profile"])
+    truth = sample_truth(sample)
+    st.caption(summary[0].upper() + summary[1:] + "." + (f" True remaining life: {truth}." if truth else ""))
 if use_sample:
     st.session_state["pending"] = (SAMPLES[sample].name, SAMPLES[sample].read_bytes())
 elif uploaded is not None:

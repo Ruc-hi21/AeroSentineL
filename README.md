@@ -198,23 +198,32 @@ The download fetches NASA C-MAPSS (about 12 MB), the NASA PCoE battery data (0.2
 (1.2 GB, about 2 minutes of feature extraction), the UCI hydraulic rig (0.08 GB) and the NASA PCoE IGBT data (0.24 GB). The large archives stay in `~/.cache/aerosentinel`; only small
 per-cycle tables are written to `data/raw/`. Use `python -m scripts.download_data turbofan` to fetch just C-MAPSS.
 
-Open **http://localhost:8501** and press **Try a NASA engine**, or open any component card. Each sample in
-`data/samples/` is one unit the model never saw in training, with a long history that ends close to failure, so
-every chart tells one unit's degradation story; the samples are committed, so they work without the download:
+Open **http://localhost:8501** and press **Try a NASA engine**, or open any component card. `data/samples/` holds
+a **failing** and a **healthy** unit for every component (two of each for the turbofan: FD001 flies at one operating
+condition, FD004 at six with fan wear as well). Every sample is a held-out unit the models never saw in training,
+with its history from its first record; the samples are committed, so they work without the download. When one is
+open, the unit page shows its known true remaining life next to the prediction.
 
-| Sample file | Rows | True remaining life | Model's forecast |
-| --- | --- | --- | --- |
-| `FD001_engine_034.txt` | 203 cycles | 7 cycles | 5 cycles, failure likely |
-| `FD002_engine_138.txt` | 200 cycles | 7 cycles | 6 cycles, failure likely |
-| `FD003_engine_024.txt` | 475 cycles | 9 cycles | 8.5 cycles, failure likely |
-| `FD004_engine_135.txt` | 435 cycles | 7 cycles | 8 cycles, failure likely |
-| `PCOE_cell_044.csv` | 47 cycles | 11 cycles | 12 cycles, high risk |
-| `FEMTO_gearbox_026.csv` | 84 minutes | 33 minutes | 37 minutes |
-| `UCI_session_139.csv` | 10 load cycles | 26% margin | 24% margin, valve lag and pump leakage |
-| `IGBT_device_003.csv` | 44 minutes | 14 minutes | 21 minutes, at risk |
+| Sample file | Rows | True remaining life | Prediction | Band |
+| --- | --- | --- | --- | --- |
+| `FD001_engine_034_failing.txt` | 203 cycles | 7 cycles | 5 cycles | Failure likely ✓ |
+| `FD004_engine_135_failing.txt` | 435 cycles | 7 cycles | 8 cycles | Failure likely ✓ |
+| `FD001_engine_089_healthy.txt` | 177 cycles | 136 cycles | 118 cycles (cap 125) | Normal ✓ |
+| `FD004_engine_232_healthy.txt` | 370 cycles | 184 cycles | 124 cycles (cap 125) | Normal ✓ |
+| `PCOE_cell_044_failing.csv` | 54 cycles | 4 cycles | 4.5 cycles | Failure likely ✓ |
+| `PCOE_cell_006_healthy.csv` | 17 cycles | 45 cycles | 76 cycles | Normal ✓ |
+| `FEMTO_gearbox_017_failing.csv` | 374 minutes | 3 minutes | 5 minutes | Failure likely ✓ |
+| `FEMTO_gearbox_024_healthy.csv` | 76 minutes | 50 minutes | 59 minutes | Normal ✓ |
+| `UCI_session_143_failing.csv` | 10 load cycles | 0% margin | 0% (switching valve failed) | Failure likely ✓ |
+| `UCI_session_131_healthy.csv` | 10 load cycles | 100% margin | 98% | Normal ✓ |
+| `IGBT_device_003_failing.csv` | 56 minutes | 2 minutes | 11 minutes | High risk (one band early) |
+| `IGBT_device_003_healthy.csv` | 13 minutes | 46 minutes | 37 minutes | Normal ✓ |
 
-The full test fleets (100 to 259 engines) stay in `data/raw/` and can be uploaded on *Ingest data*;
-`python -m scripts.make_samples` rebuilds the samples from them.
+Turbofan and hydraulic samples are units of the test files as they are. Battery, gearbox and IGBT samples are the
+held-out units cut a few steps before their recorded end of life (failing) or well before it (healthy), so each
+pair shows both ends; the IGBT model, trained on three devices, is indicative only. `data/samples/samples.json`
+lists the true values. The full test fleets (100 to 259 engines) stay in `data/raw/` and can be uploaded on
+*Ingest data*; `python -m scripts.make_samples` rebuilds the samples (it needs the download cache).
 To try your own data, use *Ingest data*: turbofan files in the C-MAPSS layout, every other component as CSV with
 the columns listed on that page.
 

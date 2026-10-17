@@ -12,16 +12,18 @@ from plotly.subplots import make_subplots
 from app import insights
 from app.theme import BAND_COLORS, BAND_TEXT, MONO, STATES, TOKENS, esc
 from src.components import COMPONENTS, PROFILES, get, spec_of_profile
-from src.components.splits import sample_path
-from src.config import DATASET, MODEL_VERSION, REPORTS_DIR, RISK_BANDS, SAMPLE_UNITS, SUBSETS
+from src.components.splits import sample_id, sample_path
+from src.config import DATASET, MODEL_VERSION, REPORTS_DIR, RISK_BANDS, SAMPLE_SET, SUBSETS
 from src.data.loader import read_sensor_file
 from src.explainability.sensor_names import SENSOR_INFO, describe
 from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
 
-# Sample files: one held-out test unit per profile (data/samples/, see src.config.SAMPLE_UNITS), so every
-# chart tells one unit's degradation story. The full test fleets stay in data/raw/ and can be uploaded.
-SAMPLES = {p: sample_path(p) for p in SAMPLE_UNITS}
+# Sample files (data/samples/, see src.config.SAMPLE_SET): a failing and a healthy held-out unit per component,
+# each with its own history. Keyed 'FD001_failing'; SAMPLE_INFO holds profile, unit and state. The full test
+# fleets stay in data/raw/ and can be uploaded on the ingest page.
+SAMPLE_INFO = {sample_id(p, s): {"profile": p, "unit": u, "state": s} for p, u, s, _ in SAMPLE_SET}
+SAMPLES = {k: sample_path(i["profile"], i["unit"], i["state"]) for k, i in SAMPLE_INFO.items()}
 PROFILE_LABELS = {**{s: s for s in SUBSETS}, "PCOE": "Battery cells", "FEMTO": "Gearboxes", "UCI": "Hydraulics",
                   "IGBT": "Power electronics"}
 FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation", "capacity fade": "capacity fade",
@@ -72,32 +74,60 @@ def subset_summary(subset):
     return f"{conditions}, {' and '.join(FAULT_TEXT[f] for f in info['fault_modes'])}"
 
 
+def sample_for(profile, state="failing"):
+    """Key of a profile's sample, e.g. sample_for('FD001') -> 'FD001_failing'."""
+    return sample_id(profile, state)
+
+
+def sample_label(key):
+    """'FD001 · failing engine 034' style name of a sample."""
+    info = SAMPLE_INFO[key]
+    spec = spec_of_profile(info["profile"])
+    return f"{PROFILE_LABELS[info['profile']]} · {info['state']} {spec.unit_title.lower()} {spec.unit_id(info['unit'])}"
+
+
+def sample_truth(key):
+    """The sample unit's true remaining life, from data/samples/samples.json (None if unknown)."""
+    try:
+        entry = json.loads((SAMPLES[key].parent / "samples.json").read_text(encoding="utf-8"))[key]
+    except (OSError, KeyError, ValueError):
+        return None
+    return insights.life(entry["true_life"], spec_of_profile(entry["profile"]))
+
+
+def sample_of_file(name):
+    """Sample key of a loaded file name, or None if it is not one of the bundled samples."""
+    return next((k for k, path in SAMPLES.items() if path.name == name), None)
+
+
 def sample_choice(key, label="Sample unit"):
-    """Pick a bundled one-unit sample: a NASA C-MAPSS engine per subset, a battery cell, a gearbox, ..."""
-    options = [s for s in available_subsets() if SAMPLES.get(s) and SAMPLES[s].exists()] or [DATASET]
-    # Pills wrap onto a second line; with eight fleets a segmented control would run off a narrow column.
-    choice = st.pills(label, options, default=options[0], key=key, format_func=PROFILE_LABELS.get,
-                                  help="Each sample is one unit the model never saw in training, with a long history that "
-                                       "ends close to failure. Turbofan: FD001 and FD003 run at one operating condition, "
-                                       "FD002 and FD004 at six; FD003 and FD004 add fan degradation.")
+    """Pick a bundled sample: a failing or a healthy held-out unit of each component."""
+    trained = set(available_subsets())
+    options = [k for k, i in SAMPLE_INFO.items() if i["profile"] in trained and SAMPLES[k].exists()]
+    options = sorted(options, key=lambda k: (list(PROFILE_LABELS).index(SAMPLE_INFO[k]["profile"]),
+                                             SAMPLE_INFO[k]["state"])) or [sample_for(DATASET)]
+    choice = st.pills(label, options, default=options[0], key=key, format_func=sample_label,
+                      help="Each sample is one unit the model never saw in training, with its history from the "
+                           "first record: one close to failure and one in good health per component. Turbofan "
+                           "FD001 flies at one operating condition, FD004 at six with fan wear as well.")
     return choice or options[0]
 
 
-def sample_button(key, primary=True, subset=None, label=None, width="content", then=None):
-    """Load a bundled one-unit sample in one click; `then` = page to open afterwards (else stay on this page)."""
+def sample_button(key, primary=True, subset=None, label=None, width="content", then=None, state="failing"):
+    """Load a profile's sample in one click; `then` = page to open afterwards (else stay on this page)."""
     subset = subset or DATASET
-    path = SAMPLES[subset]
+    sample = sample_for(subset, state)
     spec = spec_of_profile(subset)
     label = label or ("Load a NASA sample engine" if subset == DATASET else f"Load a sample {spec.unit_title.lower()}")
-    if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key, width=width):
-        load_sample(subset, then)
+    if SAMPLES[sample].exists() and st.button(label, type="primary" if primary else "secondary", key=key, width=width):
+        load_sample(sample, then)
 
 
-def load_sample(subset, then=None):
-    """Analyze a profile's sample file, then open `then` (a page path) or rerun the current page."""
-    path, spec = SAMPLES[subset], spec_of_profile(subset)
-    with st.spinner(f"Analyzing the sample {spec.unit_title.lower()} ({PROFILE_LABELS[subset]})"):
-        run_analysis(path.name, path.read_bytes(), subset=subset)
+def load_sample(sample, then=None):
+    """Analyze a sample file (key like 'FD001_failing'), then open `then` (a page path) or rerun this page."""
+    path, profile = SAMPLES[sample], SAMPLE_INFO[sample]["profile"]
+    with st.spinner(f"Analyzing {sample_label(sample)}"):
+        run_analysis(path.name, path.read_bytes(), subset=profile)
     if then:
         st.switch_page(then)
     st.rerun()

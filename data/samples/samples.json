@@ -1,0 +1,110 @@
+{
+  "FD001_failing": {
+    "profile": "FD001",
+    "unit": 34,
+    "state": "failing",
+    "file": "FD001_engine_034_failing.txt",
+    "rows": 203,
+    "true_life": 7.0,
+    "life_unit": "cycles"
+  },
+  "FD004_failing": {
+    "profile": "FD004",
+    "unit": 135,
+    "state": "failing",
+    "file": "FD004_engine_135_failing.txt",
+    "rows": 435,
+    "true_life": 7.0,
+    "life_unit": "cycles"
+  },
+  "FD001_healthy": {
+    "profile": "FD001",
+    "unit": 89,
+    "state": "healthy",
+    "file": "FD001_engine_089_healthy.txt",
+    "rows": 177,
+    "true_life": 136.0,
+    "life_unit": "cycles"
+  },
+  "FD004_healthy": {
+    "profile": "FD004",
+    "unit": 232,
+    "state": "healthy",
+    "file": "FD004_engine_232_healthy.txt",
+    "rows": 370,
+    "true_life": 184.0,
+    "life_unit": "cycles"
+  },
+  "PCOE_failing": {
+    "profile": "PCOE",
+    "unit": 44,
+    "state": "failing",
+    "file": "PCOE_cell_044_failing.csv",
+    "rows": 54,
+    "true_life": 4.0,
+    "life_unit": "cycles"
+  },
+  "PCOE_healthy": {
+    "profile": "PCOE",
+    "unit": 6,
+    "state": "healthy",
+    "file": "PCOE_cell_006_healthy.csv",
+    "rows": 17,
+    "true_life": 45.0,
+    "life_unit": "cycles"
+  },
+  "FEMTO_failing": {
+    "profile": "FEMTO",
+    "unit": 17,
+    "state": "failing",
+    "file": "FEMTO_gearbox_017_failing.csv",
+    "rows": 374,
+    "true_life": 3.0,
+    "life_unit": "minutes"
+  },
+  "FEMTO_healthy": {
+    "profile": "FEMTO",
+    "unit": 24,
+    "state": "healthy",
+    "file": "FEMTO_gearbox_024_healthy.csv",
+    "rows": 76,
+    "true_life": 50.0,
+    "life_unit": "minutes"
+  },
+  "UCI_failing": {
+    "profile": "UCI",
+    "unit": 143,
+    "state": "failing",
+    "file": "UCI_session_143_failing.csv",
+    "rows": 10,
+    "true_life": 0.0,
+    "life_unit": "%"
+  },
+  "UCI_healthy": {
+    "profile": "UCI",
+    "unit": 131,
+    "state": "healthy",
+    "file": "UCI_session_131_healthy.csv",
+    "rows": 10,
+    "true_life": 100.0,
+    "life_unit": "%"
+  },
+  "IGBT_failing": {
+    "profile": "IGBT",
+    "unit": 3,
+    "state": "failing",
+    "file": "IGBT_device_003_failing.csv",
+    "rows": 56,
+    "true_life": 2.0,
+    "life_unit": "minutes"
+  },
+  "IGBT_healthy": {
+    "profile": "IGBT",
+    "unit": 3,
+    "state": "healthy",
+    "file": "IGBT_device_003_healthy.csv",
+    "rows": 13,
+    "true_life": 46.0,
+    "life_unit": "minutes"
+  }
+}

@@ -11,7 +11,7 @@ so they double as sample files for the console.
 import numpy as np
 import pandas as pd
 
-from src.components import get
+from src.components import get, spec_of_profile
 from src.config import SEED
 
 # Held-out units, chosen to cover each operating condition that has more than one unit.
@@ -107,39 +107,72 @@ def write_power(table, out_dir):
     return train["unit"].nunique(), len(rul)
 
 
-def sample_path(profile, samples_dir=None):
-    """Path of a profile's one-unit sample file, e.g. data/samples/FD001_engine_034.txt."""
-    from src.components import spec_of_profile
-    from src.config import SAMPLE_UNITS, SAMPLES_DIR
+
+def sample_id(profile, state):
+    """Key of a sample file, e.g. 'FD001_failing'."""
+    return f"{profile}_{state}"
+
+
+def sample_path(profile, unit, state, samples_dir=None):
+    """Path of a sample file, e.g. data/samples/FD001_engine_034_failing.txt."""
+    from src.config import SAMPLES_DIR
     spec = spec_of_profile(profile)
     ext = "txt" if spec.key == "turbofan" else "csv"
-    return (samples_dir or SAMPLES_DIR) / f"{profile}_{spec.unit_title.lower()}_{SAMPLE_UNITS[profile]:03d}.{ext}"
+    return (samples_dir or SAMPLES_DIR) / f"{profile}_{spec.unit_title.lower()}_{unit:03d}_{state}.{ext}"
 
 
-def write_samples(raw_dir, samples_dir):
-    """One held-out test unit per profile (src.config.SAMPLE_UNITS), in the test file's own format.
+def _full_lives(profile, cache_dir):
+    """Full run-to-failure records of a component's units: (table in upload columns, {unit: end of life})."""
+    spec = spec_of_profile(profile)
+    if profile == "PCOE":
+        from src.components import battery_data
+        table, eol = battery_data.build(cache_dir / "battery")
+        table = table.rename(columns={"cell": spec.id_column})
+        return table, {u: e for u, e in eol.items() if e}
+    if profile == "FEMTO":
+        table = pd.read_csv(cache_dir / "bearing_minutes.csv")
+    else:  # IGBT
+        table = pd.read_csv(cache_dir / "igbt_minutes.csv")
+        if "r_on" not in table:  # same definition as power_data.read_device
+            table["r_on"] = table["vce_on"] / table["ice_on"].where(table["ice_on"].abs() > 0.1)
+    life = table.groupby(spec.id_column)[spec.time_column].max()
+    return table, life.to_dict()
 
-    Returns {profile: (path, rows, true remaining life)} for the profiles whose test file exists.
+
+def write_samples(raw_dir, samples_dir, cache_dir):
+    """Write the sample files of src.config.SAMPLE_SET and samples.json (true remaining life of each).
+
+    Turbofan and hydraulic samples are units of the test files as they are; battery, gearbox and IGBT
+    samples are cut from the held-out units' full records, which are in the download cache.
+    Returns {sample id: manifest entry}.
     """
-    from src.config import SAMPLE_UNITS
+    import json
+
+    from src.config import SAMPLE_SET
     samples_dir.mkdir(parents=True, exist_ok=True)
-    written = {}
-    for profile, unit in SAMPLE_UNITS.items():
-        ext = "txt" if profile.startswith("FD") else "csv"
-        source = raw_dir / f"test_{profile}.{ext}"
-        if not source.exists():
-            continue
-        lines = source.read_text().splitlines()
-        if ext == "txt":  # C-MAPSS: no header, unit id is the first field
-            rows = [l for l in lines if l.strip() and int(float(l.split()[0])) == unit]
-            body = rows
-        else:  # header + rows, unit id in the first column
-            rows = [l for l in lines[1:] if l.strip() and int(float(l.split(",")[0])) == unit]
-            body = [lines[0], *rows]
-        units = sorted({int(float((l.split() if ext == "txt" else l.split(","))[0])) for l in
-                        (lines if ext == "txt" else lines[1:]) if l.strip()})
-        true = (raw_dir / f"RUL_{profile}.txt").read_text().split()[units.index(unit)]
-        path = sample_path(profile, samples_dir)
-        path.write_text("\n".join(body) + "\n")
-        written[profile] = (path, len(rows), float(true))
-    return written
+    manifest, lives = {}, {}
+    for profile, unit, state, before in SAMPLE_SET:
+        spec = spec_of_profile(profile)
+        path = sample_path(profile, unit, state, samples_dir)
+        if before is None:  # a unit of the test file, copied line for line; true remaining life from RUL_<profile>.txt
+            source = raw_dir / f"test_{profile}{path.suffix}"
+            lines = source.read_text().splitlines()
+            header, body = ([], lines) if path.suffix == ".txt" else ([lines[0]], lines[1:])
+            ids = [int(float(l.replace(",", " ").split()[0])) for l in body if l.strip()]
+            rows = [l for l, i in zip([l for l in body if l.strip()], ids) if i == unit]
+            path.write_text("\n".join(header + rows) + "\n")
+            true = float((raw_dir / f"RUL_{profile}.txt").read_text().split()[sorted(set(ids)).index(unit)])
+            n = len(rows)
+        else:  # cut the unit's full record `before` time steps before its end of life
+            if profile not in lives:
+                lives[profile] = _full_lives(profile, cache_dir)
+            table, life = lives[profile]
+            part = table[table[spec.id_column] == unit]
+            rows = part[part[spec.time_column] <= life[unit] - before][spec.upload_columns]
+            rows.to_csv(path, index=False)
+            true, n = float(before), len(rows)
+        manifest[sample_id(profile, state)] = {"profile": profile, "unit": int(unit), "state": state,
+                                               "file": path.name, "rows": int(n), "true_life": true,
+                                               "life_unit": spec.life_unit}
+    (samples_dir / "samples.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest

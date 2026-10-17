@@ -76,10 +76,15 @@ def test_engine_page_steps_through_units(results):
     assert at.session_state["selected_unit"] != first
 
 
-def test_sample_files_are_one_unit_each():
-    from app.components import SAMPLES
-    for profile, path in SAMPLES.items():
+def test_samples_are_one_unit_each_and_recognised():
+    """Every sample file holds one unit and is routed to its own model with no hint but the file name."""
+    import io
+
+    from app.components import SAMPLE_INFO, SAMPLES
+    assert {i["state"] for i in SAMPLE_INFO.values()} == {"failing", "healthy"}
+    for key, path in SAMPLES.items():
         assert path.exists(), path
-        result = analyze(path, subset=profile)
-        assert result.status == "COMPLETED", (profile, result.error)
-        assert len(result.units) == 1, profile
+        result = analyze(io.BytesIO(path.read_bytes()), name=path.name)
+        assert result.status == "COMPLETED", (key, result.error)
+        assert result.subset == SAMPLE_INFO[key]["profile"], key
+        assert len(result.units) == 1, key

@@ -5,7 +5,8 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    drift_table, factor_chart, require_model, require_result, step_unit, trend_chart, unit_picker,
+    drift_table, factor_chart, require_model, require_result, sample_of_file, sample_truth, step_unit, trend_chart,
+    unit_picker,
 )
 from app.instruments import engine_status, gas_path, gas_path_payload, status_payload
 from app.theme import TOKENS, esc
@@ -28,6 +29,11 @@ prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "eng
 nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
 
 unit = int(row["unit"])
+_sample = sample_of_file(st.session_state.get("source_name", ""))
+if _sample and "predicted_rul" in row:
+    st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(_sample)} "
+            f"left at its latest reading. The model predicts {insights.life(row['predicted_rul'], spec)}.",
+            icon=":material/fact_check:")
 hist = result.history[result.history["unit"] == unit].sort_values("cycle")
 drift = insights.sensor_drift(hist, artifacts.health)
 state = insights.engine_state(row)

@@ -24,9 +24,18 @@ DATASET = "FD001"  # default subset (sample fleet, scripts, tests)
 # and 92% on FD003; the FD004 model scores 93% on FD002 and 90% on FD004. Single-condition models cannot score
 # multi-condition data at all.
 AUTO_SUBSET = {"single": "FD003", "multi": "FD004"}
-# The console's sample files: one held-out test unit per profile, chosen for a long history that ends close
-# to failure and a forecast close to the truth, so every chart shows a full degradation story.
-SAMPLE_UNITS = {"FD001": 34, "FD002": 138, "FD003": 24, "FD004": 135, "PCOE": 44, "FEMTO": 26, "UCI": 139, "IGBT": 3}
+# The console's sample files: held-out units the models never saw in training, one failing and one healthy per
+# component (two of each for the turbofan: one flying at a single operating condition, one at six). Each holds one
+# unit's history from its first record. (profile, unit, state, before): `before` cuts the unit's full
+# run-to-failure record that many time steps before its end of life; None keeps the unit as in the test file.
+SAMPLE_SET = [
+    ("FD001", 34, "failing", None), ("FD004", 135, "failing", None),
+    ("FD001", 89, "healthy", None), ("FD004", 232, "healthy", None),
+    ("PCOE", 44, "failing", 4), ("PCOE", 6, "healthy", 45),
+    ("FEMTO", 17, "failing", 3), ("FEMTO", 24, "healthy", 50),
+    ("UCI", 143, "failing", None), ("UCI", 131, "healthy", None),
+    ("IGBT", 3, "failing", 2), ("IGBT", 3, "healthy", 46),
+]
 MODEL_VERSION = "v4"  # v4: turbofan, battery and bearing models behind a component-recognition model
 SEED = 42
 

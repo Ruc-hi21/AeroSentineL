@@ -6,7 +6,7 @@ import streamlit as st
 from app import insights, theme
 from app.components import (
     FAULT_TEXT, SAMPLES, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec,
-    load_sample, require_model, sample_button, sensor_label, show_table,
+    load_sample, require_model, sample_button, sample_for, sensor_label, show_table,
 )
 from app.engine3d import engine_twin
 from app.theme import MONO, SANS, TOKENS, esc
@@ -54,8 +54,9 @@ def card_metric(bench, profile):
     return f"{row['test_accuracy']:.0%} risk band test, {row['cv_accuracy']:.0%} cross-validated"
 
 
-# A card link (?sample=<profile>) opens that profile's sample unit: load it, clear the link, open its page.
+# A card link (?sample=<profile>, or a sample key like FD001_healthy) opens that sample unit's page.
 _sample = st.query_params.get("sample")
+_sample = _sample if _sample in SAMPLES else sample_for(_sample) if _sample else None
 if _sample in SAMPLES and SAMPLES[_sample].exists():
     st.query_params.clear()
     load_sample(_sample, then="views/engine.py")
