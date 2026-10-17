@@ -233,7 +233,7 @@ def unit_picker(units, key="unit", label=None):
 TABLE_CONFIG = {
     "Engine": st.column_config.TextColumn("Engine", width="small"),
     "RUL": st.column_config.NumberColumn("RUL (cycles)", format="%.0f"),
-    "Range": st.column_config.TextColumn("80% range"),
+    "Range": st.column_config.TextColumn("Likely range", help="80% of the time the true value falls in this range"),
     "Confidence": st.column_config.NumberColumn("Band confidence", format="%.0f%%"),
     "Health": st.column_config.NumberColumn("Health score", format="%.2f"),
     "Cycles": st.column_config.NumberColumn("Cycles", format="%d"),
@@ -449,8 +449,9 @@ def ladder_chart(units, limit=None):
     fig = go.Figure()
     _band_zones(fig, axis="x", spec=spec)
     for band, lo, hi in zones(spec):
+        # One word per line, so the names of the narrow severe zones never run into each other.
         fig.add_annotation(x=(lo + hi) / 2, y=1.0, yref="paper", yanchor="bottom", showarrow=False,
-                           text=BAND_TEXT[band], font=dict(color=BAND_COLORS[band], size=10))
+                           text=BAND_TEXT[band].replace(" ", "<br>"), font=dict(color=BAND_COLORS[band], size=11))
     colors = [STATE_COLOR[s] for s in u["state"]]
     fig.add_trace(go.Bar(
         x=u["rul_high"] - u["rul_low"], base=u["rul_low"], y=labels, orientation="h", name="80% range",
@@ -463,34 +464,51 @@ def ladder_chart(units, limit=None):
         customdata=np.stack([u["unit"], u["rul_low"], u["rul_high"], u["state"].map(STATE_LABEL)], axis=1),
         hovertemplate=f"{spec.unit_title} " + "%{y}<br>" + spec.rul_short + " %{x:.1f} " + spec.life_unit + " (80%: %{customdata[1]:.0f} to %{customdata[2]:.0f})"
                       "<br>%{customdata[3]}<extra></extra>"))
-    fig.update_layout(height=max(260, 24 * len(u) + 70), barmode="overlay", showlegend=False, bargap=0.4,
-                      margin=dict(t=24, b=40, l=44, r=12), hovermode="closest", clickmode="event+select")
+    fig.update_layout(height=max(260, 26 * len(u) + 80), barmode="overlay", showlegend=False, bargap=0.4,
+                      margin=dict(t=40, b=40, l=44, r=12), hovermode="closest", clickmode="event+select")
     fig.update_xaxes(title_text=f"{spec.rul_long.lower()} ({spec.life_unit})", range=[0, spec.rul_cap * 1.08 + 2], side="bottom")
-    fig.update_yaxes(autorange="reversed", type="category", tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
+    # Every unit named: Plotly otherwise thins category labels to every third or fourth row.
+    fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=labels, ticktext=labels,
+                     tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
     return fig
 
 
-def health_heatmap(units, history, threshold, critical, rows=20, window=60):
-    """Health score over the last `window` cycles for the most urgent units (rows)."""
+HEAT_STATES = ("Healthy", "Abnormal", "Critical")
+HEAT_COLORS = ("#30353c", "#8a7420", "#a8343c")  # muted fills of the status colours, for large areas
+
+
+def health_heatmap(units, history, threshold, critical, rows=20, window=60, block=5):
+    """Health state over the last `window` cycles for the most urgent units, in `block`-cycle steps.
+
+    Each cell is the mean health score of one block, shown as one of three states (healthy, abnormal,
+    critical) instead of a continuous scale; the exact score is in the hover.
+    """
     spec = insights.spec_of(units)
     top = units.head(rows)["unit"].tolist()
     h = history[history["unit"].isin(top)].copy()
     h["rel"] = h["cycle"] - h.groupby("unit")["cycle"].transform("max")
     h = h[h["rel"] > -window]
-    grid = h.pivot_table(index="unit", columns="rel", values="health_score").reindex(top)
-    lo, hi = -0.5, max(critical * 1.5, 3.0)
-    pos = lambda v: (v - lo) / (hi - lo)  # noqa: E731
-    # Large filled areas use muted tones of the status ramp; full-strength colour is for marks and text.
-    scale = [[0, T["surface"]], [pos(threshold) - 0.01, "#30353c"], [pos(threshold), "#7d6a1f"],
-             [pos(critical), "#9a5426"], [1, "#a8343c"]]
+    h["block"] = -((-h["rel"]) // block) * block  # 0 = the latest block, -5 the one before, ...
+    grid = h.pivot_table(index="unit", columns="block", values="health_score").reindex(top)
+    score = grid.to_numpy()
+    state = np.where(np.isnan(score), np.nan, np.where(score > critical, 2, np.where(score > threshold, 1, 0)))
+    scale = []
+    for i, color in enumerate(HEAT_COLORS):
+        scale += [[i / 3, color], [(i + 1) / 3, color]]
+    labels = [spec.unit_id(u) for u in grid.index]
+    names = np.vectorize(lambda s: "" if np.isnan(s) else HEAT_STATES[int(s)], otypes=[object])(state)
     fig = go.Figure(go.Heatmap(
-        z=grid.to_numpy(), x=grid.columns, y=[spec.unit_id(u) for u in grid.index], zmin=lo, zmax=hi, colorscale=scale,
-        xgap=1, ygap=1, colorbar=dict(title=dict(text="health", side="right", font=dict(size=11)), thickness=8,
-                                      outlinewidth=0, tickfont=dict(family=MONO, size=10)),
-        hovertemplate=f"{spec.unit_title} " + "%{y}<br>%{x} " + spec.time_title.lower() + "s from latest<br>health %{z:.2f}<extra></extra>"))
-    fig.update_layout(height=max(240, 18 * len(top) + 70), margin=dict(t=8, b=40, l=44, r=8))
-    fig.update_xaxes(title_text=f"{spec.time_title.lower()}s before latest reading", showgrid=False)
-    fig.update_yaxes(autorange="reversed", type="category", tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
+        z=state, x=grid.columns, y=labels, zmin=-0.5, zmax=2.5, colorscale=scale, xgap=2, ygap=2,
+        customdata=np.dstack([score, names]),
+        colorbar=dict(tickvals=[0, 1, 2], ticktext=list(HEAT_STATES), thickness=10, len=0.5, y=1, yanchor="top",
+                      outlinewidth=0, tickfont=dict(size=11, color=T["text_2"])),
+        hovertemplate=f"{spec.unit_title} " + "%{y}<br>%{customdata[1]}, health %{customdata[0]:.2f}<br>"
+                      + f"{block} {spec.time_title.lower()}s ending " + "%{x} before latest<extra></extra>"))
+    fig.update_layout(height=max(240, 22 * len(top) + 70), margin=dict(t=8, b=44, l=44, r=8))
+    fig.update_xaxes(title_text=f"{spec.time_title.lower()}s before latest reading", showgrid=False,
+                     tickvals=list(range(0, -window, -10)), ticktext=["now"] + [str(v) for v in range(-10, -window, -10)])
+    fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=labels, ticktext=labels,
+                     tickfont=dict(family=MONO, size=11), showgrid=False, ticks="")
     return fig
 
 

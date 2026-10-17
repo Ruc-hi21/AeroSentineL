@@ -11,6 +11,7 @@ from app.components import (
 from app.engine3d import engine_twin
 from app.theme import MONO, SANS, TOKENS, esc
 from src.config import CRITICAL_HEALTH_MULTIPLE, DATASET, SUBSETS
+from src.explainability.sensor_names import SENSOR_INFO
 from src.models.artifacts import load_artifacts, model_status
 
 
@@ -151,26 +152,37 @@ with right:
 
 left, right = st.columns([1.3, 1], gap="large")
 with left:
-    theme.section("Health trend", f"health score over the last 60 {spec.time_title.lower()}s, 20 most urgent {spec.unit_plural}")
+    theme.section("Health trend", f"health state over the last 60 {spec.time_title.lower()}s, 20 most urgent {spec.unit_plural}")
     threshold = require_model().health.threshold
     theme.chart(health_heatmap(units, result.history, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="fleet_heat")
-    theme.note(f"Grey is within the healthy baseline. Colour starts at the abnormal threshold ({threshold:.2f}) "
-               f"and reaches red at the critical level ({CRITICAL_HEALTH_MULTIPLE * threshold:.2f}).")
+    theme.note(f"Each cell is the average health score over 5 {spec.time_title.lower()}s. Grey is healthy, amber is "
+               f"abnormal (score above {threshold:.2f}), red is critical (above {CRITICAL_HEALTH_MULTIPLE * threshold:.2f}). "
+               f"Read each row left to right to see when a {spec.unit_title.lower()} started to degrade.")
 with right:
-    theme.section("Fleet drivers", f"mean |SHAP| on predicted {spec.rul_short}, {spec.life_unit} per {spec.actions.get('noun', 'unit')}")
+    theme.section("Fleet drivers", f"sensors that move the {spec.rul_short} forecast most, average {spec.life_unit} per "
+                                   f"{spec.actions.get('noun', 'unit')}")
     if "rul_factors" in units:
         total = {}
         for factors in units["rul_factors"]:
             for f in factors if isinstance(factors, list) else []:
                 total[f["sensor"]] = total.get(f["sensor"], 0.0) + abs(f["impact"])
-        ranked = sorted(total.items(), key=lambda kv: kv[1])[-8:]
+        ranked = sorted(total.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        values = [v / len(units) for _, v in ranked]
+        rows = list(range(len(ranked)))
+        # Name above each bar (full width, no squeezed axis labels), value at the bar's end.
         fig = go.Figure(go.Bar(
-            x=[v / len(units) for _, v in ranked], y=[sensor_label(s) for s, _ in ranked], orientation="h", width=0.55,
-            marker_color=TOKENS["accent"], text=[f"{v / len(units):.1f}" for _, v in ranked], textposition="outside",
-            cliponaxis=False, textfont=dict(family=MONO, size=11, color=TOKENS["text_2"]),
-            hovertemplate="%{y}<br>%{x:.2f} " + spec.life_unit + "<extra></extra>"))
-        fig.update_layout(height=320, margin=dict(t=8, b=40, l=8, r=40), xaxis_title=f"mean |SHAP| ({spec.life_unit})",
-                          yaxis=dict(ticks="", tickfont=dict(family=SANS, size=12, color=TOKENS["text_2"])))
+            x=values, y=rows, orientation="h", width=0.42, marker_color=TOKENS["accent"],
+            text=[f"{v:.1f}" for v in values], textposition="outside", cliponaxis=False,
+            textfont=dict(family=MONO, size=12, color=TOKENS["text_1"]),
+            customdata=[sensor_label(s) for s, _ in ranked],
+            hovertemplate="%{customdata}<br>%{x:.2f} " + spec.life_unit + "<extra></extra>"))
+        for i, (s, _) in enumerate(ranked):
+            label = "Age (" + spec.time_title.lower() + "s)" if s == "cycle" else f"{SENSOR_INFO[s][1]}  ·  {SENSOR_INFO[s][0]}"
+            fig.add_annotation(x=0, y=i - 0.3, text=label, showarrow=False, xanchor="left", yanchor="bottom",
+                               font=dict(family=SANS, size=12, color=TOKENS["text_2"]))
+        fig.update_layout(height=60 + 44 * len(ranked), margin=dict(t=8, b=40, l=8, r=40),
+                          xaxis_title=f"average effect on the forecast ({spec.life_unit})")
+        fig.update_yaxes(visible=False, range=[len(ranked) - 0.4, -0.75])
         theme.chart(fig, key="fleet_drivers")
         comp = result.component or "turbofan"
         faults = SUBSETS.get(result.subset, {}).get("fault_modes", ())
