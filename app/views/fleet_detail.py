@@ -11,11 +11,11 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    FAULT_TEXT, band_label, fleet, fleet_bars, health_heatmap, ladder_chart, profile_spec, require_model,
+    FAULT_TEXT, band_label, fleet, fleet_bars, ladder_chart, profile_spec, require_model,
     require_result, sensor_label, show_table,
 )
 from app.theme import MONO, SANS, TOKENS, esc
-from src.config import CRITICAL_HEALTH_MULTIPLE, RISK_BANDS, SUBSETS
+from src.config import RISK_BANDS, SUBSETS
 from src.explainability.sensor_names import SENSOR_INFO
 
 VIEWS = Path(__file__).resolve().parent
@@ -27,15 +27,14 @@ def open_engine(unit):
 
 
 def open_engine_detail(unit):
-    st.session_state["selected_unit"] = int(unit)
-    st.switch_page("views/engine_detail.py")
+    open_engine(unit)
 
 
 result = require_result()
 units = fleet(result)
 spec = result.spec
 noun = spec.actions.get("noun", "unit")
-theme.page_head("Fleet details", f"Which {spec.unit_plural} need attention, how the forecasts and health developed, and how "
+theme.page_head("Fleet details", f"Which {spec.unit_plural} need attention, how the forecasts and sensors developed, and how "
                 "the file was checked and processed.",
                 f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{insights.count(len(units), spec)}, "
                 f"{len(result.history):,} {spec.time_title.lower()}s")
@@ -94,13 +93,6 @@ with tab_detail:
 
     left, right = st.columns([1.3, 1], gap="large")
     with left:
-        theme.section("Health trend", f"health state over the last 60 {spec.time_title.lower()}s, 20 most urgent {spec.unit_plural}")
-        threshold = require_model().health.threshold
-        theme.chart(health_heatmap(units, result.history, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="fleet_heat")
-        theme.note(f"Each cell is the average health score over 5 {spec.time_title.lower()}s. Grey is healthy, amber is "
-                   f"abnormal (score above {threshold:.2f}), red is critical (above {CRITICAL_HEALTH_MULTIPLE * threshold:.2f}). "
-                   f"Read each row left to right to see when a {spec.unit_title.lower()} started to degrade.")
-    with right:
         theme.section("Fleet drivers", f"sensors that move the {spec.rul_short} forecast most, average {spec.life_unit} per "
                                        f"{spec.actions.get('noun', 'unit')}")
         if "rul_factors" in units:
@@ -149,6 +141,31 @@ with tab_detail:
         else:
             st.info("Explanations are unavailable for this analysis.")
 
+    with right:
+        # Which sensors are drifting across the fleet: units with each sensor past the warning level now.
+        theme.section("Sensors drifting across the fleet", f"{spec.unit_plural} with each sensor at warning or worse")
+        health = require_model().health
+        last = result.history.sort_values("cycle").groupby("unit").tail(5)
+        z = health.sensor_deviation(last).groupby(last["unit"]).mean()
+        warn = (z >= 2.4).sum().sort_values(ascending=False)
+        crit = (z >= 3.2).sum().reindex(warn.index)
+        warn = warn[warn > 0].head(10)
+        if len(warn):
+            names = [f"{SENSOR_INFO[k][1]}  ·  {SENSOR_INFO[k][0]}" for k in warn.index]
+            fig = go.Figure([
+                go.Bar(y=names, x=crit[warn.index], name="critical (3.2σ or more)", orientation="h",
+                       marker_color=theme.STATES["CRITICAL"]["color"], width=0.55),
+                go.Bar(y=names, x=warn - crit[warn.index], name="warning (2.4σ to 3.2σ)", orientation="h",
+                       marker_color=theme.STATES["WARNING"]["color"], width=0.55),
+            ])
+            fig.update_layout(barmode="stack", height=60 + 30 * len(warn), margin=dict(t=8, b=40, l=8, r=16),
+                              xaxis_title=spec.unit_plural, legend=dict(orientation="h", y=-0.25, x=0))
+            fig.update_yaxes(autorange="reversed", ticks="", tickfont=dict(family=SANS, size=12, color=TOKENS["text_2"]))
+            theme.chart(fig, key="fleet_sensor_counts")
+            theme.note(f"Averaged over each {spec.unit_title.lower()}'s last 5 {spec.time_title.lower()}s.")
+        else:
+            st.success(f"No sensor is past the warning level on any {spec.actions.get('noun', 'unit')}.")
+
     # Every unit, filterable: the record behind the charts above.
     theme.section(f"All {spec.unit_plural}", "filter by risk band; select a row to open its detail")
     f_left, f_right = st.columns([3, 1], vertical_alignment="bottom")
@@ -157,7 +174,7 @@ with tab_detail:
     table = units if bands is None else units[units["risk_band"].isin(bands)]
     if review_only:
         table = table[table["needs_review"]]
-    df, event = show_table(table, ["Engine", "State", "Cycles", "RUL", "Range", "Band", "Confidence", "Health", "Condition", "Flags"],
+    df, event = show_table(table, ["Engine", "State", "Cycles", "RUL", "Range", "Band", "Confidence", "Flags"],
                            key="fleet_all_units", on_select="rerun")
     rows = event.selection.rows if event and event.selection else []
     if rows:

@@ -168,7 +168,6 @@ steps = [
     ("Clean", f"{c['rows_out']:,} kept", f"{c['dropped_duplicates']} duplicates, {c['filled_values']} filled", "ok", t.get("clean")),
     ("Conditions", f"{prof['conditions_seen']} found", "corrected to the reference" if corrected else "single condition, no correction",
      "ok", t.get("conditions")),
-    ("Health", f"{int((units['health_condition'] == 'abnormal').sum())} abnormal", "drift from healthy baseline", "ok", t.get("health")),
     ("Features", f"{len(artifacts.metadata['features'])} per {spec.time_title.lower()}", "rolling stats, trends, drift",
      result.stages.get("preprocessing", "ok"), t.get("features")),
     ("RUL model", "XGBoost", "with 80% range", result.stages.get("rul", "n/a"), t.get("rul")),

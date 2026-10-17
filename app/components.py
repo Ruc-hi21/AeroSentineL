@@ -10,7 +10,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from app import insights
-from app.theme import BAND_COLORS, BAND_TEXT, MONO, STATES, TOKENS, esc
+from app.theme import BAND_COLORS, BAND_TEXT, MONO, SANS as SANS_FONT, STATES, TOKENS, esc
 from src.components import COMPONENTS, PROFILES, get, spec_of_profile
 from src.components.splits import sample_id, sample_path
 from src.config import DATASET, MODEL_VERSION, REPORTS_DIR, RISK_BANDS, SAMPLE_SET, SUBSETS
@@ -723,3 +723,55 @@ def reason_text(factor, spec):
     what = f"{name} ({code})" if code else f"{spec.time_title} count"
     verb = "shortened" if factor["impact"] < 0 else "lengthened"
     return what, f"{verb.capitalize()} the predicted {insights.life_word(spec)} by about {insights.life(abs(factor['impact']), spec)}."
+
+
+# ---------------------------------------------------------------- sensor charts
+DRIFT_BANDS = [(3.2, "Critical", STATES["CRITICAL"]["color"]), (2.4, "Warning", STATES["WARNING"]["color"]),
+               (1.6, "Elevated", STATES["DEGRADING"]["color"])]
+
+
+def drift_bars(drift, spec, top=None):
+    """Every sensor's drift at the latest reading, strongest first, coloured by level, with the level limits."""
+    d = drift.head(top) if top else drift
+    labels = [f"{n}  ·  {c}" for n, c in zip(d["name"], d["code"])]
+    colors = [next((col for lim, _, col in DRIFT_BANDS if z >= lim), T["text_3"]) for z in d["drift"]]
+    fig = go.Figure(go.Bar(
+        x=d["drift"], y=labels, orientation="h", width=0.6, marker_color=colors,
+        text=[f"{z:+.1f}σ" for z in d["drift"]], textposition="outside", cliponaxis=False,
+        textfont=dict(family=MONO, size=11, color=T["text_2"]),
+        hovertemplate="%{y}<br>%{x:+.2f} standard deviations from healthy<extra></extra>"))
+    for lim, _, col in DRIFT_BANDS:  # the three level limits, named by the x-axis ticks below
+        fig.add_vline(x=lim, line=dict(color=col, width=1, dash="dot"))
+    fig.add_vline(x=0, line=dict(color=T["line_strong"], width=1))
+    lo = min(-1.0, float(d["drift"].min()) - 1.2)  # room for the value labels of negative bars
+    hi = max(4.0, float(d["drift"].max()) + 0.9)
+    fig.update_layout(height=50 + 26 * len(d), margin=dict(t=8, b=44, l=8, r=40), showlegend=False,
+                      xaxis_title="drift from a healthy reading (standard deviations)")
+    fig.update_xaxes(range=[lo, hi], tickvals=[0, 1.6, 2.4, 3.2], ticktext=["0", "1.6", "2.4", "3.2"],
+                     tickfont=dict(size=10))
+    fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=labels, ticktext=labels,
+                     tickfont=dict(family=SANS_FONT, size=12, color=T["text_2"]), ticks="", ticklabelstandoff=6)
+    return fig
+
+
+def drift_heatmap(unit_history, health, spec, block=5, smoothing=5):
+    """Every sensor's drift over the unit's life (rows = sensors, strongest now on top; columns = blocks of readings)."""
+    hist = unit_history.sort_values("cycle")
+    z = health.sensor_deviation(hist).rolling(smoothing, min_periods=1).mean()
+    z.index = hist["cycle"].to_numpy()
+    step = max(1, block if len(z) > 60 else 1)
+    zb = z.groupby((z.index - z.index.min()) // step * step + z.index.min()).mean()
+    order = zb.iloc[-1].sort_values(ascending=False).index
+    names = [f"{SENSOR_INFO[s][1]}  ·  {SENSOR_INFO[s][0]}" for s in order]
+    fig = go.Figure(go.Heatmap(
+        z=zb[order].T.to_numpy(), x=zb.index, y=names, zmin=-3.2, zmax=3.2, xgap=1, ygap=1,
+        colorscale=[[0, "#2b5aa8"], [0.5, T["surface"]], [0.625, "#5c5418"], [0.75, "#8a5a20"], [1, "#a8343c"]],
+        colorbar=dict(title=dict(text="drift σ", side="top", font=dict(size=11)), thickness=10, outlinewidth=0,
+                      tickvals=[-3.2, -1.6, 0, 1.6, 2.4, 3.2], tickfont=dict(family=MONO, size=10)),
+        hovertemplate="%{y}<br>" + spec.time_title.lower() + " %{x}<br>drift %{z:+.2f}σ<extra></extra>"))
+    fig.update_layout(height=max(260, 24 * len(names) + 70), margin=dict(t=8, b=44, l=8, r=8))
+    fig.update_xaxes(title_text=f"{spec.time_title.lower()} ({step}-{spec.time_title.lower()} blocks)" if step > 1
+                     else spec.time_title.lower(), showgrid=False)
+    fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=names, ticktext=names,
+                     tickfont=dict(family=SANS_FONT, size=12, color=T["text_2"]), ticks="", showgrid=False)
+    return fig

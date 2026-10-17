@@ -18,8 +18,7 @@ pytestmark = pytest.mark.skipif(
     not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
-PAGES = ["overview", "fleet_detail", "upload", "engine", "engine_detail", "health", "rul_risk", "explainability", "twin",
-         "export"]
+PAGES = ["overview", "fleet_detail", "upload", "engine", "health", "rul_risk", "explainability", "twin", "export"]
 ADMIN_PAGES = ["admin_models"]
 COMPONENTS = [c for c in FILES if FILES[c].exists() and PROFILE[c] in available_subsets()]
 

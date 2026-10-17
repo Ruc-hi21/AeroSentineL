@@ -34,7 +34,6 @@ pages = {
     ],
     unit: [
         st.Page(VIEWS / "engine.py", title=f"{unit} status", icon=":material/speed:", url_path="engine"),
-        st.Page(VIEWS / "engine_detail.py", title=f"{unit} detail", icon=":material/monitor_heart:"),
         st.Page(VIEWS / "health.py", title="Degradation", icon=":material/trending_down:"),
         st.Page(VIEWS / "rul_risk.py", title=f"{active_spec().rul_short} and risk", icon=":material/timelapse:"),
         st.Page(VIEWS / "explainability.py", title="Explanations", icon=":material/account_tree:"),
