@@ -5,11 +5,12 @@ import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    FAULT_TEXT, PROFILE_LABELS, SAMPLES, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec,
-    require_model, run_analysis, sample_button, sensor_label, show_table,
+    FAULT_TEXT, SAMPLES, fleet, get_result, health_heatmap, ladder_chart, load_benchmark, profile_spec,
+    load_sample, require_model, sample_button, sensor_label, show_table,
 )
 from app.engine3d import engine_twin
 from app.theme import MONO, SANS, TOKENS, esc
+from src.components import spec_of_profile
 from src.config import CRITICAL_HEALTH_MULTIPLE, DATASET, SUBSETS
 from src.explainability.sensor_names import SENSOR_INFO
 from src.models.artifacts import load_artifacts, model_status
@@ -53,13 +54,11 @@ def card_metric(bench, profile):
     return f"{row['test_accuracy']:.0%} risk band test, {row['cv_accuracy']:.0%} cross-validated"
 
 
-# A card link (?sample=<profile>) opens that sample fleet: load it, clear the link, show the fleet.
+# A card link (?sample=<profile>) opens that profile's sample unit: load it, clear the link, open its page.
 _sample = st.query_params.get("sample")
 if _sample in SAMPLES and SAMPLES[_sample].exists():
-    with st.spinner(f"Analyzing the {PROFILE_LABELS[_sample].lower()} sample fleet"):
-        run_analysis(SAMPLES[_sample].name, SAMPLES[_sample].read_bytes(), subset=_sample)
     st.query_params.clear()
-    st.rerun()
+    load_sample(_sample, then="views/engine.py")
 
 if result is None or result.units is None:
     bench = load_benchmark()
@@ -74,7 +73,8 @@ hydraulic system or power electronics; that component's own models forecast rema
 sensors driving it, and suggest what to do.</p></div>""")
         b1, b2 = st.columns([1.25, 1])
         with b1:
-            sample_button(key="hero_sample", subset=DATASET, label="Try the NASA fleet", width="stretch")
+            sample_button(key="hero_sample", subset=DATASET, label="Try a NASA engine", width="stretch",
+                          then="views/engine.py")
         with b2:
             st.page_link("views/upload.py", label="Upload data", icon=":material/upload:", width="stretch")
         kpis = [(str(len(CARDS)), "component models", "public run-to-failure and test-rig data")]
@@ -105,13 +105,13 @@ sensors driving it, and suggest what to do.</p></div>""")
         + '<div class="pulse"></div></div>')
 
     # The five components: what the model sees, how well it does, and a one-click sample.
-    theme.section("Five component models", "open any sample fleet; the recognition model picks the component on its own")
-    # One responsive grid (5, 3, 2 or 1 across); each card is a link that opens its sample fleet.
+    theme.section("Five component models", "open a sample unit; the recognition model picks the component on its own")
+    # One responsive grid (5, 3, 2 or 1 across); each card is a link that opens its sample unit.
     st.html('<div class="as-cards">' + "".join(
         f'<a class="as-card" href="?sample={profile}" target="_self">'
         f'<div class="img"><img src="app/static/brand/thumb_{key}.jpg" alt="3D model of the {esc(name)}"></div>'
         f'<div class="body"><b>{esc(name)}</b><p>{esc(shows)}</p><span class="data">{esc(data)}</span>'
-        f'<span class="metric">{esc(card_metric(bench, profile))}</span><span class="go">Open sample fleet</span></div></a>'
+        f'<span class="metric">{esc(card_metric(bench, profile))}</span><span class="go">Open a sample {esc(spec_of_profile(profile).unit_title.lower())}</span></div></a>'
         for key, profile, name, shows, data in CARDS) + "</div>")
     st.stop()
 
@@ -120,7 +120,7 @@ units = fleet(result)
 source = st.session_state.get("source_name", "")
 spec = result.spec
 theme.page_head("Fleet overview", f"{spec.unit_plural.capitalize()} ranked by urgency. Select one in the chart or the queue to open it.",
-                f"<b>{esc(source)}</b><br>{len(units)} {spec.unit_plural}, {len(result.history):,} {spec.time_title.lower()}s<br>"
+                f"<b>{esc(source)}</b><br>{insights.count(len(units), spec)}, {len(result.history):,} {spec.time_title.lower()}s<br>"
                 f"job {esc(result.job_id)}, {result.duration_ms:.0f} ms")
 theme.spec(profile_spec(result))
 theme.distribution(insights.state_counts(units))
@@ -142,7 +142,7 @@ with left:
         st.warning("RUL prediction failed for this analysis, so the forecast is unavailable.")
 with right:
     attention = units[units["state"] != "HEALTHY"]
-    theme.section("Attention queue", f"{len(attention)} {spec.unit_plural} not healthy, select a row to open")
+    theme.section("Attention queue", f"{insights.count(len(attention), spec)} not healthy, select a row to open")
     df, event = show_table(attention if len(attention) else units.head(10),
                            ["Engine", "State", "RUL", "Range", "Confidence"],
                            key="fleet_queue", on_select="rerun", height=min(36 * (len(attention) + 1) + 4, 560))

@@ -151,6 +151,9 @@ def main(args):
         hydraulic()
     if "power" in args:
         power()
+    from scripts.make_samples import main as make_samples
+    print("Sample files (one unit per profile):")
+    make_samples()
     unknown = [a for a in args if a not in SUBSETS and a not in (*ALL, "gearbox")]
     if unknown:
         sys.exit(f"Unknown argument(s): {', '.join(unknown)}. Use {', '.join(ALL)} or {', '.join(SUBSETS)}.")

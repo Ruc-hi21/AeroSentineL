@@ -18,7 +18,7 @@ units = result.units
 spec = result.spec
 noun = spec.actions.get("noun", "unit")
 theme.page_head(f"{spec.unit_title} status", f"Condition, {spec.rul_long.lower()}, failure risk and the suggested next step for one {noun}.",
-                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{len(units)} {spec.unit_plural}, "
+                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{insights.count(len(units), spec)}, "
                 f"model {esc(result.model_version)} {esc(result.subset or '')}")
 
 pick, prev, nxt, _ = st.columns([3.2, 0.7, 0.7, 4.4], vertical_alignment="bottom")

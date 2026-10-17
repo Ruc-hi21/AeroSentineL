@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from app import theme
+from app import insights, theme
 from app.components import (
     PROFILE_LABELS, active_subset, band_label, confusion_chart, cross_chart, get_result, load_benchmark, require_model,
     subset_summary,
@@ -104,7 +104,7 @@ theme.section(f"{PROFILE_LABELS[subset]} in detail", f"{subset_summary(subset)};
 
 result = get_result()
 if result is not None and result.duration_ms is not None:
-    st.caption(f"Latest analysis took {result.duration_ms:.0f} ms for {len(result.units)} {result.spec.unit_plural}.")
+    st.caption(f"Latest analysis took {result.duration_ms:.0f} ms for {insights.count(len(result.units), result.spec)}.")
 
 val_rul, test_rul = metrics["validation"]["rul"]["xgboost"], metrics["test"]["rul"]
 val_risk, test_risk = metrics["validation"]["risk"]["xgboost"], metrics["test"]["risk"]

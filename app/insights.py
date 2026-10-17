@@ -77,6 +77,11 @@ def short_history(row):
     return any(r.startswith("short history") for r in row["review_reasons"])
 
 
+def count(n, spec):
+    """'1 engine', '100 engines': a count with the component's unit word."""
+    return f"{n} {spec.unit_title.lower() if n == 1 else spec.unit_plural}"
+
+
 def engine_state(row):
     """CRITICAL / WARNING / DEGRADING / HEALTHY / INSUFFICIENT for one unit row.
 

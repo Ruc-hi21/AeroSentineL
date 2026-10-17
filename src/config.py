@@ -5,6 +5,7 @@ from pathlib import Path
 # Paths
 ROOT = Path(__file__).resolve().parents[1]  # repo root; parents[0]=src, parents[1]=repo
 RAW_DATA_DIR = ROOT / "data" / "raw"
+SAMPLES_DIR = ROOT / "data" / "samples"  # one-unit demo files, built by scripts/make_samples.py
 MODELS_DIR = ROOT / "models"
 REPORTS_DIR = ROOT / "reports"
 
@@ -23,6 +24,9 @@ DATASET = "FD001"  # default subset (sample fleet, scripts, tests)
 # and 92% on FD003; the FD004 model scores 93% on FD002 and 90% on FD004. Single-condition models cannot score
 # multi-condition data at all.
 AUTO_SUBSET = {"single": "FD003", "multi": "FD004"}
+# The console's sample files: one held-out test unit per profile, chosen for a long history that ends close
+# to failure and a forecast close to the truth, so every chart shows a full degradation story.
+SAMPLE_UNITS = {"FD001": 34, "FD002": 138, "FD003": 24, "FD004": 135, "PCOE": 44, "FEMTO": 26, "UCI": 139, "IGBT": 3}
 MODEL_VERSION = "v4"  # v4: turbofan, battery and bearing models behind a component-recognition model
 SEED = 42
 

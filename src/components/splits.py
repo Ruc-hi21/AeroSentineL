@@ -105,3 +105,41 @@ def write_power(table, out_dir):
     sample.rename(columns={"unit": spec.id_column, "cycle": spec.time_column})[spec.upload_columns].to_csv(
         out_dir / "sample_IGBT.csv", index=False)
     return train["unit"].nunique(), len(rul)
+
+
+def sample_path(profile, samples_dir=None):
+    """Path of a profile's one-unit sample file, e.g. data/samples/FD001_engine_034.txt."""
+    from src.components import spec_of_profile
+    from src.config import SAMPLE_UNITS, SAMPLES_DIR
+    spec = spec_of_profile(profile)
+    ext = "txt" if spec.key == "turbofan" else "csv"
+    return (samples_dir or SAMPLES_DIR) / f"{profile}_{spec.unit_title.lower()}_{SAMPLE_UNITS[profile]:03d}.{ext}"
+
+
+def write_samples(raw_dir, samples_dir):
+    """One held-out test unit per profile (src.config.SAMPLE_UNITS), in the test file's own format.
+
+    Returns {profile: (path, rows, true remaining life)} for the profiles whose test file exists.
+    """
+    from src.config import SAMPLE_UNITS
+    samples_dir.mkdir(parents=True, exist_ok=True)
+    written = {}
+    for profile, unit in SAMPLE_UNITS.items():
+        ext = "txt" if profile.startswith("FD") else "csv"
+        source = raw_dir / f"test_{profile}.{ext}"
+        if not source.exists():
+            continue
+        lines = source.read_text().splitlines()
+        if ext == "txt":  # C-MAPSS: no header, unit id is the first field
+            rows = [l for l in lines if l.strip() and int(float(l.split()[0])) == unit]
+            body = rows
+        else:  # header + rows, unit id in the first column
+            rows = [l for l in lines[1:] if l.strip() and int(float(l.split(",")[0])) == unit]
+            body = [lines[0], *rows]
+        units = sorted({int(float((l.split() if ext == "txt" else l.split(","))[0])) for l in
+                        (lines if ext == "txt" else lines[1:]) if l.strip()})
+        true = (raw_dir / f"RUL_{profile}.txt").read_text().split()[units.index(unit)]
+        path = sample_path(profile, samples_dir)
+        path.write_text("\n".join(body) + "\n")
+        written[profile] = (path, len(rows), float(true))
+    return written

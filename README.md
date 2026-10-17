@@ -75,7 +75,7 @@ operating condition, and answers four questions for every unit:
 
 The **landing page** shows what the console does before anything is loaded: a live 3D showcase (switch components
 inside the view, no reload), the headline numbers, the four steps a file goes through, and a card per component with
-its data, its honest accuracy and a one-click sample fleet.
+its data, its honest accuracy and a one-click sample unit.
 
 ![Engine status page for an FD004 engine, with the gas-path schematic](assets/screenshot_engine_status.png)
 
@@ -163,7 +163,7 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 | Section | Page | What it is for |
 |---|---|---|
 | Fleet | **Fleet overview** | A spec strip (component, model, conditions, degradation mode), units ranked by urgency, RUL forecast with 80% ranges, attention queue, health-trend heatmap and fleet-wide drivers. Click any unit to open it. |
-| Fleet | **Ingest data** | Upload a file or pick a sample fleet; data profile, component recognition, automatic or manual model choice, timed processing report and operating envelope. |
+| Fleet | **Ingest data** | Upload a file or pick a sample unit; data profile, component recognition, automatic or manual model choice, timed processing report and operating envelope. |
 | Engine, Cell, Gearbox, Session or Device | **Unit status** | The single-unit summary and component schematic shown above. The section is named after the loaded component. |
 | | **Degradation** | Health score over time, the full sensor-drift table, and any sensor plotted against its healthy baseline. |
 | | **RUL and risk** | RUL history across the risk bands, the 80% range, review flags and a filterable fleet table. |
@@ -198,7 +198,23 @@ The download fetches NASA C-MAPSS (about 12 MB), the NASA PCoE battery data (0.2
 (1.2 GB, about 2 minutes of feature extraction), the UCI hydraulic rig (0.08 GB) and the NASA PCoE IGBT data (0.24 GB). The large archives stay in `~/.cache/aerosentinel`; only small
 per-cycle tables are written to `data/raw/`. Use `python -m scripts.download_data turbofan` to fetch just C-MAPSS.
 
-Open **http://localhost:8501**, pick a sample fleet (FD001 to FD004, battery cells, gearboxes, hydraulics or power electronics) and press **Load**.
+Open **http://localhost:8501** and press **Try a NASA engine**, or open any component card. Each sample in
+`data/samples/` is one unit the model never saw in training, with a long history that ends close to failure, so
+every chart tells one unit's degradation story; the samples are committed, so they work without the download:
+
+| Sample file | Rows | True remaining life | Model's forecast |
+| --- | --- | --- | --- |
+| `FD001_engine_034.txt` | 203 cycles | 7 cycles | 5 cycles, failure likely |
+| `FD002_engine_138.txt` | 200 cycles | 7 cycles | 6 cycles, failure likely |
+| `FD003_engine_024.txt` | 475 cycles | 9 cycles | 8.5 cycles, failure likely |
+| `FD004_engine_135.txt` | 435 cycles | 7 cycles | 8 cycles, failure likely |
+| `PCOE_cell_044.csv` | 47 cycles | 11 cycles | 12 cycles, high risk |
+| `FEMTO_gearbox_026.csv` | 84 minutes | 33 minutes | 37 minutes |
+| `UCI_session_139.csv` | 10 load cycles | 26% margin | 24% margin, valve lag and pump leakage |
+| `IGBT_device_003.csv` | 44 minutes | 14 minutes | 21 minutes, at risk |
+
+The full test fleets (100 to 259 engines) stay in `data/raw/` and can be uploaded on *Ingest data*;
+`python -m scripts.make_samples` rebuilds the samples from them.
 To try your own data, use *Ingest data*: turbofan files in the C-MAPSS layout, every other component as CSV with
 the columns listed on that page.
 
@@ -404,7 +420,7 @@ src/
   pipeline.py                read, profile, recognise, then the component's pipeline
 training/train.py            trains and evaluates every component model and writes the benchmark
 training/train_router.py     trains and scores the recognition model
-scripts/                     download_data.py (all datasets), predict.py
+scripts/                     download_data.py (all datasets), make_samples.py, predict.py
 models/v4/<component>/<profile>/   trained models per component profile; models/v4/router/ the recognition model
 reports/<profile>/           metrics, test predictions, training figures; reports/benchmark.json compares all
 tests/                       pytest suite

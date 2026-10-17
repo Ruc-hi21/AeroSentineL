@@ -12,18 +12,16 @@ from plotly.subplots import make_subplots
 from app import insights
 from app.theme import BAND_COLORS, BAND_TEXT, MONO, STATES, TOKENS, esc
 from src.components import COMPONENTS, PROFILES, get, spec_of_profile
-from src.config import DATASET, MODEL_VERSION, RAW_DATA_DIR, REPORTS_DIR, RISK_BANDS, SUBSETS
+from src.components.splits import sample_path
+from src.config import DATASET, MODEL_VERSION, REPORTS_DIR, RISK_BANDS, SAMPLE_UNITS, SUBSETS
 from src.data.loader import read_sensor_file
 from src.explainability.sensor_names import SENSOR_INFO, describe
 from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
 
-# Sample fleets: NASA C-MAPSS test fleets, battery cells the model never saw, held-out gearboxes, the held-out
-# hydraulic test blocks, and the IGBT devices.
-SAMPLES = {**{s: RAW_DATA_DIR / f"test_{s}.txt" for s in SUBSETS},
-           "PCOE": RAW_DATA_DIR / "sample_PCOE.csv", "FEMTO": RAW_DATA_DIR / "test_FEMTO.csv",
-           "UCI": RAW_DATA_DIR / "test_UCI.csv", "IGBT": RAW_DATA_DIR / "sample_IGBT.csv"}
-SAMPLE = SAMPLES[DATASET]
+# Sample files: one held-out test unit per profile (data/samples/, see src.config.SAMPLE_UNITS), so every
+# chart tells one unit's degradation story. The full test fleets stay in data/raw/ and can be uploaded.
+SAMPLES = {p: sample_path(p) for p in SAMPLE_UNITS}
 PROFILE_LABELS = {**{s: s for s in SUBSETS}, "PCOE": "Battery cells", "FEMTO": "Gearboxes", "UCI": "Hydraulics",
                   "IGBT": "Power electronics"}
 FAULT_TEXT = {"HPC": "HPC degradation", "Fan": "fan degradation", "capacity fade": "capacity fade",
@@ -74,29 +72,35 @@ def subset_summary(subset):
     return f"{conditions}, {' and '.join(FAULT_TEXT[f] for f in info['fault_modes'])}"
 
 
-def sample_choice(key, label="Sample fleet"):
-    """Pick a bundled fleet: the four NASA C-MAPSS test fleets, battery cells or bearings."""
+def sample_choice(key, label="Sample unit"):
+    """Pick a bundled one-unit sample: a NASA C-MAPSS engine per subset, a battery cell, a gearbox, ..."""
     options = [s for s in available_subsets() if SAMPLES.get(s) and SAMPLES[s].exists()] or [DATASET]
     # Pills wrap onto a second line; with eight fleets a segmented control would run off a narrow column.
     choice = st.pills(label, options, default=options[0], key=key, format_func=PROFILE_LABELS.get,
-                                  help="Turbofan: FD001 and FD003 run at one operating condition, FD002 and FD004 at six; "
-                                       "FD003 and FD004 add fan degradation. Battery cells: NASA PCoE cells the model never "
-                                       "saw. Gearboxes: held-out run-to-failure gearbox bearings (FEMTO). Hydraulics: the "
-                                       "test rig's held-out blocks. Power electronics: the four NASA IGBTs (only D03 was "
-                                       "held out of training).")
+                                  help="Each sample is one unit the model never saw in training, with a long history that "
+                                       "ends close to failure. Turbofan: FD001 and FD003 run at one operating condition, "
+                                       "FD002 and FD004 at six; FD003 and FD004 add fan degradation.")
     return choice or options[0]
 
 
-def sample_button(key, primary=True, subset=None, label=None, width="content"):
-    """Load a bundled sample fleet in one click."""
+def sample_button(key, primary=True, subset=None, label=None, width="content", then=None):
+    """Load a bundled one-unit sample in one click; `then` = page to open afterwards (else stay on this page)."""
     subset = subset or DATASET
     path = SAMPLES[subset]
     spec = spec_of_profile(subset)
-    label = label or ("Load NASA sample fleet" if subset == DATASET else f"Load {PROFILE_LABELS[subset].lower()} fleet")
+    label = label or ("Load a NASA sample engine" if subset == DATASET else f"Load a sample {spec.unit_title.lower()}")
     if path.exists() and st.button(label, type="primary" if primary else "secondary", key=key, width=width):
-        with st.spinner(f"Analyzing the {PROFILE_LABELS[subset]} sample fleet ({spec.unit_plural})"):
-            run_analysis(path.name, path.read_bytes(), subset=subset)
-        st.rerun()
+        load_sample(subset, then)
+
+
+def load_sample(subset, then=None):
+    """Analyze a profile's sample file, then open `then` (a page path) or rerun the current page."""
+    path, spec = SAMPLES[subset], spec_of_profile(subset)
+    with st.spinner(f"Analyzing the sample {spec.unit_title.lower()} ({PROFILE_LABELS[subset]})"):
+        run_analysis(path.name, path.read_bytes(), subset=subset)
+    if then:
+        st.switch_page(then)
+    st.rerun()
 
 
 def require_result():
@@ -105,7 +109,7 @@ def require_result():
     if result is None or result.units is None:
         from app.theme import empty
         empty("No data loaded",
-              "Upload turbofan, battery or bearing data, or load one of the sample fleets to populate this view.")
+              "Upload sensor data, or load a sample unit to populate this view.")
         left, right, _ = st.columns([1, 1, 3])
         with left:
             sample_button(key="empty_sample")

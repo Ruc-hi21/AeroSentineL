@@ -186,7 +186,7 @@ if result.status == "PARTIAL":
     failed = [k for k, v in result.stages.items() if v != "ok"]
     st.warning(f"Partial result. These stages failed: {', '.join(failed)}. The other results are still shown.")
 else:
-    st.success(f"Analysis complete: {len(result.units)} {spec.unit_plural} in {result.duration_ms:.0f} ms. "
+    st.success(f"Analysis complete: {insights.count(len(result.units), spec)} in {result.duration_ms:.0f} ms. "
                f"{spec.name} model {result.subset} ({result.profile['reason']}). Job {result.job_id}, model {result.model_version}.")
 
 # ---------------------------------------------------------------- 3. processing report
@@ -199,7 +199,7 @@ steps = [
     ("Profile", f"{v['rows']:,} rows", f"{result.eda['columns'] if result.eda else '?'} columns profiled", "ok",
      t.get("read", 0) + t.get("eda", 0)),
     ("Recognise", route_value, route_detail, "ok", t.get("route")),
-    ("Validate", f"{v['units']} {spec.unit_plural}", f"{len(v['warnings'])} warnings", "ok", t.get("validate")),
+    ("Validate", insights.count(v['units'], spec), f"{len(v['warnings'])} warnings", "ok", t.get("validate")),
     ("Clean", f"{c['rows_out']:,} kept", f"{c['dropped_duplicates']} duplicates, {c['filled_values']} filled", "ok", t.get("clean")),
     ("Conditions", f"{prof['conditions_seen']} found", "corrected to the reference" if corrected else "single condition, no correction",
      "ok", t.get("conditions")),

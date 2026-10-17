@@ -62,7 +62,7 @@ def test_upload_sample_and_analyze():
 
 def test_empty_page_launches_sample():
     at = run_page("twin")
-    launch = next(b for b in at.button if "Load NASA sample" in b.label)
+    launch = next(b for b in at.button if "NASA sample engine" in b.label)
     launch.click().run()
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
@@ -74,3 +74,12 @@ def test_engine_page_steps_through_units(results):
     next(b for b in at.button if b.label == "Next").click().run()
     assert not at.exception, at.exception
     assert at.session_state["selected_unit"] != first
+
+
+def test_sample_files_are_one_unit_each():
+    from app.components import SAMPLES
+    for profile, path in SAMPLES.items():
+        assert path.exists(), path
+        result = analyze(path, subset=profile)
+        assert result.status == "COMPLETED", (profile, result.error)
+        assert len(result.units) == 1, profile
