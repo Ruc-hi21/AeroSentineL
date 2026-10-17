@@ -137,7 +137,7 @@ with right:
 
 st.divider()
 links = st.columns(4)
-links[0].page_link("views/sensor_history.py", label="Sensor history", icon=":material/show_chart:")
+links[0].page_link("views/health.py", label="Degradation", icon=":material/trending_down:")
 links[1].page_link("views/rul_risk.py", label=f"{spec.rul_short} and risk", icon=":material/timelapse:")
 links[2].page_link("views/explainability.py", label="Explanations", icon=":material/account_tree:")
 links[3].page_link("views/twin.py", label="Open 3D model", icon=":material/view_in_ar:")

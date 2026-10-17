@@ -18,8 +18,8 @@ pytestmark = pytest.mark.skipif(
     not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
-PAGES = ["overview", "fleet_detail", "upload", "data_check", "engine", "engine_detail", "health", "sensor_history",
-         "rul_risk", "explainability", "twin", "export"]
+PAGES = ["overview", "fleet_detail", "upload", "engine", "engine_detail", "health", "rul_risk", "explainability", "twin",
+         "export"]
 ADMIN_PAGES = ["admin_models"]
 COMPONENTS = [c for c in FILES if FILES[c].exists() and PROFILE[c] in available_subsets()]
 
@@ -59,7 +59,7 @@ def test_upload_sample_and_analyze():
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
     assert at.session_state["result"].subset == DATASET
-    at.switch_page("views/data_check.py").run()  # the data check profiles the file that was analysed
+    at.switch_page("views/fleet_detail.py").run()  # its Data check tab profiles the file that was analysed
     assert not at.exception, at.exception
 
 
@@ -105,3 +105,10 @@ def test_admin_page_renders_before_any_upload(page):
 def test_admin_page_renders_with_results(page, component, results):
     at = run_page(page, results[component], FILES[component].name, app=ADMIN_APP)
     assert not at.exception, at.exception
+
+
+def test_overview_is_the_landing_page_even_with_data_loaded(results):
+    """Fleet overview never changes after an upload: the landing page, with its sample button, stays as it is."""
+    at = run_page("overview", results["turbofan"])
+    assert not at.exception, at.exception
+    assert any(b.label == "Try a NASA engine" for b in at.button)

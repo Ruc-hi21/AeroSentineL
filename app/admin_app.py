@@ -17,7 +17,6 @@ st.set_page_config(page_title="AeroSentinel admin", page_icon=str(ROOT / "assets
                    layout="wide", initial_sidebar_state="expanded")
 
 from app import theme  # noqa: E402
-from app.components import sidebar_status  # noqa: E402
 
 theme.inject()
 st.logo(str(ROOT / "assets" / "logo.svg"), size="large", icon_image=str(ROOT / "assets" / "logo_icon.svg"))
@@ -31,6 +30,5 @@ pages = {
     ],
 }
 
-sidebar_status()
 theme.motion()
 st.navigation(pages).run()

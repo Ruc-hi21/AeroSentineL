@@ -209,39 +209,6 @@ def fleet(result):
     return cache[result.job_id]
 
 
-def sidebar_status():
-    with st.sidebar:
-        subset = active_subset()
-        status = model_status(MODEL_VERSION, subset)
-        rows = []
-        if status["ready"]:
-            meta = load_artifacts(MODEL_VERSION, subset).metadata
-            m = meta["metrics"]
-            conditions = len(meta.get("conditions") or [1])
-            rows += [("Component", esc(spec_of_profile(subset).unit_title)),
-                     ("Model", f"{esc(status['version'])} {esc(subset)}"),
-                     ("Conditions", "1" if conditions == 1 else f"{conditions}, corrected"),
-                     ("Trained", esc(str(status["trained_at"])[:10])),
-                     (f"Accuracy, unseen {spec_of_profile(subset).unit_plural}", f"{m['validation']['risk']['xgboost']['accuracy']:.1%}"),
-                     ("Accuracy, test set", f"{m['test']['risk']['accuracy']:.1%}"),
-                     ("RUL RMSE, test, capped", f"{m['test']['rul'].get('rmse_capped', m['test']['rul']['rmse']):.1f}")]
-        else:
-            rows.append(("Model", '<span style="color:#fa4d56">unavailable</span>'))
-        result = get_result()
-        if result is not None and result.units is not None:
-            rows += [("Dataset", esc(st.session_state.get("source_name", ""))),
-                     (result.spec.unit_plural.capitalize(), str(len(result.units)))]
-        body = "".join(f'<div class="r"><span>{k}</span><b>{v}</b></div>' for k, v in rows)
-        st.html(f"""<style>.as-sb .r {{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:12px;
-  padding:3px 0; }}
-.as-sb .r span {{ color:#7f8790; }} .as-sb .r b {{ color:#e6e8eb; font-weight:400; font-family:'IBM Plex Mono',monospace; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; max-width:60%; }}
-.as-sb p {{ font-size:12px; color:#7f8790; line-height:1.5; margin:14px 0 0; }}</style>
-<div class="as-sb">{body}
-<p>Decision support only. Predictions do not certify {'airworthiness' if subset in ('FD001', 'FD002', 'FD003', 'FD004') else 'fitness for service'} and require review by a qualified engineer.</p></div>""")
-
-
-# ---------------------------------------------------------------- pickers & tables
 def band_label(band):
     return BAND_TEXT.get(band, band)
 

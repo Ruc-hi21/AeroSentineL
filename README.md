@@ -162,14 +162,12 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 
 | Section | Page | What it is for |
 |---|---|---|
-| Fleet | **Fleet overview** | Units by condition, the ones that need attention with their next step, and time left per unit. Click a unit to open it. |
-| | **Fleet detail** | Forecasts with 80% ranges, the health-history heatmap, fleet-wide drivers and a filterable table of every unit. |
+| Fleet | **Fleet overview** | The landing page, the same before and after a file is loaded: what the console does, a one-click NASA engine and a card per component model. |
+| | **Fleet details** | Three tabs. *Overview*: units by condition, what needs attention with its next step, and time left per unit. *Forecast and history*: forecasts with 80% ranges, the health-history heatmap, fleet drivers and a filterable table of every unit. *Data check*: the file's data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
 | | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit. |
-| | **Data check** | For the analysed file: data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
 | Engine, Cell, Gearbox, Session or Device | **Unit status** | Condition and time left (likely range, risk band), what to do, and why, in plain words. The section is named after the loaded component. |
 | | **Unit detail** | The engineering view: status instrument, schematic, trend, full sensor drift, failure outlook, "can it wait" check, and SHAP for the RUL and the risk band. |
-| | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones, and the sensors that show it. |
-| | **Sensor history** | Health score history, every sensor's drift, any sensor's raw curve and every unit by health. |
+| | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones and the sensors that show it; then *Every sensor* (drift table and raw curves) and *All units* (by health) tabs. |
 | | **RUL and risk** | Time left in words, where the unit sits on the four-band risk ladder, and the forecast over its life. |
 | | **Explanations** | The forecast in one sentence, the top sensors as bars, and the top three in plain words. |
 | | **3D model** | The sectioned component shown above, with a deep-dive chart for any sensor you click. |

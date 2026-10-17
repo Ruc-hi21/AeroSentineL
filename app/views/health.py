@@ -1,12 +1,15 @@
-"""Degradation, the maintainer view: how worn the unit is, since when, and which sensors show it.
-Every sensor's drift and curves, and the all-units table, are in Admin, sensor history."""
+"""Degradation: how worn the unit is, since when, and which sensors show it; then the detail (every sensor's
+drift and raw curves, and every unit by health) in two tabs."""
 
 import streamlit as st
 
 from app import insights, theme
-from app.components import require_model, require_result, simple_health_chart, unit_picker
+from app.components import (
+    drift_table, require_model, require_result, sensor_chart, show_table, simple_health_chart, unit_picker,
+)
 from app.theme import STATES
 from src.config import CRITICAL_HEALTH_MULTIPLE
+from src.explainability.sensor_names import describe
 
 artifacts = require_model()
 result = require_result()
@@ -53,4 +56,25 @@ with right:
     theme.actions([{"action": f"{d['name']} ({d['code']})",
                     "why": f"{level[d['status']].capitalize()}: {d['drift']:+.1f} standard deviations from a healthy {noun}."}
                    for _, d in drift.head(3).iterrows()])
-st.page_link("views/sensor_history.py", label="Sensor history: every sensor, raw curves and all units", icon=":material/show_chart:")
+
+# Detail (formerly Sensor history): every sensor for this unit, and every unit by health.
+theme.section("More detail")
+tab_sensors, tab_units = st.tabs(["Every sensor", f"All {spec.unit_plural}"])
+with tab_sensors:
+    left, right = st.columns([1, 1.2], gap="large")
+    with left:
+        theme.section("Sensor drift", f"latest {t}, strongest first")
+        drift_table(drift, unit=spec.life_unit)
+    with right:
+        theme.section("Raw curves", f"reading and 10-{t} mean")
+        # Start with the sensors that most influenced this unit's RUL prediction.
+        factors = row["rul_factors"] if isinstance(row.get("rul_factors"), list) else []
+        default = [f["sensor"] for f in factors if f["sensor"] in artifacts.sensors][:3] or artifacts.sensors[:3]
+        chosen = st.multiselect("Sensors", artifacts.sensors, default=default, format_func=describe, key="health_curves")
+        if chosen:
+            theme.chart(sensor_chart(hist, chosen), key="sensor_curves")
+    theme.note(f"{int(hist['out_of_range'].sum())} readings of this {noun} fall outside the range seen in training.")
+with tab_units:
+    abnormal_only = st.toggle(f"Abnormal {spec.unit_plural} only", key="health_abnormal_only")
+    units = result.units[result.units["health_condition"] == "abnormal"] if abnormal_only else result.units
+    show_table(units.sort_values("health_score", ascending=False), ["Engine", "State", "Cycles", "Health", "Condition", "Flags"])

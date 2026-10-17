@@ -21,8 +21,9 @@ T = TOKENS
 COMPONENT_COLORS = {"turbofan": T["accent"], "battery": "#3ddbd9", "bearing": "#be95ff", "hydraulic": "#5fd4f8",
                     "power": "#f1c21b", "unknown": T["text_3"]}
 
-theme.page_head("Data check", "What the last analysed file contains, how the recognition model placed it, and every "
-                "processing step with its timing. Choose a model here to re-run the file with it.")
+if __name__ == "__main__":  # own heading only as a page of its own, not as the Fleet details tab
+    theme.page_head("Data check", "What the last analysed file contains, how the recognition model placed it, and every "
+                    "processing step with its timing. Choose a model here to re-run the file with it.")
 require_model()
 
 pending = st.session_state.get("last_file")
@@ -204,6 +205,4 @@ if spec.settings and set(spec.settings) <= set(result.history.columns):
         if unknown:
             st.warning(f"{unknown:,} {spec.time_title.lower()}s come from conditions the {result.subset} model never saw.")
 
-links = st.columns([1, 1, 3])
-links[0].page_link("views/overview.py", label="Open fleet overview", icon=":material/grid_view:")
-links[1].page_link("views/engine.py", label=f"Open {spec.unit_title.lower()} status", icon=":material/speed:")
+st.page_link("views/engine.py", label=f"Open {spec.unit_title.lower()} status", icon=":material/speed:")
