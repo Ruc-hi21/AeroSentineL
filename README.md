@@ -162,16 +162,22 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 
 | Section | Page | What it is for |
 |---|---|---|
-| Fleet | **Fleet overview** | A spec strip (component, model, conditions, degradation mode), units ranked by urgency, RUL forecast with 80% ranges, attention queue, health-trend heatmap and fleet-wide drivers. Click any unit to open it. |
-| Fleet | **Ingest data** | Upload a file or pick a sample unit; data profile, component recognition, automatic or manual model choice, timed processing report and operating envelope. |
-| Engine, Cell, Gearbox, Session or Device | **Unit status** | The single-unit summary and component schematic shown above. The section is named after the loaded component. |
-| | **Degradation** | Health score over time, the full sensor-drift table, and any sensor plotted against its healthy baseline. |
-| | **RUL and risk** | RUL history across the risk bands, the 80% range, review flags and a filterable fleet table. |
-| | **Explanations** | SHAP drivers behind the RUL and the risk prediction. |
+| Fleet | **Fleet overview** | Maintainer view: units by condition, the ones that need attention with their next step, and time left per unit. Click a unit to open it. |
+| Fleet | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit with its next step. |
+| Engine, Cell, Gearbox, Session or Device | **Unit status** | Condition and time left (with the likely range and risk band), what to do, and why, in plain words. The section is named after the loaded component. |
+| | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones, and the three sensors that show it. |
+| | **RUL and risk** | Time left in words, where the unit sits on the four-band risk ladder, and the forecast over its life on the band zones. |
+| | **Explanations** | The forecast in one sentence, the top sensors as bars, and the top three in plain words. |
 | | **3D model** | The sectioned component shown above, with a deep-dive chart for any sensor you click. |
-| Model | **Evaluation** | Every component model side by side, the recognition model's results, the turbofan generalisation matrix, then baselines, per-band results and confusion matrices for one model. |
-| Model | **Error analysis** | Where each model is wrong on its test units, and by how much. |
-| Output | **Export** | Unit results and cycle history as CSV, and the full result (component, recognition, model, conditions, timings) as JSON. |
+| Admin | **Fleet detail** | Forecasts with 80% ranges, the full attention queue, the health-history heatmap and fleet-wide drivers. |
+| Admin | **Unit detail** | The engineering view of one unit: status instrument, schematic, trend, full sensor drift, failure outlook, "can it wait" check and SHAP. |
+| Admin | **Sensor history** | Health score history, every sensor's drift, any sensor's curve and the all-units table. |
+| Admin | **RUL history** | The forecast at every reading with band squares, the 80% range, review flags and a filterable table of every unit. |
+| Admin | **Explanation detail** | SHAP behind the RUL and behind the risk band, and the training-set averages. |
+| Admin | **Data check** | For the last analysed file: data profile (EDA), the recognition decision, a manual model choice to re-run, the timed processing report and the operating envelope. |
+| Admin | **Model evaluation** | Every component model side by side, the recognition model's results, the turbofan generalisation matrix, then baselines, per-band results and confusion matrices for one model. |
+| Admin | **Error analysis** | Where each model is wrong on its test units, and by how much. |
+| Admin | **Export** | Unit results and cycle history as CSV, and the full result (component, recognition, model, conditions, timings) as JSON. |
 
 The look is deliberately calm: IBM Plex type, a dark neutral palette with one blue accent, status colours reserved
 for status, hairline engineering drawings, and motion only when something actually changes. Time-series charts read

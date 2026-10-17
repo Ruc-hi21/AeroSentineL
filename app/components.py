@@ -57,6 +57,7 @@ def run_analysis(name, content, subset=None, component=None):
     """Analyze uploaded bytes and store the result for every page. None = the recognition model decides."""
     result = analyze(read_sensor_file(io.BytesIO(content)), subset=subset, name=name, component=component)
     st.session_state["last_run"] = result
+    st.session_state["last_file"] = (name, content)  # the admin data check profiles the file that was analysed
     if result.status != "FAILED":
         st.session_state["result"] = result
         st.session_state["source_name"] = name
@@ -106,8 +107,8 @@ def sample_choice(key, label="Sample unit"):
     options = [k for k, i in SAMPLE_INFO.items() if i["profile"] in trained and SAMPLES[k].exists()]
     options = sorted(options, key=lambda k: (list(PROFILE_LABELS).index(SAMPLE_INFO[k]["profile"]),
                                              SAMPLE_INFO[k]["state"])) or [sample_for(DATASET)]
-    choice = st.pills(label, options, default=options[0], key=key, format_func=sample_label,
-                      help="Each sample is one unit the model never saw in training, with its history from the "
+    choice = st.selectbox(label, options, index=0, key=key, format_func=sample_label,
+                          help="Each sample is one unit the model never saw in training, with its history from the "
                            "first record: one close to failure and one in good health per component. Turbofan "
                            "FD001 flies at one operating condition, FD004 at six with fan wear as well.")
     return choice or options[0]
@@ -682,3 +683,71 @@ def cross_chart(cross, metric="accuracy"):
     fig.update_xaxes(showgrid=False, ticks="", side="top")
     fig.update_yaxes(showgrid=False, ticks="", autorange="reversed")
     return fig
+
+
+# ---------------------------------------------------------------- simple charts (maintainer pages)
+def fleet_bars(units, spec):
+    """One bar per unit: time left, coloured by condition, value at the bar's end. No ranges, no zones."""
+    u = insights.add_states(units).reset_index(drop=True)
+    labels = [spec.unit_id(x) for x in u["unit"]]
+    fig = go.Figure(go.Bar(
+        x=u["predicted_rul"], y=labels, orientation="h", width=0.6,
+        marker_color=[STATE_COLOR[s] for s in u["state"]],
+        text=[insights.life(v, spec) for v in u["predicted_rul"]], textposition="outside", cliponaxis=False,
+        textfont=dict(family=MONO, size=12, color=T["text_1"]),
+        hovertemplate=f"{spec.unit_title} " + "%{y}<br>%{x:.0f} " + spec.life_unit + " left<extra></extra>"))
+    fig.update_layout(height=max(220, 28 * len(u) + 60), margin=dict(t=8, b=40, l=8, r=70), showlegend=False,
+                      xaxis_title=f"{insights.life_word(spec)} left ({spec.life_unit})")
+    fig.update_xaxes(range=[0, spec.rul_cap * 1.05])
+    fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=labels, ticktext=labels,
+                     tickfont=dict(family=MONO, size=12), showgrid=False, ticks="")
+    return fig
+
+
+def _zone_bands(fig, edges, colors, names):
+    """Plain horizontal colour zones with their names on the right: healthy / abnormal / critical, etc."""
+    for (lo, hi), color, name in zip(edges, colors, names):
+        fig.add_hrect(y0=lo, y1=hi, fillcolor=color, opacity=0.10, line_width=0, layer="below",
+                      annotation_text=name, annotation_position="outside right",
+                      annotation_font=dict(color=color, size=12))
+
+
+def simple_health_chart(unit_history, threshold, critical, spec):
+    """Health score over the unit's life on three plain zones: healthy, abnormal, critical."""
+    h = unit_history["health_score"]
+    top = max(float(h.max()), critical) * 1.15
+    fig = go.Figure()
+    _zone_bands(fig, [(min(-0.5, float(h.min())), threshold), (threshold, critical), (critical, top)],
+                [STATE_COLOR["HEALTHY"], STATE_COLOR["DEGRADING"], STATE_COLOR["CRITICAL"]],
+                ["Healthy", "Abnormal", "Critical"])
+    fig.add_trace(go.Scatter(x=unit_history["cycle"], y=h, mode="lines", line=dict(color=T["text_1"], width=2.4),
+                             hovertemplate=f"{spec.time_title} " + "%{x}<br>health %{y:.2f}<extra></extra>"))
+    fig.update_layout(height=320, showlegend=False, margin=dict(t=8, b=40, l=48, r=90),
+                      xaxis_title=spec.time_title.lower(), yaxis_title="health score (0 = like new)")
+    fig.update_yaxes(range=[min(-0.5, float(h.min())), top])
+    return fig
+
+
+def simple_rul_chart(unit_history, spec):
+    """Predicted time left at every reading, on the four risk-band zones."""
+    fig = go.Figure()
+    limits = spec.risk_limits
+    edges = [(0, limits["FAILURE_LIKELY"]), (limits["FAILURE_LIKELY"], limits["HIGH_RISK"]),
+             (limits["HIGH_RISK"], limits["AT_RISK"]), (limits["AT_RISK"], spec.rul_cap * 1.05)]
+    _zone_bands(fig, edges, [BAND_COLORS[b] for b in ("FAILURE_LIKELY", "HIGH_RISK", "AT_RISK", "NORMAL")],
+                [BAND_TEXT[b] for b in ("FAILURE_LIKELY", "HIGH_RISK", "AT_RISK", "NORMAL")])
+    fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history["predicted_rul"], mode="lines",
+                             line=dict(color=T["text_1"], width=2.4),
+                             hovertemplate=f"{spec.time_title} " + "%{x}<br>%{y:.0f} " + spec.life_unit + " left<extra></extra>"))
+    fig.update_layout(height=320, showlegend=False, margin=dict(t=8, b=40, l=48, r=110),
+                      xaxis_title=spec.time_title.lower(), yaxis_title=f"{insights.life_word(spec)} left ({spec.life_unit})")
+    fig.update_yaxes(range=[0, spec.rul_cap * 1.05])
+    return fig
+
+
+def reason_text(factor, spec):
+    """'HPC static pressure (Ps30) shortened the predicted life by about 24 cycles.'"""
+    code, name = SENSOR_INFO[factor["sensor"]][:2] if factor["sensor"] in SENSOR_INFO else ("", "Age")
+    what = f"{name} ({code})" if code else f"{spec.time_title} count"
+    verb = "shortened" if factor["impact"] < 0 else "lengthened"
+    return what, f"{verb.capitalize()} the predicted {insights.life_word(spec)} by about {insights.life(abs(factor['impact']), spec)}."

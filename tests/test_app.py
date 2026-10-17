@@ -17,8 +17,8 @@ pytestmark = pytest.mark.skipif(
     not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
-PAGES = ["overview", "upload", "engine", "twin", "health", "rul_risk", "explainability", "evaluation",
-         "error_analysis", "export"]
+PAGES = ["overview", "upload", "engine", "twin", "health", "rul_risk", "explainability", "admin_fleet", "admin_engine",
+         "admin_degradation", "admin_rul", "admin_explanations", "admin_data", "evaluation", "error_analysis", "export"]
 COMPONENTS = [c for c in FILES if FILES[c].exists() and PROFILE[c] in available_subsets()]
 
 
@@ -51,13 +51,14 @@ def test_page_renders_with_results(page, component, results):
 
 def test_upload_sample_and_analyze():
     at = run_page("upload")
-    next(b for b in at.button if "sample file" in b.label).click().run()
+    next(b for b in at.button if b.label == "Use this sample").click().run()
     run = next(b for b in at.button if "Run analysis" in b.label)
     run.click().run()
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
     assert at.session_state["result"].subset == DATASET
-    assert any("Analysis complete" in s.value for s in at.success)
+    at.switch_page("views/admin_data.py").run()  # the admin data check profiles the file that was analysed
+    assert not at.exception, at.exception
 
 
 def test_empty_page_launches_sample():

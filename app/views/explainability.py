@@ -1,50 +1,43 @@
-"""Explanations: which sensors pushed each prediction, per unit and across the training data."""
+"""Explanations, the maintainer view: in one sentence, a short chart and three plain lines, which sensors made
+the model predict this. The risk-band explanation and training-set averages are in Admin, explanation detail."""
 
 import streamlit as st
 
-from app import theme
-from app.components import band_label, factor_chart, require_result, unit_picker
-from app.theme import BAND_COLORS, TOKENS
-from src.config import REPORTS_DIR
-from src.explainability.sensor_names import describe
+from app import insights, theme
+from app.components import factor_chart, reason_text, require_result, unit_picker
+from app.theme import TOKENS, esc
 
-theme.page_head("Explanations", "SHAP values show which sensors pushed each prediction up or down. They show correlation "
-                "with the prediction, not proof of a root cause.")
 result = require_result()
+spec = result.spec
+noun = spec.actions.get("noun", "unit")
+theme.page_head("Explanations", f"Which sensors made the model predict this {insights.life_word(spec)} for this {noun}. "
+                "It shows what the model relied on, not a confirmed root cause.")
 
 row = unit_picker(result.units, key="explain")
-left, right = st.columns(2, gap="large")
+factors = row.get("rul_factors")
+if not isinstance(factors, list) or not factors:
+    st.info("No explanation is available for this analysis.")
+    st.stop()
 
+# 1. In one sentence.
+names = [reason_text(f, spec)[0] for f in factors[:2]]
+shorten = [f for f in factors if f["impact"] < 0]
+theme.section("1. In one sentence")
+theme.note(f"The forecast is driven mostly by <b>{esc(names[0])}</b>" + (f" and <b>{esc(names[1])}</b>" if len(names) > 1 else "")
+           + (f"; {len(shorten)} of the top {len(factors)} sensors are shortening the predicted {insights.life_word(spec)}."
+              if shorten else f"; none of the top sensors is shortening the predicted {insights.life_word(spec)}."))
+
+left, right = st.columns([1.3, 1], gap="large")
 with left:
-    theme.section("Why this RUL", f"contribution in {result.spec.life_unit}")
-    factors = row.get("rul_factors")
-    if isinstance(factors, list):
-        theme.chart(factor_chart(factors, f"change in predicted RUL ({result.spec.life_unit})", "#ff832b", TOKENS["accent"]), key="rul_shap")
-        theme.actions([{"action": describe(f["sensor"]),
-                        "why": f"{'Shortened' if f['impact'] < 0 else 'Extended'} the predicted life by about "
-                               f"{abs(f['impact']):.0f} {result.spec.life_unit}."} for f in factors[:3]])
-    else:
-        st.warning("No RUL explanation available for this analysis.")
-
+    # 2. The top sensors as bars: left = shortened the life, right = lengthened it.
+    theme.section("2. Top sensors", f"change in predicted {insights.life_word(spec)}, {spec.life_unit}")
+    theme.chart(factor_chart(factors, f"change in predicted {insights.life_word(spec)} ({spec.life_unit})", "#ff832b",
+                             TOKENS["accent"]), key="explain_simple")
+    theme.note("Orange bars pointing left shortened the predicted life; blue bars pointing right lengthened it.")
 with right:
-    factors = row.get("risk_factors")
-    band = band_label(row["risk_band"]) if "risk_band" in row else ""
-    theme.section("Why this risk band", f"push towards {band.lower()}, log-odds")
-    if isinstance(factors, list):
-        theme.chart(factor_chart(factors, f"push towards {band.lower()} (log-odds)", TOKENS["text_3"],
-                                 BAND_COLORS.get(row["risk_band"], TOKENS["accent"])), key="risk_shap")
-        theme.actions([{"action": describe(f["sensor"]),
-                        "why": f"Pushed the prediction {'towards' if f['impact'] > 0 else 'away from'} {band.lower()}."}
-                       for f in factors[:3]])
-    else:
-        st.warning("No risk explanation available for this analysis.")
+    # 3. The top three in words.
+    theme.section("3. In plain words")
+    theme.actions([{"action": what, "why": why} for what, why in (reason_text(f, spec) for f in factors[:3])])
 
-with st.expander(f"Average influence across {result.subset} training {result.spec.unit_plural} (training report figures)"):
-    figures = REPORTS_DIR / (result.subset or "") / "figures"
-    cols = st.columns(2)
-    for col, name, caption in [(cols[0], "shap_rul.png", "Average influence on RUL"),
-                               (cols[1], "shap_risk.png", "Average influence on the risk band")]:
-        if (figures / name).exists():
-            col.image(str(figures / name), caption=caption)
-        else:
-            col.info("Run `python -m training.train` to generate this figure.")
+st.page_link("views/admin_explanations.py", label="Explanation detail (admin): risk-band explanation and training averages",
+             icon=":material/admin_panel_settings:")

@@ -251,6 +251,11 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=Non
         band_codes = codes[X.index.get_indexer(last)]
         units["risk_band"] = history.loc[last, "risk_band"].to_numpy()
         units["risk_probability"] = history.loc[last, "risk_probability"].to_numpy()
+        # Every band's probability at the latest cycle, not only the winner's, so the console can
+        # show the chance of failing inside each window (15, 30, 60 cycles for the turbofan).
+        proba = artifacts.risk.predict_proba(X_last)
+        for i, band in enumerate(RISK_BANDS):
+            units[f"p_{band.lower()}"] = np.round(proba[:, i], 3)
 
     def explain():
         if result.stages.get("rul") == "ok":

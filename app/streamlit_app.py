@@ -21,9 +21,10 @@ from app.components import active_spec, sidebar_status  # noqa: E402
 theme.inject()
 st.logo(str(ROOT / "assets" / "logo.svg"), size="large", icon_image=str(ROOT / "assets" / "logo_icon.svg"))
 
-# Information architecture follows the operator's questions: which units need attention
-# (Fleet), then for one unit: condition, change, time left, risk, action. The unit section is named
-# after the loaded component (Engine, Cell, Bearing).
+# Information architecture: the maintainer's pages answer one question each with two or three simple things
+# (which units need attention, then for one unit: condition and action, wear, time left and risk, why, where).
+# Everything detailed (history charts, data checks, model evaluation, exports) sits in the Admin block.
+# The unit section is named after the loaded component (Engine, Cell, Gearbox, ...).
 VIEWS = ROOT / "app" / "views"
 unit = active_spec().unit_title
 pages = {
@@ -34,19 +35,23 @@ pages = {
     unit: [
         st.Page(VIEWS / "engine.py", title=f"{unit} status", icon=":material/speed:", url_path="engine"),
         st.Page(VIEWS / "health.py", title="Degradation", icon=":material/trending_down:"),
-        st.Page(VIEWS / "rul_risk.py", title="RUL and risk", icon=":material/timelapse:"),
+        st.Page(VIEWS / "rul_risk.py", title=f"{active_spec().rul_short} and risk", icon=":material/timelapse:"),
         st.Page(VIEWS / "explainability.py", title="Explanations", icon=":material/account_tree:"),
         st.Page(VIEWS / "twin.py", title="3D model", icon=":material/view_in_ar:"),
     ],
-    "Model": [
-        st.Page(VIEWS / "evaluation.py", title="Evaluation", icon=":material/fact_check:"),
+    "Admin": [
+        st.Page(VIEWS / "admin_fleet.py", title="Fleet detail", icon=":material/table_chart:"),
+        st.Page(VIEWS / "admin_engine.py", title=f"{unit} detail", icon=":material/monitor_heart:"),
+        st.Page(VIEWS / "admin_degradation.py", title="Sensor history", icon=":material/show_chart:"),
+        st.Page(VIEWS / "admin_rul.py", title="RUL history", icon=":material/history:"),
+        st.Page(VIEWS / "admin_explanations.py", title="Explanation detail", icon=":material/insights:"),
+        st.Page(VIEWS / "admin_data.py", title="Data check", icon=":material/dataset:"),
+        st.Page(VIEWS / "evaluation.py", title="Model evaluation", icon=":material/fact_check:"),
         st.Page(VIEWS / "error_analysis.py", title="Error analysis", icon=":material/rule:"),
-    ],
-    "Output": [
         st.Page(VIEWS / "export.py", title="Export", icon=":material/download:"),
     ],
 }
 
 sidebar_status()
 theme.motion()
-st.navigation(pages).run()
+st.navigation(pages, expanded=True).run()  # show the whole Admin block

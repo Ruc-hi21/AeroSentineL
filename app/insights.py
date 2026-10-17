@@ -11,6 +11,7 @@ from the same thresholds the backend uses; they are not maintenance procedures.
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 from src.components import channel, get, spec_of_channel
 from src.config import RISK_BANDS
@@ -22,6 +23,17 @@ DRIFT_SMOOTHING = 5  # cycles, matches the 3D model
 # Directed drift bands (sigma from the healthy baseline, + = degrading). Calibrated on FD001
 # training engines: healthy ~0, RUL 30-60 ~1.5, last 15 cycles ~3-4.
 DRIFT_LEVELS = [(3.2, "Critical"), (2.4, "Warning"), (1.6, "Elevated")]
+BAND_P = [f"p_{b.lower()}" for b in RISK_BANDS]  # band probability columns from the pipeline
+Z80 = 1.2816  # standard-normal quantile at each edge of the 80% RUL range
+# Verdict on the chance of reaching end of life before the next check, worst first. Like the band
+# limits, these cut-offs are a design choice, not a validated standard.
+DEFER_LEVELS = [
+    (0.5, "CRITICAL", "Do not wait", "More likely than not to reach end of life before the check."),
+    (0.2, "WARNING", "Bring the check forward", "At least a one-in-five chance of reaching end of life first."),
+    (0.05, "DEGRADING", "Can wait, watch it", "A small but real chance of reaching end of life first; re-assess at "
+                                              "every upload."),
+    (0.0, "HEALTHY", "Can wait", "Less than a one-in-twenty chance of reaching end of life before the check."),
+]
 
 
 def spec_of(row_or_units):
@@ -75,6 +87,11 @@ def _has(row, key):
 
 def short_history(row):
     return any(r.startswith("short history") for r in row["review_reasons"])
+
+
+def life_word(spec):
+    """The life measure inside a sentence: 'RUL' stays as it is, 'Margin' becomes 'margin'."""
+    return spec.rul_short if spec.rul_short.isupper() else spec.rul_short.lower()
 
 
 def count(n, spec):
@@ -148,6 +165,74 @@ def band_window(spec, band):
     if band == "AT_RISK":
         return f"{lim['HIGH_RISK'] + 1} to {lim['AT_RISK']} {spec.life_unit}"
     return f"more than {lim['AT_RISK']} {spec.life_unit}"
+
+
+def chance(p):
+    """'<1%', '37%', '>99%': a probability as an operator reads it."""
+    return "<1%" if p < 0.005 else ">99%" if p > 0.995 else f"{p:.0%}"
+
+
+def failure_outlook(row):
+    """Chance of being inside each band window: [{'band', 'limit', 'p'}], nearest window first.
+
+    The windows are nested (RUL of 15, 30, 60 cycles or fewer for the turbofan), so the chance of
+    being inside one is the sum of the band probabilities up to it. Empty when the risk model did not run.
+    """
+    spec = spec_of(row)
+    if not all(_has(row, c) for c in BAND_P):
+        return []
+    out, p = [], 0.0
+    for band in reversed(RISK_BANDS[1:]):  # FAILURE_LIKELY, HIGH_RISK, AT_RISK
+        p += float(row[f"p_{band.lower()}"])
+        out.append({"band": band, "limit": spec.risk_limits[band], "p": min(p, 1.0)})
+    return out
+
+
+def _rul_cdf(row):
+    """P(RUL <= n) from the point estimate and its 80% range: a normal split at the estimate."""
+    point, low, high = (float(row[k]) for k in ("predicted_rul", "rul_low", "rul_high"))
+    below, above = max((point - low) / Z80, 1.0), max((high - point) / Z80, 1.0)  # at least one life unit
+    return lambda n: float(norm.cdf((n - point) / (below if n <= point else above)))
+
+
+def failure_chance(row, n):
+    """Chance this unit reaches end of life within n life units; None when it has no life to run out.
+
+    The risk classifier fixes how much probability lies in each band; the 80% RUL range decides how
+    it spreads inside a band (evenly when there is no range, or the range misses the band). The
+    result therefore equals the band probabilities exactly at the band limits. Beyond the at-risk
+    limit the classifier only says "normal", so n may not exceed it.
+    """
+    spec = spec_of(row)
+    outlook = failure_outlook(row)
+    if not spec.has_life or not outlook:
+        return None
+    if n > outlook[-1]["limit"]:
+        raise ValueError(f"n={n} is beyond the at-risk limit ({outlook[-1]['limit']} {spec.life_unit})")
+    # Life is counted in whole units: "within n" is RUL <= n, so n + 0.5 on a continuous scale, as for the bands.
+    x = n + 0.5
+    edges = [0.0, *(o["limit"] + 0.5 for o in outlook)]
+    below = [0.0, *(o["p"] for o in outlook)]
+    cdf = _rul_cdf(row) if _has(row, "predicted_rul") and _has(row, "rul_low") else None
+    k = next(i for i in range(len(edges) - 1) if x <= edges[i + 1])
+    a, b = edges[k], edges[k + 1]
+    share = (x - a) / (b - a)
+    if cdf is not None and cdf(b) - cdf(a) > 1e-6:
+        share = (cdf(x) - cdf(a)) / (cdf(b) - cdf(a))
+    return float(min(1.0, max(0.0, below[k] + (below[k + 1] - below[k]) * share)))
+
+
+def defer_verdict(p, unit_state=None):
+    """(state, verdict, reason) for the chance p of reaching end of life before the next check.
+
+    A unit already in a warning or critical state is never told plainly that it can wait: a close
+    check may well come first, but the work still has to be planned.
+    """
+    state, title, why = next((s, t, w) for limit, s, t, w in DEFER_LEVELS if p >= limit)
+    if state == "HEALTHY" and unit_state in ("CRITICAL", "WARNING"):
+        return ("DEGRADING", "Can wait, watch it", f"Unlikely to reach end of life before the check, but it is already in "
+                                                   f"the {unit_state.lower()} state: plan the work now.")
+    return state, title, why
 
 
 def state_reason(row, state):

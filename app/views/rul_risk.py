@@ -1,56 +1,56 @@
-"""RUL and risk: the life estimate, its uncertainty and the four-level risk band."""
+"""RUL and risk, the maintainer view: time left, which of the four risk bands the unit is in, and how the
+forecast moved over its life. The forecast range at every reading and every unit's band are in Admin, RUL history."""
 
 import streamlit as st
 
 from app import insights, theme
-from app.components import BAND_TEXT, band_label, require_result, review_box, rul_chart, show_table, unit_picker
-from app.theme import BAND_COLORS
-from src.config import RISK_BANDS, RUL_INTERVAL
+from app.components import require_result, review_box, simple_rul_chart, unit_picker
+from app.theme import BAND_COLORS, BAND_TEXT
+from src.config import RISK_BANDS
 
 result = require_result()
 spec = result.spec
-theme.page_head("RUL and risk", (f"XGBoost predicts the {spec.life_unit} left before failure with an 80% range; an XGBoost "
-                if spec.has_life else "XGBoost predicts the remaining condition margin (%) of the weakest assessed part with an "
-                "80% range; an XGBoost ") + 
-                f"ensemble places the {spec.actions.get('noun', 'unit')} in one of four risk bands.")
-units = result.units
-interval_pct = round((RUL_INTERVAL[1] - RUL_INTERVAL[0]) * 100)
+noun = spec.actions.get("noun", "unit")
+life_word = spec.rul_short if spec.has_life else "Condition margin"
+theme.page_head(f"{spec.rul_short} and risk", f"How long this {noun} has left, and how risky that is."
+                if spec.has_life else f"How much condition margin the weakest part of this {noun} has left, and how risky that is.")
 
-row = unit_picker(units, key="rul")
-conf = insights.confidence(row)
+row = unit_picker(result.units, key="rul")
+has_rul = "predicted_rul" in row and row["predicted_rul"] == row["predicted_rul"]
+band = row.get("risk_band") if isinstance(row.get("risk_band"), str) else None
+
+# 1. Time left, in words.
+theme.section(f"1. {life_word} left")
 items = []
-if "predicted_rul" in units:
-    t = spec.time_title.lower()
-    items += [theme.stat("Predicted RUL", f"{row['predicted_rul']:.0f}", spec.life_unit, foot=f"latest reading at {t} {int(row['cycle'])}"),
-              theme.stat(f"{interval_pct}% range", f"{row['rul_low']:.0f} to {row['rul_high']:.0f}", spec.life_unit,
-                         foot=f"end of life between {t} {int(row['cycle']) + round(row['rul_low'])} and {int(row['cycle']) + round(row['rul_high'])}")]
+if has_rul:
+    items += [theme.stat("Best estimate", insights.life(row["predicted_rul"], spec)),
+              theme.stat("Likely range", f"{insights.life(row['rul_low'], spec)} to {insights.life(row['rul_high'], spec)}",
+                         foot="8 times out of 10 the true value falls inside")]
+if band:
+    items.append(theme.stat("Risk", BAND_TEXT[band], color=BAND_COLORS[band], foot=f"the model is {row['risk_probability']:.0%} sure"))
+if items:
+    theme.stats(items)
 else:
-    st.error("RUL prediction failed for this analysis.")
-if "risk_band" in units:
-    items += [theme.stat("Risk band", BAND_TEXT[row["risk_band"]], color=BAND_COLORS[row["risk_band"]]),
-              theme.stat("Band probability", f"{row['risk_probability']:.0%}", foot=f"confidence {conf['level'].lower()}")]
-else:
-    st.error("Risk classification failed for this analysis.")
-theme.stats(items)
+    st.error("No prediction is available for this analysis.")
 review_box(row)
 
-if "predicted_rul" in result.history:
-    theme.section(f"Predicted RUL at every {spec.time_title.lower()}",
-                  f"dotted lines are the band limits; squares below show the band per {spec.time_title.lower()}")
-    unit_history = result.history[result.history["unit"] == row["unit"]].sort_values("cycle")
-    theme.chart(rul_chart(unit_history, row), key="rul_curve")
-    st.caption(f"The 80% range is produced for the latest {spec.time_title.lower()} only; earlier ones show the point estimate.")
+# 2. The four risk bands, with this unit's band marked.
+theme.section("2. Where it sits on the risk ladder", f"bands by {insights.life_word(spec)} left")
+limits = spec.risk_limits
+ranges = {"FAILURE_LIKELY": f"{insights.life(limits['FAILURE_LIKELY'], spec)} or less",
+          "HIGH_RISK": f"up to {insights.life(limits['HIGH_RISK'], spec)}",
+          "AT_RISK": f"up to {insights.life(limits['AT_RISK'], spec)}",
+          "NORMAL": f"more than {insights.life(limits['AT_RISK'], spec)}"}
+theme.stats([theme.stat(BAND_TEXT[b], "This one" if b == band else "", foot=ranges[b],
+                        color=BAND_COLORS[b] if b == band else None)
+             for b in reversed(RISK_BANDS)])
 
-theme.section(f"All {spec.unit_plural}")
-left, right = st.columns([3, 1], vertical_alignment="bottom")
-bands = left.multiselect("Risk bands", RISK_BANDS, default=RISK_BANDS, format_func=band_label) \
-    if "risk_band" in units else None
-review_only = right.toggle("Needs review only")
+# 3. How the forecast moved over the unit's life.
+if has_rul and "predicted_rul" in result.history:
+    theme.section(f"3. {life_word} left over time", f"one point per {spec.time_title.lower()}")
+    hist = result.history[result.history["unit"] == row["unit"]].sort_values("cycle")
+    theme.chart(simple_rul_chart(hist, spec), key="rul_simple")
+    theme.note(f"The line falls as the {noun} wears and crosses into the coloured bands as the risk rises.")
 
-table = units
-if bands is not None:
-    table = table[table["risk_band"].isin(bands)]
-if review_only:
-    table = table[table["needs_review"]]
-show_table(insights.add_states(table) if len(table) else table,
-           ["Engine", "State", "Cycles", "RUL", "Range", "Band", "Confidence", "Condition", "Flags"])
+st.page_link("views/admin_rul.py", label="RUL history (admin): forecast range per reading and every unit's band",
+             icon=":material/admin_panel_settings:")

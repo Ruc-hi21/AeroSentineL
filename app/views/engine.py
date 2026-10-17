@@ -1,26 +1,21 @@
-"""Engine status: for one engine, answer in order: condition, what is changing, time left,
-risk, and what to do next. Detail lives one click away (progressive disclosure)."""
+"""Unit status, the maintainer view: three simple things for one unit. Its condition and time left, what to
+do, and why. The engineering detail (instruments, trend, drift, outlook, SHAP) is in Admin, unit detail."""
 
 import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    drift_table, factor_chart, require_model, require_result, sample_of_file, sample_truth, step_unit, trend_chart,
-    unit_picker,
+    reason_text, require_model, require_result, sample_of_file, sample_truth, step_unit, unit_picker,
 )
-from app.instruments import engine_status, gas_path, gas_path_payload, status_payload
-from app.theme import TOKENS, esc
-from src.config import CRITICAL_HEALTH_MULTIPLE
+from app.theme import BAND_COLORS, BAND_TEXT, STATES, esc
 
 artifacts = require_model()
 result = require_result()
 units = result.units
-
 spec = result.spec
 noun = spec.actions.get("noun", "unit")
-theme.page_head(f"{spec.unit_title} status", f"Condition, {spec.rul_long.lower()}, failure risk and the suggested next step for one {noun}.",
-                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{insights.count(len(units), spec)}, "
-                f"model {esc(result.model_version)} {esc(result.subset or '')}")
+theme.page_head(f"{spec.unit_title} status", f"Is this {noun} all right, how long has it got, and what should be done.",
+                f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{insights.count(len(units), spec)}")
 
 pick, prev, nxt, _ = st.columns([3.2, 0.7, 0.7, 4.4], vertical_alignment="bottom")
 with pick:
@@ -29,74 +24,51 @@ prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "eng
 nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
 
 unit = int(row["unit"])
-_sample = sample_of_file(st.session_state.get("source_name", ""))
-if _sample and "predicted_rul" in row:
-    st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(_sample)} "
-            f"left at its latest reading. The model predicts {insights.life(row['predicted_rul'], spec)}.",
-            icon=":material/fact_check:")
 hist = result.history[result.history["unit"] == unit].sort_values("cycle")
 drift = insights.sensor_drift(hist, artifacts.health)
 state = insights.engine_state(row)
+has_rul = "predicted_rul" in row and row["predicted_rul"] == row["predicted_rul"]
 
-# 1-3. Condition, time left, risk and the single most important action.
-engine_status(status_payload(row, drift), key="engine_status")
+_sample = sample_of_file(st.session_state.get("source_name", ""))
+if _sample and has_rul:
+    st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(_sample)} "
+            f"left at its latest reading. The model predicts {insights.life(row['predicted_rul'], spec)}.",
+            icon=":material/fact_check:")
 
-# Where on the component: part condition on its schematic, and the operating condition of the latest reading.
-gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
-example = {"turbofan": "compressor wear shifts fan speed too", "battery": "capacity fade also lengthens charge times",
-           "bearing": "a bearing defect raises vibration in every band", "hydraulic": "a worn cooler warms the whole circuit",
-           "power": "die-attach wear raises the package temperature too"}[spec.key]
-if spec.diagnosis:
-    theme.note("Each part takes the colour of its predicted condition (the part classifiers below); hover a part for its "
-               "readings.")
-else:
-    theme.note("Each part takes the colour of its most-drifted sensor; hover a part for its readings. Sensors also "
-               f"respond to faults elsewhere ({example}), so shading shows where the evidence is measured, not a confirmed root cause.")
-
-# Part condition, for components whose data labels it (hydraulic cooler, valve and pump).
+# 1. Condition and time left.
+theme.section(f"1. Condition and {insights.life_word(spec)} left", f"at its latest reading, {spec.time_title.lower()} {int(row['cycle'])}")
+items = [theme.stat("Condition", STATES[state]["label"], color=STATES[state]["color"])]
+if has_rul:
+    items.append(theme.stat(f"{spec.rul_short} left", insights.life(row["predicted_rul"], spec),
+                            foot=f"likely between {insights.life(row['rul_low'], spec)} and {insights.life(row['rul_high'], spec)}"))
+if isinstance(row.get("risk_band"), str):
+    items.append(theme.stat("Risk", BAND_TEXT[row["risk_band"]], color=BAND_COLORS[row["risk_band"]],
+                            foot=f"the model is {row['risk_probability']:.0%} sure"))
+theme.stats(items)
+theme.note(esc(insights.state_reason(row, state)))
 found = insights.parts(row)
-if found:
-    theme.section("Part condition", "predicted by one classifier per part, latest load cycle")
+if found:  # hydraulic: the condition of each assessed part, in words
     sev = {0: "HEALTHY", 1: "DEGRADING", 2: "WARNING", 3: "CRITICAL"}
-    theme.stats([theme.stat(p["name"], p["label"], foot=f"{p['p']:.0%} confidence",
-                            color=theme.STATES[sev[p["severity"]]]["color"]) for p in found])
-    if spec.not_assessed:
-        theme.note(esc(spec.not_assessed))
+    theme.stats([theme.stat(p["name"], p["label"], color=STATES[sev[p["severity"]]]["color"]) for p in found])
 
-# 4-5. What is changing.
-left, right = st.columns([1.5, 1], gap="large")
+left, right = st.columns(2, gap="large")
 with left:
-    theme.section("Trend", f"predicted {spec.rul_short} above health score, per {spec.time_title.lower()}")
-    threshold = artifacts.health.threshold
-    theme.chart(trend_chart(hist, row, threshold, CRITICAL_HEALTH_MULTIPLE * threshold), key="engine_trend")
+    # 2. What to do.
+    theme.section("2. What to do")
+    theme.actions(insights.recommendations(row, state, drift)[:3])
 with right:
-    hot = int(drift["status"].isin(["Critical", "Warning"]).sum())
-    theme.section("Sensor drift", f"{hot} of {len(drift)} sensors beyond 2.4 sigma" if hot else "all sensors within 2.4 sigma")
-    show_all = st.toggle("Show all sensors", key="engine_all_sensors")
-    drift_table(drift, rows=None if show_all else 8, compact=True, unit=spec.life_unit)
-    theme.note(f"Drift is the directed z-score against the healthy baseline learned from the first {spec.life_unit} of the "
-               f"training {spec.unit_plural}. Positive values move in the direction degradation pushes that sensor.")
-
-# 6-7. Why, and what to do.
-left, right = st.columns([1, 1], gap="large")
-with left:
-    theme.section("Suggested actions")
-    theme.actions(insights.recommendations(row, state, drift))
-    theme.note("Frontend guidance derived from AeroSentinel's risk thresholds and sensor drift. "
-               "Confirm against approved maintenance data before acting.")
-with right:
+    # 3. Why: the sensors that moved the prediction most, in words.
+    theme.section("3. Why", "the three sensors that moved the prediction most")
     factors = row.get("rul_factors")
-    theme.section("Why the model predicts this", f"SHAP contribution to the {spec.rul_short} estimate, {spec.life_unit}")
-    if isinstance(factors, list):
-        theme.chart(factor_chart(factors, f"change in predicted {spec.rul_short} ({spec.life_unit})", "#ff832b", TOKENS["accent"]), key="engine_shap")
-        theme.note("Bars to the left shortened the predicted life. SHAP shows correlation with the prediction, "
-                   "not proof of a root cause.")
+    if isinstance(factors, list) and factors:
+        theme.actions([{"action": what, "why": why} for what, why in (reason_text(f, spec) for f in factors[:3])])
     else:
-        st.info("No explanation available for this analysis.")
+        st.info("No explanation is available for this analysis.")
+theme.note("Guidance from AeroSentinel's risk limits and sensor drift. Confirm against approved maintenance data before acting.")
 
 st.divider()
 links = st.columns(4)
-links[0].page_link("views/health.py", label="Degradation detail", icon=":material/trending_down:")
-links[1].page_link("views/rul_risk.py", label="RUL and risk detail", icon=":material/timelapse:")
-links[2].page_link("views/explainability.py", label="Full explanation", icon=":material/account_tree:")
-links[3].page_link("views/twin.py", label="Open 3D model", icon=":material/view_in_ar:")
+links[0].page_link("views/health.py", label="Degradation", icon=":material/trending_down:")
+links[1].page_link("views/rul_risk.py", label=f"{spec.rul_short} and risk", icon=":material/timelapse:")
+links[2].page_link("views/twin.py", label="3D model", icon=":material/view_in_ar:")
+links[3].page_link("views/admin_engine.py", label="Full detail (admin)", icon=":material/admin_panel_settings:")

@@ -34,6 +34,10 @@ def test_valid_dataset_is_fully_analyzed(test_df):  # TEST-001, TEST-005  # TEST
     assert (units["rul_low"] <= units["predicted_rul"]).all()
     assert units["risk_band"].isin(RISK_BANDS).all()
     assert units["risk_probability"].between(0, 1).all()
+    bands = units[[f"p_{b.lower()}" for b in RISK_BANDS]]
+    assert bands.sum(axis=1).between(0.99, 1.01).all()
+    chosen = bands.to_numpy()[range(len(units)), units["risk_band"].map(RISK_BANDS.index)]
+    assert abs(chosen - units["risk_probability"]).max() < 0.002  # the winner's probability is the same number
     assert units["rul_factors"].apply(len).eq(5).all()
     assert units["risk_factors"].apply(len).eq(5).all()
     assert len(result.history) == len(test_df)
