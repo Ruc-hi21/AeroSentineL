@@ -1,4 +1,5 @@
 [server]
+port = 8501  # one fixed port: if it is taken, Streamlit stops with an error instead of moving to 8502, 8503, ...
 maxUploadSize = 50  # MB, bounded upload size
 enableStaticServing = true  # serves app/static (self-hosted IBM Plex fonts)
 
