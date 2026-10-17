@@ -1,22 +1,22 @@
-"""Admin, fleet detail: forecast ranges, attention queue, health history heatmap and fleet drivers.
-The maintainer's simple fleet view is the fleet section of views/overview.py."""
+"""Fleet detail: forecasts with their 80% ranges, the health history heatmap, the fleet-wide drivers and a
+filterable table of every unit. The simple view is the fleet section of views/overview.py."""
 
 import plotly.graph_objects as go
 import streamlit as st
 
 from app import insights, theme
 from app.components import (
-    FAULT_TEXT, fleet, health_heatmap, ladder_chart, profile_spec, require_model, require_result, sensor_label,
-    show_table,
+    FAULT_TEXT, band_label, fleet, health_heatmap, ladder_chart, profile_spec, require_model, require_result,
+    sensor_label, show_table,
 )
 from app.theme import MONO, SANS, TOKENS, esc
-from src.config import CRITICAL_HEALTH_MULTIPLE, SUBSETS
+from src.config import CRITICAL_HEALTH_MULTIPLE, RISK_BANDS, SUBSETS
 from src.explainability.sensor_names import SENSOR_INFO
 
 
 def open_engine(unit):
     st.session_state["selected_unit"] = int(unit)
-    st.switch_page("views/admin_engine.py")
+    st.switch_page("views/engine_detail.py")
 
 
 result = require_result()
@@ -30,29 +30,18 @@ theme.spec(profile_spec(result))
 theme.distribution(insights.state_counts(units))
 
 has_rul = "predicted_rul" in units
-left, right = st.columns([1.3, 1], gap="large")
-with left:
-    show_all = st.session_state.get("fleet_all", False)
-    theme.section(f"{spec.rul_short} forecast", f"80% range and point estimate, {'all ' + spec.unit_plural if show_all else 'top 25 by urgency'}")
-    st.toggle(f"Show all {spec.unit_plural}", key="fleet_all")
-    limit = None if show_all else 25
-    if has_rul:
-        event = theme.chart(ladder_chart(units, limit), key="fleet_ladder", on_select="rerun")
-        points = event.selection.points if event and event.selection else []
-        if points:
-            point = points[0]
-            open_engine(point["customdata"][0] if point.get("customdata") else int(point["y"]))
-    else:
-        st.warning("RUL prediction failed for this analysis, so the forecast is unavailable.")
-with right:
-    attention = units[units["state"] != "HEALTHY"]
-    theme.section("Attention queue", f"{insights.count(len(attention), spec)} not healthy, select a row to open")
-    df, event = show_table(attention if len(attention) else units.head(10),
-                           ["Engine", "State", "RUL", "Range", "Confidence"],
-                           key="fleet_queue", on_select="rerun", height=min(36 * (len(attention) + 1) + 4, 560))
-    rows = event.selection.rows if event and event.selection else []
-    if rows:
-        open_engine(df.iloc[rows[0]]["_unit"])
+show_all = st.session_state.get("fleet_all", False)
+theme.section(f"{spec.rul_short} forecast", f"80% range and point estimate, {'all ' + spec.unit_plural if show_all else 'top 25 by urgency'}")
+st.toggle(f"Show all {spec.unit_plural}", key="fleet_all")
+limit = None if show_all else 25
+if has_rul:
+    event = theme.chart(ladder_chart(units, limit), key="fleet_ladder", on_select="rerun")
+    points = event.selection.points if event and event.selection else []
+    if points:
+        point = points[0]
+        open_engine(point["customdata"][0] if point.get("customdata") else int(point["y"]))
+else:
+    st.warning("RUL prediction failed for this analysis, so the forecast is unavailable.")
 
 left, right = st.columns([1.3, 1], gap="large")
 with left:
@@ -110,3 +99,17 @@ with right:
                        "pressure and temperature channels are expected to lead.")
     else:
         st.info("Explanations are unavailable for this analysis.")
+
+# Every unit, filterable: the record behind the charts above.
+theme.section(f"All {spec.unit_plural}", "filter by risk band; select a row to open its detail")
+f_left, f_right = st.columns([3, 1], vertical_alignment="bottom")
+bands = f_left.multiselect("Risk bands", RISK_BANDS, default=RISK_BANDS, format_func=band_label) if "risk_band" in units else None
+review_only = f_right.toggle("Needs review only", key="fleet_review_only")
+table = units if bands is None else units[units["risk_band"].isin(bands)]
+if review_only:
+    table = table[table["needs_review"]]
+df, event = show_table(table, ["Engine", "State", "Cycles", "RUL", "Range", "Band", "Confidence", "Health", "Condition", "Flags"],
+                       key="fleet_all_units", on_select="rerun")
+rows = event.selection.rows if event and event.selection else []
+if rows:
+    open_engine(df.iloc[rows[0]]["_unit"])

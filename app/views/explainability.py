@@ -39,5 +39,3 @@ with right:
     theme.section("3. In plain words")
     theme.actions([{"action": what, "why": why} for what, why in (reason_text(f, spec) for f in factors[:3])])
 
-st.page_link("views/admin_explanations.py", label="Explanation detail (admin): risk-band explanation and training averages",
-             icon=":material/admin_panel_settings:")

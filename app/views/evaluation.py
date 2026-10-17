@@ -15,8 +15,9 @@ from app.theme import MONO, TOKENS, esc
 from src.components import get, spec_of_profile
 from src.models.artifacts import available_subsets
 
-theme.page_head("Evaluation", "Units are split by engine, cell or bearing, so none appears in both training and evaluation. "
-                "Final models are refit on all training units, then scored once on the test set.")
+if __name__ == "__main__":  # own heading only as a page of its own, not as an admin tab
+    theme.page_head("Evaluation", "Units are split by engine, cell or bearing, so none appears in both training and evaluation. "
+                    "Final models are refit on all training units, then scored once on the test set.")
 
 # ---------------------------------------------------------------- across components
 bench = load_benchmark()

@@ -162,22 +162,24 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 
 | Section | Page | What it is for |
 |---|---|---|
-| Fleet | **Fleet overview** | Maintainer view: units by condition, the ones that need attention with their next step, and time left per unit. Click a unit to open it. |
-| Fleet | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit with its next step. |
-| Engine, Cell, Gearbox, Session or Device | **Unit status** | Condition and time left (with the likely range and risk band), what to do, and why, in plain words. The section is named after the loaded component. |
-| | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones, and the three sensors that show it. |
-| | **RUL and risk** | Time left in words, where the unit sits on the four-band risk ladder, and the forecast over its life on the band zones. |
+| Fleet | **Fleet overview** | Units by condition, the ones that need attention with their next step, and time left per unit. Click a unit to open it. |
+| | **Fleet detail** | Forecasts with 80% ranges, the health-history heatmap, fleet-wide drivers and a filterable table of every unit. |
+| | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit. |
+| | **Data check** | For the analysed file: data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
+| Engine, Cell, Gearbox, Session or Device | **Unit status** | Condition and time left (likely range, risk band), what to do, and why, in plain words. The section is named after the loaded component. |
+| | **Unit detail** | The engineering view: status instrument, schematic, trend, full sensor drift, failure outlook, "can it wait" check, and SHAP for the RUL and the risk band. |
+| | **Degradation** | Wear today (health score, and since when it is abnormal), health over the unit's life on healthy / abnormal / critical zones, and the sensors that show it. |
+| | **Sensor history** | Health score history, every sensor's drift, any sensor's raw curve and every unit by health. |
+| | **RUL and risk** | Time left in words, where the unit sits on the four-band risk ladder, and the forecast over its life. |
 | | **Explanations** | The forecast in one sentence, the top sensors as bars, and the top three in plain words. |
 | | **3D model** | The sectioned component shown above, with a deep-dive chart for any sensor you click. |
-| Admin | **Fleet detail** | Forecasts with 80% ranges, the full attention queue, the health-history heatmap and fleet-wide drivers. |
-| Admin | **Unit detail** | The engineering view of one unit: status instrument, schematic, trend, full sensor drift, failure outlook, "can it wait" check and SHAP. |
-| Admin | **Sensor history** | Health score history, every sensor's drift, any sensor's curve and the all-units table. |
-| Admin | **RUL history** | The forecast at every reading with band squares, the 80% range, review flags and a filterable table of every unit. |
-| Admin | **Explanation detail** | SHAP behind the RUL and behind the risk band, and the training-set averages. |
-| Admin | **Data check** | For the last analysed file: data profile (EDA), the recognition decision, a manual model choice to re-run, the timed processing report and the operating envelope. |
-| Admin | **Model evaluation** | Every component model side by side, the recognition model's results, the turbofan generalisation matrix, then baselines, per-band results and confusion matrices for one model. |
-| Admin | **Error analysis** | Where each model is wrong on its test units, and by how much. |
-| Admin | **Export** | Unit results and cycle history as CSV, and the full result (component, recognition, model, conditions, timings) as JSON. |
+| Output | **Export** | Unit results and cycle history as CSV, and the full result (component, recognition, model, conditions, timings) as JSON. |
+
+The **admin console** is a separate app for the model analyst (`streamlit run app/admin_app.py --server.port 8502`,
+then http://localhost:8502). It has one page, **Model evaluation**, in three tabs: *Models* (every component model side
+by side, the recognition model's results, the turbofan generalisation matrix, baselines, per-band results and
+confusion matrices), *Errors* (where each model is wrong on its test units, and by how much) and *Training drivers*
+(average SHAP influence across the training units).
 
 The look is deliberately calm: IBM Plex type, a dark neutral palette with one blue accent, status colours reserved
 for status, hairline engineering drawings, and motion only when something actually changes. Time-series charts read
@@ -197,7 +199,8 @@ git clone https://github.com/Ruc-hi21/AeroSentineL.git
 cd AeroSentineL
 pip install -r requirements.txt
 python -m scripts.download_data              # every component's data into data/raw/
-python -m streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py                       # user dashboard, http://localhost:8501
+python -m streamlit run app/admin_app.py --server.port 8502       # admin console (model analyst), http://localhost:8502
 ```
 
 The download fetches NASA C-MAPSS (about 12 MB), the NASA PCoE battery data (0.2 GB), the FEMTO gearbox-bearing data

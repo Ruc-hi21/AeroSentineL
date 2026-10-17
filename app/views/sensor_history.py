@@ -1,4 +1,5 @@
-"""Admin, sensor history: health score over the unit's life, every sensor's drift and curves, all units."""
+"""Sensor history: the health score over the unit's life, every sensor's drift and curves, and every unit
+by health. The simple view is views/health.py (Degradation)."""
 
 import streamlit as st
 

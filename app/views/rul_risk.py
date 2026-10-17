@@ -52,5 +52,3 @@ if has_rul and "predicted_rul" in result.history:
     theme.chart(simple_rul_chart(hist, spec), key="rul_simple")
     theme.note(f"The line falls as the {noun} wears and crosses into the coloured bands as the risk rises.")
 
-st.page_link("views/admin_rul.py", label="RUL history (admin): forecast range per reading and every unit's band",
-             icon=":material/admin_panel_settings:")

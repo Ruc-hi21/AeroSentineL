@@ -9,6 +9,7 @@ from src.pipeline import analyze
 
 streamlit_testing = pytest.importorskip("streamlit.testing.v1")
 APP = str(ROOT / "app" / "streamlit_app.py")
+ADMIN_APP = str(ROOT / "app" / "admin_app.py")  # the admin console, a separate app on its own port
 TEST_FILE = RAW_DATA_DIR / f"test_{DATASET}.txt"
 FILES = {"turbofan": TEST_FILE, "battery": RAW_DATA_DIR / "sample_PCOE.csv", "bearing": RAW_DATA_DIR / "test_FEMTO.csv",
          "hydraulic": RAW_DATA_DIR / "test_UCI.csv", "power": RAW_DATA_DIR / "sample_IGBT.csv"}
@@ -17,13 +18,14 @@ pytestmark = pytest.mark.skipif(
     not (model_dir(MODEL_VERSION, DATASET) / "metadata.json").exists() or not TEST_FILE.exists(),
     reason="trained model or dataset not available",
 )
-PAGES = ["overview", "upload", "engine", "twin", "health", "rul_risk", "explainability", "admin_fleet", "admin_engine",
-         "admin_degradation", "admin_rul", "admin_explanations", "admin_data", "evaluation", "error_analysis", "export"]
+PAGES = ["overview", "fleet_detail", "upload", "data_check", "engine", "engine_detail", "health", "sensor_history",
+         "rul_risk", "explainability", "twin", "export"]
+ADMIN_PAGES = ["admin_models"]
 COMPONENTS = [c for c in FILES if FILES[c].exists() and PROFILE[c] in available_subsets()]
 
 
-def run_page(page, result=None, source=TEST_FILE.name):
-    at = streamlit_testing.AppTest.from_file(APP, default_timeout=60)
+def run_page(page, result=None, source=TEST_FILE.name, app=APP):
+    at = streamlit_testing.AppTest.from_file(app, default_timeout=60)
     if result is not None:
         at.session_state["result"] = result
         at.session_state["source_name"] = source
@@ -57,8 +59,9 @@ def test_upload_sample_and_analyze():
     assert not at.exception, at.exception
     assert at.session_state["result"].status == "COMPLETED"
     assert at.session_state["result"].subset == DATASET
-    at.switch_page("views/admin_data.py").run()  # the admin data check profiles the file that was analysed
+    at.switch_page("views/data_check.py").run()  # the data check profiles the file that was analysed
     assert not at.exception, at.exception
+
 
 
 def test_empty_page_launches_sample():
@@ -89,3 +92,16 @@ def test_samples_are_one_unit_each_and_recognised():
         assert result.status == "COMPLETED", (key, result.error)
         assert result.subset == SAMPLE_INFO[key]["profile"], key
         assert len(result.units) == 1, key
+
+
+@pytest.mark.parametrize("page", ADMIN_PAGES)
+def test_admin_page_renders_before_any_upload(page):
+    at = run_page(page, app=ADMIN_APP)
+    assert not at.exception, at.exception
+
+
+@pytest.mark.parametrize("component", COMPONENTS)
+@pytest.mark.parametrize("page", ADMIN_PAGES)
+def test_admin_page_renders_with_results(page, component, results):
+    at = run_page(page, results[component], FILES[component].name, app=ADMIN_APP)
+    assert not at.exception, at.exception

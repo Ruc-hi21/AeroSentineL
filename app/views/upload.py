@@ -58,8 +58,8 @@ if result is None:
 if result.status == "FAILED":
     error = result.error
     st.error(f"The file could not be analysed. {error['message']}")
-    st.page_link("views/admin_data.py", label="Open the data check (admin) to see why, or to choose a model by hand",
-                 icon=":material/admin_panel_settings:")
+    st.page_link("views/data_check.py", label="Open the data check to see why, or to choose the model by hand",
+                 icon=":material/dataset:")
     st.stop()
 
 spec = result.spec
@@ -93,3 +93,5 @@ theme.actions(insights.recommendations(top, state)[:1])
 links = st.columns([1, 1, 2])
 links[0].page_link("views/overview.py", label="Open fleet overview", icon=":material/grid_view:")
 links[1].page_link("views/engine.py", label=f"Open {spec.unit_title.lower()} status", icon=":material/speed:")
+st.page_link("views/data_check.py", label="Data check: data profile, recognition and the processing report",
+             icon=":material/dataset:")

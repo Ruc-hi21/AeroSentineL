@@ -154,5 +154,5 @@ with right:
     if "predicted_rul" in units:
         theme.chart(fleet_bars(units.head(15), spec), key="fleet_simple_bars")
         theme.note(f"Shorter bar = less {insights.life_word(spec)} left. Colours match the conditions above.")
-st.page_link("views/admin_fleet.py", label="Fleet detail (admin): forecast ranges, health history and drivers",
-             icon=":material/admin_panel_settings:")
+st.page_link("views/fleet_detail.py", label="Fleet detail: forecast ranges, health history, drivers and every unit",
+             icon=":material/table_chart:")

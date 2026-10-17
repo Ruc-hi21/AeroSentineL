@@ -134,6 +134,16 @@ def load_sample(sample, then=None):
     st.rerun()
 
 
+def upload_link():
+    """Link to the page that loads a file: Ingest data in the main console, Data in the admin console."""
+    for page, label in (("views/upload.py", "Upload a file"), ("views/admin_data.py", "Load a file")):
+        try:
+            st.page_link(page, label=label, icon=":material/upload:")
+            return
+        except st.errors.StreamlitAPIException:  # not a page of the app that is running
+            continue
+
+
 def require_result():
     """Stop the page with an empty state if nothing has been analyzed yet."""
     result = get_result()
@@ -145,7 +155,7 @@ def require_result():
         with left:
             sample_button(key="empty_sample")
         with right:
-            st.page_link("views/upload.py", label="Upload a file", icon=":material/upload:")
+            upload_link()
         st.stop()
     return result
 
@@ -691,7 +701,7 @@ def fleet_bars(units, spec):
     u = insights.add_states(units).reset_index(drop=True)
     labels = [spec.unit_id(x) for x in u["unit"]]
     fig = go.Figure(go.Bar(
-        x=u["predicted_rul"], y=labels, orientation="h", width=0.6,
+        x=u["predicted_rul"], y=labels, orientation="h", width=0.5 if len(u) > 3 else 0.3,
         marker_color=[STATE_COLOR[s] for s in u["state"]],
         text=[insights.life(v, spec) for v in u["predicted_rul"]], textposition="outside", cliponaxis=False,
         textfont=dict(family=MONO, size=12, color=T["text_1"]),
@@ -700,7 +710,7 @@ def fleet_bars(units, spec):
                       xaxis_title=f"{insights.life_word(spec)} left ({spec.life_unit})")
     fig.update_xaxes(range=[0, spec.rul_cap * 1.05])
     fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=labels, ticktext=labels,
-                     tickfont=dict(family=MONO, size=12), showgrid=False, ticks="")
+                     tickfont=dict(family=MONO, size=12), showgrid=False, ticks="", ticklabelstandoff=10)
     return fig
 
 

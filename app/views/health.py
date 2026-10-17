@@ -53,6 +53,4 @@ with right:
     theme.actions([{"action": f"{d['name']} ({d['code']})",
                     "why": f"{level[d['status']].capitalize()}: {d['drift']:+.1f} standard deviations from a healthy {noun}."}
                    for _, d in drift.head(3).iterrows()])
-
-st.page_link("views/admin_degradation.py", label="Sensor history (admin): every sensor, curves and all units",
-             icon=":material/admin_panel_settings:")
+st.page_link("views/sensor_history.py", label="Sensor history: every sensor, raw curves and all units", icon=":material/show_chart:")

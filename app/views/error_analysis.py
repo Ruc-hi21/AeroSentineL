@@ -10,7 +10,8 @@ from src.components import PROFILES, spec_of_profile
 from src.config import RISK_BANDS
 from src.evaluation.error_analysis import load_test_predictions, predictions_file, summary
 
-theme.page_head("Error analysis", "Errors on the held-out test sets, each unit scored at its last recorded cycle or minute.")
+if __name__ == "__main__":  # own heading only as a page of its own, not as an admin tab
+    theme.page_head("Error analysis", "Errors on the held-out test sets, each unit scored at its last recorded cycle or minute.")
 ready = [s for s in PROFILES if predictions_file(s).exists()]
 if not ready:
     theme.empty("No test predictions yet", "Run <code>python -m training.train</code> to generate test-set predictions.")

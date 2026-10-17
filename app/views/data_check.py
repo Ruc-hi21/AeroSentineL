@@ -1,6 +1,5 @@
-"""Admin, data check: for the last analysed file, the data profile (EDA), the component-recognition decision,
-a manual model override and the processing report. The maintainer's upload page is views/upload.py.
-"""
+"""Data check: for the last analysed file, the data profile (EDA), the component-recognition decision, a
+manual model choice to re-run it, the timed processing report and the operating envelope."""
 
 import io
 
@@ -9,8 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app import insights, theme
-from app.components import envelope_chart, fleet, require_model, run_analysis, subset_summary
-from app.engine3d import engine_twin, twin_payload
+from app.components import envelope_chart, require_model, run_analysis, subset_summary
 from app.theme import MONO, STATES, TOKENS, esc
 from src import eda
 from src.components import COMPONENTS, get, spec_of_profile
@@ -206,13 +204,6 @@ if spec.settings and set(spec.settings) <= set(result.history.columns):
         if unknown:
             st.warning(f"{unknown:,} {spec.time_title.lower()}s come from conditions the {result.subset} model never saw.")
 
-ranked = fleet(result)
-theme.distribution(insights.state_counts(ranked))
-
-top = ranked.iloc[0]
-unit = int(top["unit"])
-theme.section(f"Most urgent {spec.actions.get('noun', 'unit')}", f"{spec.label(unit)}, {STATES[top['state']]['label'].lower()}")
-engine_twin(twin_payload(result, unit, artifacts.health, st.session_state.get("source_name", name)), height=760, key="upload_twin")
 links = st.columns([1, 1, 3])
 links[0].page_link("views/overview.py", label="Open fleet overview", icon=":material/grid_view:")
 links[1].page_link("views/engine.py", label=f"Open {spec.unit_title.lower()} status", icon=":material/speed:")

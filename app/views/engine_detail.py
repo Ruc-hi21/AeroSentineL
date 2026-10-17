@@ -1,5 +1,5 @@
-"""Admin, unit detail: the full engineering view of one unit (instruments, trend, drift, outlook, SHAP).
-The maintainer's simple status page is views/engine.py."""
+"""Engine detail: the full engineering view of one unit (status instrument, schematic, trend, sensor drift,
+failure outlook, can-it-wait check, and SHAP for the RUL and the risk band). The simple view is views/engine.py."""
 
 import streamlit as st
 
@@ -9,7 +9,7 @@ from app.components import (
     unit_picker,
 )
 from app.instruments import engine_status, gas_path, gas_path_payload, status_payload
-from app.theme import TOKENS, esc
+from app.theme import BAND_COLORS, BAND_TEXT, TOKENS, esc
 from src.config import CRITICAL_HEALTH_MULTIPLE
 
 artifacts = require_model()
@@ -128,10 +128,16 @@ with right:
                    "not proof of a root cause.")
     else:
         st.info("No explanation available for this analysis.")
+    risk_factors = row.get("risk_factors")
+    if isinstance(risk_factors, list) and isinstance(row.get("risk_band"), str):
+        band = BAND_TEXT[row["risk_band"]]
+        theme.section("Why this risk band", f"push towards {band.lower()}, log-odds")
+        theme.chart(factor_chart(risk_factors, f"push towards {band.lower()} (log-odds)", TOKENS["text_3"],
+                                 BAND_COLORS.get(row["risk_band"], TOKENS["accent"])), key="engine_risk_shap")
 
 st.divider()
 links = st.columns(4)
-links[0].page_link("views/admin_degradation.py", label="Sensor history", icon=":material/trending_down:")
-links[1].page_link("views/admin_rul.py", label="RUL history", icon=":material/timelapse:")
-links[2].page_link("views/admin_explanations.py", label="Explanation detail", icon=":material/account_tree:")
+links[0].page_link("views/sensor_history.py", label="Sensor history", icon=":material/show_chart:")
+links[1].page_link("views/rul_risk.py", label=f"{spec.rul_short} and risk", icon=":material/timelapse:")
+links[2].page_link("views/explainability.py", label="Explanations", icon=":material/account_tree:")
 links[3].page_link("views/twin.py", label="Open 3D model", icon=":material/view_in_ar:")
