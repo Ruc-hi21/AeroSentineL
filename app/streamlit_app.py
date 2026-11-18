@@ -28,9 +28,9 @@ VIEWS = ROOT / "app" / "views"
 unit = active_spec().unit_title
 pages = {
     "Fleet": [
-        st.Page(VIEWS / "overview.py", title="Fleet overview", icon=":material/grid_view:", default=True),
-        st.Page(VIEWS / "fleet_detail.py", title="Fleet details", icon=":material/table_chart:"),
+        st.Page(VIEWS / "overview.py", title="Home", icon=":material/home:", default=True),
         st.Page(VIEWS / "upload.py", title="Ingest data", icon=":material/upload:"),
+        st.Page(VIEWS / "fleet_detail.py", title="Fleet details", icon=":material/table_chart:"),
     ],
     unit: [
         st.Page(VIEWS / "engine.py", title=f"{unit} status", icon=":material/speed:", url_path="engine"),
@@ -44,5 +44,7 @@ pages = {
     ],
 }
 
+nav = st.navigation(pages)
+
 theme.motion()
-st.navigation(pages).run()
+nav.run()

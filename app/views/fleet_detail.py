@@ -12,7 +12,7 @@ import streamlit as st
 from app import insights, theme
 from app.components import (
     FAULT_TEXT, band_label, fleet, fleet_bars, ladder_chart, profile_spec, require_model,
-    require_result, sensor_label, show_table,
+    require_result, sample_of_file, sample_truth, sensor_label, show_table,
 )
 from app.theme import MONO, SANS, TOKENS, esc
 from src.config import RISK_BANDS, SUBSETS
@@ -23,6 +23,7 @@ VIEWS = Path(__file__).resolve().parent
 
 def open_engine(unit):
     st.session_state["selected_unit"] = int(unit)
+    st.session_state["engine_picker"] = int(unit)  # the unit page's own picker follows
     st.switch_page("views/engine.py")
 
 
@@ -42,15 +43,49 @@ theme.page_head("Fleet details", f"Which {spec.unit_plural} need attention, how 
 tab_overview, tab_detail, tab_data = st.tabs(["Overview", "Forecast and history", "Data check"])
 
 with tab_overview:
-    # 1. How the fleet stands: one count per condition.
-    theme.section(f"1. {spec.unit_plural.capitalize()} by condition")
+    # What the analysis found: the component, the size of the fleet and how many units need attention.
+    not_healthy = units[units["state"] != "HEALTHY"]
+    theme.section("Analysis summary", esc(st.session_state.get("source_name", "")), kicker="Result")
+    theme.stats([
+        theme.stat("Recognised as", spec.name, tip="The component the recognition model placed this file under, from the data alone."),
+        theme.stat(spec.unit_plural.capitalize(), len(units)),
+        theme.stat("Need attention", len(not_healthy), meter=len(not_healthy) / max(1, len(units)),
+                   color=theme.STATES["WARNING"]["color"] if len(not_healthy) else None,
+                   tip=f"{spec.unit_plural.capitalize()} in a degrading, warning or critical state."),
+        theme.stat("Processing", f"{result.duration_ms:,.0f} ms", foot=f"{len(result.history):,} {spec.time_title.lower()}s scored"),
+    ])
+    if result.status == "PARTIAL":
+        st.warning("Part of the analysis failed; the rest is shown. The Data check tab lists which step.")
+
+    # The most urgent unit, with its first action and, for a bundled sample, the known true answer.
+    top = units.iloc[0]
+    top_state = top["state"]
+    theme.section(f"Most urgent {noun}", spec.label(int(top["unit"])), kicker="Priority")
+    u_left, u_right = st.columns([1, 1.25], gap="large")
+    with u_left:
+        items = [theme.stat("Condition", theme.STATES[top_state]["label"], color=theme.STATES[top_state]["color"])]
+        if "predicted_rul" in top and top["predicted_rul"] == top["predicted_rul"]:
+            items.append(theme.stat(f"{spec.rul_short} left", insights.life(top["predicted_rul"], spec)))
+        theme.stats(items)
+        if st.button(f"Open {spec.label(int(top['unit'])).lower()} status", key="fleet_open_top", icon=":material/speed:"):
+            open_engine(int(top["unit"]))
+    with u_right:
+        theme.actions(insights.recommendations(top, top_state)[:1])
+        sample = sample_of_file(st.session_state.get("source_name", ""))
+        if sample and "predicted_rul" in top and top["predicted_rul"] == top["predicted_rul"]:
+            st.info(f"Sample with a known answer: this held-out {spec.unit_title.lower()} really had {sample_truth(sample)} "
+                    f"left at its latest reading. The model predicts {insights.life(top['predicted_rul'], spec)}.",
+                    icon=":material/fact_check:")
+
+    # How the fleet stands: one count per condition.
+    theme.section(f"{spec.unit_plural.capitalize()} by condition", kicker="Fleet")
     theme.distribution(insights.state_counts(units))
 
     left, right = st.columns([1.15, 1], gap="large")
     with left:
         # 2. What to do first: the units that are not healthy, most urgent first, in plain words.
         attention = units[units["state"] != "HEALTHY"]
-        theme.section("2. Needs attention", f"{insights.count(len(attention), spec)}, most urgent first; select a row")
+        theme.section("Needs attention", f"{insights.count(len(attention), spec)}, most urgent first; select a row")
         if len(attention):
             table = attention.head(15).reset_index(drop=True)
             view = pd.DataFrame({
@@ -70,7 +105,7 @@ with tab_overview:
             st.success(f"Every {noun} is healthy. No action needed.")
     with right:
         # 3. Time left at a glance: one bar per unit, coloured by condition.
-        theme.section(f"3. {spec.rul_short} left", f"{insights.count(min(15, len(units)), spec)}, most urgent first")
+        theme.section(f"{spec.rul_short} left", f"{insights.count(min(15, len(units)), spec)}, most urgent first")
         if "predicted_rul" in units:
             theme.chart(fleet_bars(units.head(15), spec), key="fleet_simple_bars")
             theme.note(f"Shorter bar = less {insights.life_word(spec)} left. Colours match the conditions above.")

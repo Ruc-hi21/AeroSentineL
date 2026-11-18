@@ -1,6 +1,6 @@
 [server]
 port = 8501  # one fixed port: if it is taken, Streamlit stops with an error instead of moving to 8502, 8503, ...
-maxUploadSize = 50  # MB, bounded upload size
+maxUploadSize = 4096  # MB (4 GB): large logs are fine, but an upload is held in memory while it is read
 enableStaticServing = true  # serves app/static (self-hosted IBM Plex fonts)
 
 [browser]

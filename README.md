@@ -71,11 +71,9 @@ operating condition, and answers four questions for every unit:
 
 ## Inside the console
 
-![Landing page: headline numbers, a live 3D showcase with component tabs, how it works, and the five component models](assets/screenshot_landing.png)
+![Home: the title band, a live 3D showcase with component tabs, and the five component models](assets/screenshot_landing.png)
 
-The **landing page** shows what the console does before anything is loaded: a live 3D showcase (switch components
-inside the view, no reload), the headline numbers, the four steps a file goes through, and a card per component with
-its data and its honest accuracy. Samples are loaded on *Ingest data* only.
+**Home** is the landing page: an animated title band, the live 3D showcase (switch components inside the view, no reload) and the five component models. Samples are loaded on *Ingest data* only.
 
 ![Engine status page for an FD004 engine, with the gas-path schematic](assets/screenshot_engine_status.png)
 
@@ -162,13 +160,13 @@ Every unit is in exactly one state, always shown as a word and never by colour a
 
 | Section | Page | What it is for |
 |---|---|---|
-| Fleet | **Fleet overview** | The landing page, the same before and after a file is loaded: what the console does, how a file flows through it, and a card per component model. |
-| | **Fleet details** | Three tabs. *Overview*: units by condition, what needs attention with its next step, and time left per unit. *Forecast and history*: forecasts with 80% ranges, fleet drivers, the sensors drifting across the fleet and a filterable table of every unit. *Data check*: the file's data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
-| | **Ingest data** | Upload a file or pick a sample unit and run it; then what was found, the units by condition and the most urgent unit (for a sample, with its known true remaining life). The only page with samples. |
-| Engine, Cell, Gearbox, Session or Device | **Unit status** | One page per unit: condition, time left (likely range), risk band and how many sensors are drifting; what to do and why in plain words; then four tabs: *Schematic*, *RUL forecast* (forecast at every reading, failure outlook, "can it wait" check), *Sensor drift* (every sensor's drift now, as bars and a table) and *Explanation* (SHAP for the RUL and the risk band). |
-| | **Degradation** | Told through the sensors: how many are critical / warning / elevated and since when, every sensor's drift now, the three that show it most, a sensor-by-flight heatmap of how the drift built up, and the raw readings. |
-| | **RUL and risk** | Time left in words, where the unit sits on the four-band risk ladder, and the forecast over its life. |
-| | **Explanations** | The forecast in one sentence, the top sensors as bars, and the top three in plain words. |
+| Fleet | **Home** | The landing page, the same before and after a file is loaded: an animated title band, the live 3D showcase and the five component models. |
+| | **Ingest data** | A centred drop zone, or a bundled sample. While the file is processed, a pre-flight animation checks off the pipeline's stages; then the page shows the upload confirmation and every row of the file. What the analysis found is on Fleet details. The only page with samples. |
+| | **Fleet details** | Three tabs. *Overview*: the analysis summary (component, units, how many need attention, processing time), the most urgent unit with its next step (for a sample, with its known true remaining life), units by condition, what needs attention and time left per unit. *Forecast and history*: forecasts with 80% ranges, fleet drivers, the sensors drifting across the fleet and a filterable table of every unit. *Data check*: the file's data profile (EDA), the recognition decision, a manual model choice to re-run it, the timed processing report and the operating envelope. |
+| Engine, Cell, Gearbox, Session or Device | **Unit status** | The decision page. A verdict panel gives the condition and why, the time left, and where it sits on the four risk bands with its likely range; four readouts give the reading to service it by, the risk band, where to look, and whether the model is *Tested* or *Indicative* (from its own test results). Then what to do, next to the leading indicators (the most-drifted sensors, each with its drift trace); the forecast over the unit's life, switchable to the latest readings; and the component schematic. |
+| | **Degradation** | Told through the sensors: the most affected part, how many sensors are past the warning level, which one is rising fastest and since when; the drift ranking (the ten strongest sensors); the build-up, switchable between the three strongest sensors as lines and every sensor as a timeline; and a sensor inspector: click a sensor to see its raw reading above its drift. |
+| | **RUL and risk** | Time left, the likely range with how often it held the true value in test, and the service-by reading; then the forecast over the unit's life, the model's probability for each of the four risk bands, and a deferral check: drag the next scheduled check along a slider and read the chance the unit reaches end of life first. |
+| | **Explanations** | The strongest driver and the part behind most of the forecast; SHAP bars for the RUL and for the risk band; a cross-check that sets each top sensor's effect next to its own drift, so you can see where the model and the measurements agree; and a driver inspector that opens any driver's own readings. |
 | | **3D model** | The sectioned component shown above, with a deep-dive chart for any sensor you click. |
 | Output | **Export** | Unit results and cycle history as CSV, and the full result (component, recognition, model, conditions, timings) as JSON. |
 

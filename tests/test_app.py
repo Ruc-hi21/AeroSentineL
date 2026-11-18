@@ -106,8 +106,8 @@ def test_admin_page_renders_with_results(page, component, results):
 
 
 def test_overview_is_the_landing_page_even_with_data_loaded(results):
-    """Fleet overview never changes after an upload: the landing page, with its sample button, stays as it is."""
+    """Home never changes after an upload: the landing page stays as it is."""
     at = run_page("overview", results["turbofan"])
     assert not at.exception, at.exception
     assert not any("sample" in b.label.lower() or "NASA" in b.label for b in at.button)  # samples: Ingest data only
-    assert any("Which component fails next" in str(e.proto) for e in at.get("html"))  # the landing page itself
+    assert any("as-home" in str(e.proto) for e in at.get("html"))  # the landing page itself
