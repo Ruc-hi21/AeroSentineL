@@ -1,6 +1,7 @@
 """RUL labels and the engine-unit train/validation split."""
 
 import numpy as np
+import pandas as pd
 
 from src.config import RUL_CAP, SEED, TEST_SIZE
 
