@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+/* ───────────────────────────────────────────────────────────────
+   AeroSentinel design DNA
+   One source for colour, type, spacing, radius and motion.
+   Every component reads from these tokens; nothing is invented ad hoc.
+   ─────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Surfaces: flat, never gradients */
+  --color-base: #ffffff;
+  --color-surface: #f7f7f8;
+  --color-raised: #efeff1;
+  --color-line: #e4e4e7;
+  --color-line-strong: #d4d4d8;
+
+  /* Ink */
+  --color-ink: #0a0a0a;
+  --color-muted: #52525b;
+  --color-faint: #6b6b74;
+
+  /* The one accent: the console's blue */
+  --color-accent: #0b6fe0;
+  --color-accent-strong: #0a5fc2;
+  --color-accent-ink: #ffffff;
+
+  /* Status colours are reserved for status, never decoration */
+  --color-critical: #da1e28;
+  --color-warning: #c24e00;
+  --color-degrading: #9a7200;
+  --color-healthy: #198038;
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-press: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:root {
+  color-scheme: light;
+  --nav-h: 64px;
+}
+
+html {
+  background: var(--color-base);
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+/* Browser surfaces carry the design too */
+::selection { background: rgb(11 111 224 / 0.16); color: #0a0a0a; }
+* { scrollbar-color: #d4d4d8 #ffffff; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #ffffff; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border: 2px solid #ffffff; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; border-radius: 6px; }
+input, textarea { caret-color: var(--color-accent); }
+a { text-underline-offset: 4px; text-decoration-thickness: 1px; }
+
+h1, h2, h3, h4 { text-wrap: balance; }
+p, li, dd { text-wrap: pretty; }
+
+/* ── Text styles (named, each on a Tailwind scale step) ── */
+.heading-1 { font-size: 2.25rem; line-height: 2.5rem; font-weight: 600; letter-spacing: -0.035em; }
+.heading-2 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; letter-spacing: -0.03em; }
+.heading-3 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; letter-spacing: -0.03em; }
+.heading-4 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; letter-spacing: -0.025em; }
+.heading-5 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -0.02em; }
+.heading-6 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; letter-spacing: -0.015em; }
+@media (min-width: 640px) {
+  .heading-1 { font-size: 3rem; line-height: 1; }
+  .heading-2 { font-size: 2.25rem; line-height: 2.5rem; }
+  .heading-3 { font-size: 2.25rem; line-height: 2.5rem; }
+}
+@media (min-width: 1024px) {
+  .heading-1 { font-size: 3.75rem; line-height: 1; }
+  .heading-2 { font-size: 3rem; line-height: 1; }
+}
+.title-1 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; letter-spacing: -0.01em; }
+.title-2 { font-size: 1.125rem; line-height: 1.75rem; font-weight: 500; letter-spacing: -0.01em; }
+.title-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+.title-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+.title-5 { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+.body-1 { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+.body-2 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+.body-3 { font-size: 1rem; line-height: 1.5rem; font-weight: 400; }
+.body-4 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+.body-5 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+.body-6 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+.body-lead { font-size: 1.125rem; line-height: 1.75rem; font-weight: 400; }
+.button-md { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+.button-sm { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+.caption-1 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+.caption-2 { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; }
+.caption-3 { font-size: 0.75rem; line-height: 1rem; font-weight: 600; }
+.caption-4 { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+.caption-5 { font-size: 0.75rem; line-height: 1rem; font-weight: 400; }
+.data { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Hero heading: the one place a gradient appears, on text only */
+.hero-ink {
+  background: linear-gradient(90deg, #000000 0%, #666666 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Layout ── */
+.wrap { width: 100%; max-width: 1200px; margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 640px) { .wrap { padding-inline: 32px; } }
+@media (min-width: 1024px) { .wrap { padding-inline: 48px; } }
+
+.section { padding-block: 96px; position: relative; }
+@media (min-width: 1024px) { .section { padding-block: 96px; min-height: 100svh; display: flex; align-items: center; } }
+.section > .wrap { width: 100%; }
+
+.hairline { border: 1px solid var(--color-line); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; white-space: nowrap;
+  transition: transform 160ms var(--ease-press), background-color 240ms var(--ease-out), color 240ms var(--ease-out), border-color 240ms var(--ease-out);
+  will-change: transform;
+}
+.btn:active { transform: scale(0.97); }
+.btn-lg { padding: 12px 16px; }
+.btn-primary { background: var(--color-accent); color: var(--color-accent-ink); }
+.btn-ghost { background: transparent; color: var(--color-ink); border: 1px solid var(--color-line-strong); }
+.btn-quiet { color: var(--color-muted); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover { background: #0a5fc2; }
+  .btn-ghost:hover { background: var(--color-surface); border-color: #a1a1aa; }
+  .btn-quiet:hover { color: var(--color-ink); }
+}
+.btn .btn-arrow { transition: transform 300ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover .btn-arrow { transform: translateX(2px); }
+}
+
+/* Linked cards lift 2px, photos zoom inside their frame */
+.lift { transition: transform 300ms var(--ease-out), border-color 300ms var(--ease-out); }
+.zoom-img { transition: transform 600ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .lift:hover { transform: translateY(-2px); border-color: var(--color-line-strong); }
+  .lift:hover .zoom-img { transform: scale(1.03); }
+}
+
+/* Engineering grid used behind the hero and the pipeline */
+.blueprint {
+  background-image:
+    linear-gradient(to right, rgb(0 0 0 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(0 0 0 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Pulse travelling along a line (constant motion: linear) */
+@keyframes travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.live-dot { animation: blink 2.4s var(--ease-out) infinite; }
+
+/* Tagline: words move from muted to full ink one at a time */
+.tw { color: rgb(10 10 10 / 0.2); transition: color 600ms var(--ease-out); }
+.tw.on { color: #0a0a0a; }
+
+/* Sensor station labels in the 3D engine */
+.station {
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 4px 8px; border-radius: 6px;
+  background: rgb(255 255 255 / 0.9); border: 1px solid #d4d4d8; box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  font-size: 0.75rem; line-height: 1rem; color: #0a0a0a;
+  transform: translate(56%, -130%);
+  opacity: 0; filter: blur(4px);
+  transition: opacity 600ms var(--ease-out), filter 600ms var(--ease-out);
+}
+.station[data-show="true"] { opacity: 1; filter: blur(0); }
+.station-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--tone); box-shadow: 0 0 0 3px rgb(0 0 0 / 0.05); }
+.station-label { color: #52525b; }
+.station-value { color: var(--tone); }
+@media (max-width: 639px) { .station-label { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+  .zoom-img, .lift { transition: none; }
+}
+
+/* Pipeline pulse: a rail the size of the track slides along it (transform only) */
+@keyframes rail-y { 0% { transform: translateY(0); opacity: 0; } 10%, 85% { opacity: 1; } 100% { transform: translateY(100%); opacity: 0; } }
+@keyframes rail-x { 0% { transform: translateX(0); opacity: 0; } 10%, 85% { opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
+.pulse-rail { animation: rail-y 3.6s linear infinite; }
+@media (min-width: 1024px) { .pulse-rail { animation-name: rail-x; } }
+@media (prefers-reduced-motion: reduce) { .pulse-rail { display: none; } }
+
+/* Loading bars: shaped like the action, not a spinner */
+@keyframes fill-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.demo-bar { transform-origin: left; animation: fill-bar 1.4s var(--ease-out) forwards; }
+.signin-progress { transform-origin: left; animation: fill-bar 0.9s var(--ease-out) forwards; }
+@media (prefers-reduced-motion: reduce) { .demo-bar, .signin-progress { animation-duration: 0.01s; } }
+
+/* Legal pages */
+.prose-legal h2 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; color: var(--color-ink); margin-top: 40px; }
+.prose-legal p, .prose-legal li { font-size: 1rem; line-height: 1.5rem; color: var(--color-muted); margin-top: 12px; max-width: 68ch; }
+.prose-legal ul { list-style: disc; padding-left: 20px; }
+.station[data-side="down"] { transform: translate(40%, 70%); }
