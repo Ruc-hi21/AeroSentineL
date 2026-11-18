@@ -161,6 +161,26 @@ def load_benchmark():
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
+TRUST_MIN_UNITS = 30  # a model scored on fewer test units than this is shown as indicative
+
+
+def model_trust(result):
+    """How far the loaded model's numbers can be trusted, from its own test results in the benchmark.
+
+    {'level', 'color', 'units', 'hits', 'covered'}: test units, how many got the right risk band, and how
+    many had their true value inside the 80% range. None when the model has no benchmark row.
+    """
+    row = ((load_benchmark() or {}).get("subsets") or {}).get(result.subset or DATASET)
+    if not row or row.get("test_accuracy") is None:
+        return None
+    n = int(row["test_engines"])
+    cover = row.get("test_interval_coverage_capped")
+    cover = row.get("test_interval_coverage") if cover is None else cover
+    tested = n >= TRUST_MIN_UNITS
+    return {"level": "Tested" if tested else "Indicative", "color": None if tested else STATE_COLOR["DEGRADING"],
+            "units": n, "hits": round(row["test_accuracy"] * n), "covered": None if cover is None else round(cover * n)}
+
+
 def profile_spec(result):
     """Spec-strip facts for the loaded file: component, model, conditions, fault modes, size."""
     prof = result.profile or {}
@@ -386,8 +406,9 @@ def health_chart(unit_history, threshold, critical, height=300):
     return crosshair(fig)
 
 
-def sensor_chart(unit_history, sensors):
-    """Small multiples, one per sensor: raw reading plus 10-cycle mean."""
+def sensor_chart(unit_history, sensors, health=None):
+    """Small multiples, one per sensor: raw reading plus 10-cycle mean. With `health`, each modelled sensor
+    also gets its healthy baseline (dotted) and its warning level (dashed)."""
     rows = (len(sensors) + 2) // 3
     fig = make_subplots(rows=rows, cols=3, subplot_titles=[describe(s) for s in sensors],
                         vertical_spacing=0.16 / rows, horizontal_spacing=0.06)
@@ -398,6 +419,11 @@ def sensor_chart(unit_history, sensors):
         fig.add_trace(go.Scatter(x=unit_history["cycle"], y=unit_history[s].rolling(10, min_periods=1).mean(), mode="lines",
                                  line=dict(color=T["accent"], width=1.8), showlegend=False,
                                  hovertemplate="cycle %{x}<br>%{y:.2f}<extra>" + s + "</extra>"), row=r, col=c)
+        if health is not None and s in health.sensors:
+            base = health.mean[s]
+            fig.add_hline(y=base, line=dict(color=T["text_2"], width=1, dash="dot"), row=r, col=c)
+            fig.add_hline(y=base + 2.4 * health.std[s] * health.direction[s],
+                          line=dict(color=STATE_COLOR["WARNING"], width=1, dash="dash"), row=r, col=c)
     fig.update_annotations(font=dict(size=12, color=T["text_2"]), xanchor="left", x=None)
     for i, a in enumerate(fig.layout.annotations):
         a.x = (i % 3) / 3 + 0.005
@@ -567,21 +593,41 @@ DRIFT_COLORS = {"Critical": STATE_COLOR["CRITICAL"], "Warning": STATE_COLOR["WAR
                 "Nominal": T["text_3"]}
 
 
-def drift_table(drift, rows=None, height="auto", compact=False, unit="cycles"):
-    """Sensor drift ranking with a 60-step drift sparkline per sensor (unit: the life unit). compact drops module and trend."""
-    recent = f"Last 60 {unit}"
-    d = drift.head(rows) if rows else drift
-    df = pd.DataFrame({"Sensor": d["code"], "Measures": d["name"], "Module": d["module"], "Drift": d["drift"],
-                       "Trend": d["trend"], "Status": d["status"], recent: d["history"]})
-    if compact:
-        df = df.drop(columns=["Module", "Trend"])
-    styler = df.style.map(lambda v: f"color: {DRIFT_COLORS.get(v, T['text_1'])}", subset=["Status"])
-    st.dataframe(styler, hide_index=True, width="stretch", height=height, column_config={
-        "Drift": st.column_config.NumberColumn("Drift (sigma)", format="%+.1f",
-                                               help="Directed z-score against the healthy baseline; positive means degrading"),
-        "Trend": st.column_config.NumberColumn("Trend", format="%+.2f", help=f"Change in drift per 10 {unit}, last 20 {unit}"),
-        recent: st.column_config.LineChartColumn(recent, y_min=-2, y_max=6, width="medium"),
-    })
+def band_bars(row, spec):
+    """The model's probability for each of the four risk bands, most severe on top, each with its window.
+    The predicted band is drawn solid, the others faint."""
+    bands = RISK_BANDS[::-1]
+    p = [float(row[f"p_{b.lower()}"]) for b in bands]
+    labels = [f"{BAND_TEXT[b]}  ·  {insights.band_window(spec, b)}" for b in bands]
+    fig = go.Figure(go.Bar(
+        x=p, y=labels, orientation="h", width=0.5,
+        marker=dict(color=[BAND_COLORS[b] for b in bands], opacity=[1.0 if b == row["risk_band"] else 0.35 for b in bands]),
+        text=[insights.chance(v) for v in p], textposition="outside", cliponaxis=False,
+        textfont=dict(family=MONO, size=12, color=T["text_1"]), hovertemplate="%{y}<br>%{x:.0%}<extra></extra>"))
+    fig.update_layout(height=320, margin=dict(t=8, b=40, l=8, r=48), showlegend=False, xaxis_title="model probability")
+    fig.update_xaxes(range=[0, 1.0], tickvals=[0, 0.25, 0.5, 0.75, 1], tickformat=".0%")
+    fig.update_yaxes(autorange="reversed", type="category", ticks="", ticklabelstandoff=6, showgrid=False,
+                     tickfont=dict(family=SANS_FONT, size=12, color=T["text_2"]))
+    return fig
+
+
+def failure_curve(row, spec, check):
+    """Chance of reaching end of life within n life units, for every n up to the at-risk limit, with the
+    verdict cut-offs as dashed lines and the chosen check marked."""
+    xs = list(range(1, spec.risk_limits["AT_RISK"] + 1))
+    ps = [insights.failure_chance(row, n) for n in xs]
+    fig = go.Figure()
+    for (limit, state, _, _), name in zip(insights.DEFER_LEVELS, ("do not wait", "bring forward", "watch")):
+        _threshold(fig, limit, f"{name}  {limit:.0%}", STATE_COLOR[state])
+    fig.add_trace(go.Scatter(x=xs, y=ps, mode="lines", line=dict(color=T["accent"], width=2.2),
+                             hovertemplate="within %{x} " + spec.life_unit + "<br>%{y:.0%}<extra></extra>"))
+    fig.add_vline(x=check, line=dict(color=T["text_3"], width=1, dash="dot"))
+    fig.add_trace(go.Scatter(x=[check], y=[ps[check - 1]], mode="markers", hoverinfo="skip",
+                             marker=dict(color=T["text_1"], size=10, line=dict(color=T["bg"], width=2))))
+    fig.update_layout(height=320, showlegend=False, margin=dict(t=8, b=40, l=56, r=RIGHT_LABELS),
+                      xaxis_title=f"{spec.life_unit} from the latest reading", yaxis_title="chance of end of life")
+    fig.update_yaxes(range=[0, 1.05], tickformat=".0%")
+    return fig
 
 
 # ---------------------------------------------------------------- engineering views
@@ -754,6 +800,24 @@ def drift_bars(drift, spec, top=None):
     return fig
 
 
+def drift_lines(unit_history, health, sensors, spec, height=320):
+    """Drift of up to three sensors over the unit's life, against the three level limits."""
+    hist = unit_history.sort_values("cycle")
+    z = health.sensor_deviation(hist).rolling(insights.DRIFT_SMOOTHING, min_periods=1).mean()[list(sensors)]
+    fig = go.Figure()
+    for lim, name, col in DRIFT_BANDS:
+        _threshold(fig, lim, f"{name}  {lim}", col)
+    for s, color in zip(sensors, (T["accent"], T["accent_2"], T["text_2"])):
+        code, name = SENSOR_INFO[s][:2]
+        # Code only in the legend so it stays on one line; the full name is in the hover.
+        fig.add_trace(go.Scatter(x=hist["cycle"], y=z[s].to_numpy(), mode="lines", name=code, line=dict(color=color, width=2),
+                                 hovertemplate=f"{code} {name}" + " %{y:+.1f}σ<extra></extra>"))
+    fig.update_layout(height=height, margin=dict(t=30, b=40, l=48, r=RIGHT_LABELS), xaxis_title=spec.time_title.lower(),
+                      yaxis_title="drift (standard deviations)")
+    fig.update_yaxes(range=[min(-1.0, float(z.min().min()) - 0.3), max(4.0, float(z.max().max()) + 0.4)])
+    return crosshair(fig)
+
+
 def drift_heatmap(unit_history, health, spec, block=5, smoothing=5):
     """Every sensor's drift over the unit's life (rows = sensors, strongest now on top; columns = blocks of readings)."""
     hist = unit_history.sort_values("cycle")
@@ -763,15 +827,48 @@ def drift_heatmap(unit_history, health, spec, block=5, smoothing=5):
     zb = z.groupby((z.index - z.index.min()) // step * step + z.index.min()).mean()
     order = zb.iloc[-1].sort_values(ascending=False).index
     names = [f"{SENSOR_INFO[s][1]}  ·  {SENSOR_INFO[s][0]}" for s in order]
+    t = spec.time_title.lower()
     fig = go.Figure(go.Heatmap(
-        z=zb[order].T.to_numpy(), x=zb.index, y=names, zmin=-3.2, zmax=3.2, xgap=1, ygap=1,
-        colorscale=[[0, "#2b5aa8"], [0.5, T["surface"]], [0.625, "#5c5418"], [0.75, "#8a5a20"], [1, "#a8343c"]],
+        z=zb[order].T.to_numpy(), x=zb.index, y=names, zmin=-3.2, zmax=3.2, xgap=2, ygap=2,
+        # Diverging: blue = moving away from wear, the surface colour = healthy, then the three drift levels.
+        colorscale=[[0, "#2b5aa8"], [0.5, T["surface"]], [0.75, "#8a7420"], [0.875, "#a85a1c"], [1, "#c23a44"]],
         colorbar=dict(title=dict(text="drift σ", side="top", font=dict(size=11)), thickness=10, outlinewidth=0,
                       tickvals=[-3.2, -1.6, 0, 1.6, 2.4, 3.2], tickfont=dict(family=MONO, size=10)),
-        hovertemplate="%{y}<br>" + spec.time_title.lower() + " %{x}<br>drift %{z:+.2f}σ<extra></extra>"))
-    fig.update_layout(height=max(260, 24 * len(names) + 70), margin=dict(t=8, b=44, l=8, r=8))
-    fig.update_xaxes(title_text=f"{spec.time_title.lower()} ({step}-{spec.time_title.lower()} blocks)" if step > 1
-                     else spec.time_title.lower(), showgrid=False)
+        hovertemplate="%{y}<br>" + t + " %{x}<br>drift %{z:+.2f}σ<extra></extra>"))
+    fig.update_layout(height=max(260, 24 * len(names) + 80), margin=dict(t=14, b=44, l=8, r=8))
+    fig.update_xaxes(title_text=f"{t} ({step}-{t} blocks)" if step > 1 else t, showgrid=False)
     fig.update_yaxes(autorange="reversed", type="category", tickmode="array", tickvals=names, ticktext=names,
-                     tickfont=dict(family=SANS_FONT, size=12, color=T["text_2"]), ticks="", showgrid=False)
+                     tickfont=dict(family=SANS_FONT, size=12, color=T["text_2"]), ticks="", showgrid=False, ticklabelstandoff=6)
     return fig
+
+
+def focus_chart(unit_history, health, sensor, spec, height=400):
+    """One sensor in full, on one time axis: its reading (with the healthy baseline and warning level) above its
+    drift from healthy (with the three level limits). Two panels, never two scales on one plot."""
+    hist = unit_history.sort_values("cycle")
+    code, name, unit = SENSOR_INFO[sensor][:3]
+    modelled = sensor in health.sensors
+    fig = make_subplots(rows=2 if modelled else 1, cols=1, shared_xaxes=True, vertical_spacing=0.1,
+                        row_heights=[0.55, 0.45] if modelled else [1])
+    t = spec.time_title.lower()
+    fig.add_trace(go.Scatter(x=hist["cycle"], y=hist[sensor], mode="lines", name="reading", line=dict(color=T["text_3"], width=1),
+                             opacity=0.65, hovertemplate="reading %{y:.2f}<extra></extra>"), row=1, col=1)
+    mean = hist[sensor].rolling(10, min_periods=1).mean()
+    fig.add_trace(go.Scatter(x=hist["cycle"], y=mean, mode="lines", name=f"10-{t} mean", line=dict(color=T["accent"], width=2.2),
+                             hovertemplate="mean %{y:.2f}<extra></extra>"), row=1, col=1)
+    _end_label(fig, hist["cycle"].iloc[-1], mean.iloc[-1], f"{mean.iloc[-1]:.2f}", T["accent"], row=1, col=1)
+    fig.update_yaxes(title_text=f"{code} ({unit})" if unit else code, row=1, col=1)
+    if modelled:
+        base = health.mean[sensor]
+        _threshold(fig, base, "healthy baseline", T["text_2"], row=1, col=1)
+        _threshold(fig, base + 2.4 * health.std[sensor] * health.direction[sensor], "warning level", STATE_COLOR["WARNING"], row=1, col=1)
+        z = health.sensor_deviation(hist).rolling(insights.DRIFT_SMOOTHING, min_periods=1).mean()[sensor]
+        for lim, level, col in DRIFT_BANDS:
+            _threshold(fig, lim, f"{level}  {lim}", col, row=2, col=1)
+        fig.add_trace(go.Scatter(x=hist["cycle"], y=z.to_numpy(), mode="lines", name="drift", line=dict(color=T["accent_2"], width=2.2),
+                                 hovertemplate="drift %{y:+.2f}σ<extra></extra>"), row=2, col=1)
+        _end_label(fig, hist["cycle"].iloc[-1], float(z.iloc[-1]), f"{float(z.iloc[-1]):+.1f}σ", T["accent_2"], row=2, col=1)
+        fig.update_yaxes(title_text="drift (σ)", range=[min(-1.0, float(z.min()) - 0.3), max(4.0, float(z.max()) + 0.4)], row=2, col=1)
+    fig.update_xaxes(title_text=t, row=2 if modelled else 1, col=1)
+    fig.update_layout(height=height if modelled else height * 0.6, showlegend=False, margin=dict(t=18, b=40, l=60, r=RIGHT_LABELS))
+    return crosshair(fig)

@@ -1,16 +1,17 @@
-"""Unit status: one page for one unit. On top, its condition and time left, what to do and why, in plain words;
-below, the detail in four tabs: the component schematic, the forecast (with failure outlook and can-it-wait),
-every sensor's drift, and the SHAP explanation of the RUL and of the risk band."""
+"""Unit status: the decision page for one unit. A verdict panel (condition, time left, its place on the risk
+bands), four readouts (when to service, risk, where to look, how far to trust the model), what to do next to
+the sensors that lead the change, the forecast over the unit's life, and the component schematic. The sensors,
+the timing and the explanation each have their own page (Degradation, RUL and risk, Explanations)."""
 
 import streamlit as st
 
 from app import insights, theme
-from app.components import (
-    drift_bars, drift_table, factor_chart, reason_text, require_model, require_result, rul_chart, step_unit,
-    unit_picker,
-)
+from app.components import DRIFT_COLORS, model_trust, require_model, require_result, rul_chart, step_unit, unit_picker
 from app.instruments import gas_path, gas_path_payload
-from app.theme import BAND_COLORS, BAND_TEXT, STATES, TOKENS, esc
+from app.theme import BAND_COLORS, BAND_TEXT, STATES, esc
+
+RECENT = 60  # readings shown by the "recent" view of the forecast
+TOP_INDICATORS = 4
 
 artifacts = require_model()
 result = require_result()
@@ -18,125 +19,129 @@ units = result.units
 spec = result.spec
 noun = spec.actions.get("noun", "unit")
 t = spec.time_title.lower()
-theme.page_head(f"{spec.unit_title} status", f"Is this {noun} all right, how long has it got, what should be done, and why.",
+word = insights.life_word(spec)
+theme.page_head(f"{spec.unit_title} status", f"Is this {noun} all right, how long has it got, and what should be done.",
                 f"<b>{esc(st.session_state.get('source_name', ''))}</b><br>{insights.count(len(units), spec)}, "
-                f"model {esc(result.model_version)} {esc(result.subset or '')}")
+                f"model {esc(result.model_version)} {esc(result.subset or '')}", kicker=f"{spec.name} · unit view")
 
-pick, prev, nxt, _ = st.columns([3.2, 0.7, 0.7, 4.4], vertical_alignment="bottom")
+pick, prev, nxt, _, help_col = st.columns([3.2, 0.7, 0.7, 2.6, 1.8], vertical_alignment="bottom")
 with pick:
     row = unit_picker(units, key="engine", label=f"{spec.unit_title} (most urgent first)")
 prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "engine", -1), width="stretch")
 nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
+with help_col:
+    theme.guide([
+        ("Condition", "Critical, Warning, Degrading or Healthy, from the model's risk band and the sensor drift."),
+        (spec.rul_short, f"{spec.rul_long}: the model's best estimate. The frame on the scale is the range it is 80% sure of."),
+        ("Service by", "The low end of that range, added to the unit's age. Planning to it is the cautious choice."),
+        ("Drift", "How far a sensor sits from a healthy reading, in standard deviations (σ). Warning starts at 2.4σ."),
+        ("Hover", "Tiles marked with an i explain themselves. Every chart shows exact values under the cursor."),
+    ])
 
 unit = int(row["unit"])
 hist = result.history[result.history["unit"] == unit].sort_values("cycle")
 drift = insights.sensor_drift(hist, artifacts.health)
 state = insights.engine_state(row)
 has_rul = "predicted_rul" in row and row["predicted_rul"] == row["predicted_rul"]
+band = row.get("risk_band") if isinstance(row.get("risk_band"), str) else None
 
-# 1. Condition and time left.
-theme.section(f"1. Condition and {insights.life_word(spec)} left", f"at its latest reading, {t} {int(row['cycle'])}")
-items = [theme.stat("Condition", STATES[state]["label"], color=STATES[state]["color"])]
+# The verdict: condition and why, the headline number, and where it sits on the four risk bands.
 if has_rul:
-    items.append(theme.stat(f"{spec.rul_short} left", insights.life(row["predicted_rul"], spec),
-                            foot=f"likely between {insights.life(row['rul_low'], spec)} and {insights.life(row['rul_high'], spec)}"))
-if isinstance(row.get("risk_band"), str):
-    items.append(theme.stat("Risk", BAND_TEXT[row["risk_band"]], color=BAND_COLORS[row["risk_band"]],
-                            foot=f"the model is {row['risk_probability']:.0%} sure"))
-hot = int(drift["status"].isin(["Critical", "Warning"]).sum())
-items.append(theme.stat("Sensors drifting", f"{hot} of {len(drift)}", foot="beyond 2.4 standard deviations",
-                        color=STATES["WARNING"]["color"] if hot else None))
+    rul = float(row["predicted_rul"])
+    has_range = "rul_low" in row and row["rul_low"] == row["rul_low"]
+    shown_band = band or next((b for b in ("FAILURE_LIKELY", "HIGH_RISK", "AT_RISK") if rul <= spec.risk_limits[b]), "NORMAL")
+    gauge = theme.life_gauge(rul, row["rul_low"] if has_range else None, row["rul_high"] if has_range else None, spec.rul_cap,
+                             spec.risk_limits, shown_band, insights.life(rul, spec))
+    theme.verdict(
+        state, f"{spec.label(unit)} · {t} {int(row['cycle'])}", insights.state_reason(row, state),
+        number=f"{rul:.0f}", number_label=spec.rul_long, unit=f"{spec.life_unit} left" if spec.has_life else "of margin left",
+        range_html=(f"likely between <b>{row['rul_low']:.0f}</b> and <b>{esc(insights.life(row['rul_high'], spec))}</b>"
+                    "<br>the model's 80% range") if has_range else "", gauge=gauge)
+else:
+    theme.verdict(state, f"{spec.label(unit)} · {t} {int(row['cycle'])}", insights.state_reason(row, state))
+if insights.at_cap(row):
+    theme.note(f"The forecast is at the model's ceiling of {insights.life(spec.rul_cap, spec)}: read it as "
+               f"{insights.life(spec.rul_cap, spec)} or more.")
+
+# Four readouts that turn the verdict into a plan.
+items = []
+service = insights.service_by(row)
+if service:
+    reading, left = service
+    items.append(theme.stat("Service by", f"{spec.time_title} {reading}" if left else "Now",
+                            foot=f"{insights.life(left, spec)} away" if left else "the low end of the range is reached",
+                            tip="The unit's age plus the low end of the likely range: the cautious date to plan the work for."))
+if band:
+    items.append(theme.stat("Risk band", BAND_TEXT[band], color=BAND_COLORS[band], meter=row["risk_probability"],
+                            foot=f"model is {row['risk_probability']:.0%} sure",
+                            tip=f"The classifier's band for this {noun}: {insights.band_window(spec, band)}. The bar is its probability."))
+hot = drift[drift["status"].isin(["Critical", "Warning"])]
+part = insights.worst_part(row)
+if part:  # hydraulic: the part its own classifier calls worst
+    items.append(theme.stat("Where to look", part["name"], foot=f"{esc(part['label'].lower())}, {part['p']:.0%} confidence",
+                            color=STATES["WARNING"]["color"], meter=part["p"],
+                            tip="The part whose own condition classifier reports the worst state."))
+else:
+    items.append(theme.stat("Where to look", hot.iloc[0]["module"] if len(hot) else "Nothing flagged",
+                            foot=f"{len(hot)} of {len(drift)} sensors past warning",
+                            color=STATES["WARNING"]["color"] if len(hot) else None, meter=len(hot) / max(1, len(drift)),
+                            tip="The part that carries the most-drifted sensor. It shows where the evidence is measured, "
+                                "not a confirmed root cause."))
+trust = model_trust(result)
+if trust:
+    items.append(theme.stat("Model evidence", trust["level"], color=trust["color"], meter=trust["hits"] / max(1, trust["units"]),
+                            foot=f"band right on {trust['hits']} of {insights.count(trust['units'], spec)} in test",
+                            tip="How this model did on units it never saw in training. Indicative means too few test units "
+                                "to rely on the figure."))
 theme.stats(items)
-theme.note(esc(insights.state_reason(row, state)))
+
 found = insights.parts(row)
 if found:  # hydraulic: the condition of each assessed part
     sev = {0: "HEALTHY", 1: "DEGRADING", 2: "WARNING", 3: "CRITICAL"}
-    theme.stats([theme.stat(p["name"], p["label"], foot=f"{p['p']:.0%} confidence",
+    theme.section("Part condition", "each part has its own classifier", kicker="Diagnosis")
+    theme.stats([theme.stat(p["name"], p["label"], foot=f"{p['p']:.0%} confidence", meter=p["p"],
                             color=STATES[sev[p["severity"]]]["color"]) for p in found])
     if spec.not_assessed:
         theme.note(esc(spec.not_assessed))
 
-left, right = st.columns(2, gap="large")
-with left:
-    theme.section("2. What to do")
+# What to do, next to the sensors that lead the change.
+left_col, right_col = st.columns([1, 1.15], gap="large")
+with left_col:
+    theme.section("Recommended maintenance", kicker="Action")
     theme.actions(insights.recommendations(row, state, drift)[:3])
-with right:
-    theme.section("3. Why", "the three sensors that moved the prediction most")
-    factors = row.get("rul_factors")
-    if isinstance(factors, list) and factors:
-        theme.actions([{"action": what, "why": why} for what, why in (reason_text(f, spec) for f in factors[:3])])
-    else:
-        st.info("No explanation is available for this analysis.")
-theme.note("Guidance from AeroSentinel's risk limits and sensor drift. Confirm against approved maintenance data before acting.")
+    theme.note("Guidance from AeroSentinel's risk limits and sensor drift. Confirm against approved maintenance data "
+               "before acting.")
+with right_col:
+    theme.section("Leading indicators", f"the {min(TOP_INDICATORS, len(drift))} most-drifted sensors, latest 60 {t}s", kicker="Evidence")
+    theme.indicators([{**r, "color": DRIFT_COLORS[r["status"]], "status": "Normal" if r["status"] == "Nominal" else r["status"]}
+                      for r in drift.head(TOP_INDICATORS).to_dict("records")], per=f"per 10 {t}s")
+    st.page_link("views/health.py", label="Inspect every sensor on Degradation", icon=":material/sensors:")
 
-# Detail.
-tab_schematic, tab_forecast, tab_sensors, tab_why = st.tabs(
-    ["Schematic", f"{spec.rul_short} forecast", "Sensor drift", "Explanation"])
+# The forecast over the unit's life, with a switch between the whole life and the latest readings.
+theme.section(f"{spec.rul_short} forecast", f"one forecast per {t}; the bar is the likely range now",
+              kicker="Trajectory")
+if has_rul and "predicted_rul" in result.history:
+    view = "Whole life"
+    if len(hist) > RECENT * 1.5:
+        view = st.segmented_control("Forecast window", ["Whole life", f"Latest {RECENT} {t}s"], default="Whole life",
+                                    key="engine_window", label_visibility="collapsed") or "Whole life"
+    fig = rul_chart(hist, row, height=340)
+    if view != "Whole life":
+        fig.update_xaxes(range=[int(row["cycle"]) - RECENT, int(row["cycle"]) + 2])
+    theme.chart(fig, key="engine_rul_chart")
+else:
+    st.info("No forecast is available for this analysis.")
 
-with tab_schematic:
-    gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
-    theme.note("Each part takes the colour of its predicted condition; hover a part for its readings." if spec.diagnosis else
-               "Each part takes the colour of its most-drifted sensor; hover a part for its readings. Shading shows where "
-               "the evidence is measured, not a confirmed root cause.")
-
-with tab_forecast:
-    if has_rul and "predicted_rul" in result.history:
-        theme.section(f"{spec.rul_short} at every {t}", f"band limits dotted; the 80% range is for the latest {t}; "
-                      f"squares show the band per {t}")
-        theme.chart(rul_chart(hist, row), key="engine_rul_chart")
-    outlook = insights.failure_outlook(row)
-    if outlook:
-        added = {"FAILURE_LIKELY": "failure-likely band", "HIGH_RISK": "adds the high-risk band", "AT_RISK": "adds the at-risk band"}
-        left, right = st.columns(2, gap="large")
-        with left:
-            theme.section("Failure outlook" if spec.has_life else "Margin outlook",
-                          "chance of reaching each risk window, from the four band probabilities")
-            theme.stats([theme.stat(f"Within {insights.life(o['limit'], spec)}", insights.chance(o["p"]), foot=added[o["band"]])
-                         for o in outlook])
-        with right:
-            if spec.has_life:
-                theme.section("Can it wait until the next check?")
-                reach = spec.risk_limits["AT_RISK"]
-                n = st.number_input(f"Next scheduled check, {spec.life_unit} from the latest reading", min_value=1,
-                                    max_value=reach, value=spec.risk_limits["HIGH_RISK"], step=1,
-                                    key=f"engine_next_check_{spec.key}")
-                p = insights.failure_chance(row, n)
-                verdict, title, why = insights.defer_verdict(p, state)
-                theme.stats([theme.stat("Chance of reaching end of life first", insights.chance(p),
-                                        foot=f"within {insights.life(n, spec)}"),
-                             theme.stat("Verdict", title, color=STATES[verdict]["color"])])
-                theme.note(esc(why))
-
-with tab_sensors:
-    left, right = st.columns([1.2, 1], gap="large")
-    with left:
-        theme.section("Drift now", f"every sensor at {t} {int(row['cycle'])}, strongest first")
-        theme.chart(drift_bars(drift, spec), key="engine_drift_bars")
-    with right:
-        theme.section("Drift table", "latest value, drift, peak and recent trend")
-        drift_table(drift, compact=True, unit=spec.life_unit)
-    theme.note("Drift is how many standard deviations a reading sits from a healthy one, in the direction wear pushes "
-               "that sensor. Elevated from 1.6, warning from 2.4, critical from 3.2.")
-
-with tab_why:
-    left, right = st.columns(2, gap="large")
-    with left:
-        theme.section("Why this RUL", f"SHAP contribution, {spec.life_unit}")
-        if isinstance(factors, list) and factors:
-            theme.chart(factor_chart(factors, f"change in predicted {insights.life_word(spec)} ({spec.life_unit})",
-                                     "#ff832b", TOKENS["accent"]), key="engine_shap")
-    with right:
-        risk_factors = row.get("risk_factors")
-        if isinstance(risk_factors, list) and isinstance(row.get("risk_band"), str):
-            band = BAND_TEXT[row["risk_band"]]
-            theme.section("Why this risk band", f"push towards {band.lower()}, log-odds")
-            theme.chart(factor_chart(risk_factors, f"push towards {band.lower()} (log-odds)", TOKENS["text_3"],
-                                     BAND_COLORS.get(row["risk_band"], TOKENS["accent"])), key="engine_risk_shap")
-    theme.note("Bars to the left shortened the predicted life. SHAP shows what the model relied on, not a confirmed root cause.")
+# Where on the component the evidence sits.
+theme.section("Component map", "the component, part by part; hover a part for its readings", kicker="Location")
+gas_path(gas_path_payload(row, drift, hist, result.profile), key="engine_gas_path")
+theme.note("Each part takes the colour of its predicted condition." if spec.diagnosis else
+           "Each part takes the colour of its most-drifted sensor. Shading shows where the evidence is measured, "
+           "not a confirmed root cause.")
 
 st.divider()
 links = st.columns(4)
-links[0].page_link("views/health.py", label="Sensors", icon=":material/sensors:")
+links[0].page_link("views/health.py", label="Degradation", icon=":material/sensors:")
 links[1].page_link("views/rul_risk.py", label=f"{spec.rul_short} and risk", icon=":material/timelapse:")
 links[2].page_link("views/explainability.py", label="Explanations", icon=":material/account_tree:")
 links[3].page_link("views/twin.py", label="3D model", icon=":material/view_in_ar:")

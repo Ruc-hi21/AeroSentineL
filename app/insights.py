@@ -222,6 +222,24 @@ def failure_chance(row, n):
     return float(min(1.0, max(0.0, below[k] + (below[k + 1] - below[k]) * share)))
 
 
+def service_by(row):
+    """(reading, life units from now) by which to service the unit: its age plus the low end of the RUL range.
+
+    None when the component has no life to run out (hydraulic margin) or no range was predicted.
+    """
+    spec = spec_of(row)
+    if not spec.has_life or not _has(row, "rul_low"):
+        return None
+    left = max(0, int(round(float(row["rul_low"]))))  # rounded like the range and the suggested action
+    return int(row["cycle"]) + left, left
+
+
+def at_cap(row):
+    """True when the forecast sits at the model's ceiling, so it reads as 'this much or more'."""
+    spec = spec_of(row)
+    return spec.has_life and _has(row, "predicted_rul") and float(row["predicted_rul"]) >= 0.95 * spec.rul_cap
+
+
 def defer_verdict(p, unit_state=None):
     """(state, verdict, reason) for the chance p of reaching end of life before the next check.
 

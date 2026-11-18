@@ -40,7 +40,7 @@ except InvalidDataError as exc:  # invalid-file state, before running anything
 
 # ---------------------------------------------------------------- 1. EDA
 profile = eda.profile(df)
-theme.section("1. Data profile", f"{name}: what the file contains, before any model sees it")
+theme.section("Data profile", f"{name}: what the file contains, before any model sees it")
 theme.stats([
     theme.stat("Rows", f"{profile['rows']:,}"),
     theme.stat("Columns", profile["columns"], foot=f"{profile['numeric_columns']} numeric"),
@@ -82,7 +82,7 @@ with st.expander("Preview first 20 rows"):
 # ---------------------------------------------------------------- 2. recognition
 router = load_router()
 routing = router.route(df) if router is not None else None
-theme.section("2. Component recognition", "a model decides from the data alone which component's models may score it")
+theme.section("Component recognition", "a model decides from the data alone which component's models may score it")
 if routing is None:
     st.info("The recognition model is not trained yet; the component is matched by column names.")
 else:
@@ -174,7 +174,7 @@ steps = [
     ("Risk model", "XGBoost", "four risk bands", result.stages.get("risk", "n/a"), t.get("risk")),
     ("Explain", "SHAP", "top sensors per unit", result.stages.get("explain", "n/a"), t.get("explain")),
 ]
-theme.section("3. Processing report", f"{spec.name} model {result.subset}, {result.duration_ms:,.0f} ms end to end")
+theme.section("Processing report", f"{spec.name} model {result.subset}, {result.duration_ms:,.0f} ms end to end")
 st.html(f'<div class="as-steps" style="--n:{len(steps)}">' + "".join(
     f'<div class="st" style="--c:{"#42be65" if s == "ok" else "#fa4d56"}"><div class="n"><i></i>{esc(n)}</div>'
     f'<div class="v">{esc(val)}</div><div class="d">{esc(d if s == "ok" else s)}</div>'
