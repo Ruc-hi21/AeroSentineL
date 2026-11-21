@@ -11,3 +11,7 @@ __pycache__/
 # Dataset (download with: python -m scripts.download_data)
 data/raw/*
 !data/raw/.gitkeep
+
+# Past-records database: the local fallback file and the Neon connection string
+data/history.db
+.streamlit/secrets.toml

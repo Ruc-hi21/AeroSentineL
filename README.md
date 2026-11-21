@@ -231,6 +231,26 @@ lists the true values. The full test fleets (100 to 259 engines) stay in `data/r
 To try your own data, use *Ingest data*: turbofan files in the C-MAPSS layout, every other component as CSV with
 the columns listed on that page.
 
+### Past records (Neon database)
+
+Real logs arrive in pieces: this week's cycles of engine 34, then next week's. The models read a unit's whole history,
+so every analysed file is stored, and a later file for the same unit is joined to the stored readings before it is
+scored. The second piece then gets the forecast the complete log would give, not one from its own few cycles. The engine
+page also plots every earlier forecast for the unit (*Past forecasts*). A unit is keyed by component, fleet (FD001,
+PCOE, ...) and its id; a file that starts at or before the stored first cycle counts as a complete log and replaces
+the record rather than being joined.
+
+| Piece 2 of a sample (last 40% of cycles) | On its own | Joined to stored piece 1 | Full log |
+| --- | --- | --- | --- |
+| `FD001_engine_089_healthy.txt` | 121.6 cycles | 118.5 | 118.5 |
+| `PCOE_cell_006_healthy.csv` | 71.0 cycles | 75.6 | 75.6 |
+| `IGBT_device_003_healthy.csv` | 31.7 minutes | 37.0 | 37.0 |
+
+Records go to the database in `DATABASE_URL`. For Neon: create a project at neon.tech, copy its connection string,
+and put it in `.streamlit/secrets.toml` (see `.streamlit/secrets.toml.example`; git ignores the real file) or in the
+`DATABASE_URL` environment variable. The tables (`readings`, `forecasts`) are created on first use. Without a URL,
+records go to a local SQLite file, `data/history.db`. Files over 250,000 rows are scored but not stored.
+
 | Also useful | Command |
 |---|---|
 | Retrain everything: four turbofan subsets, battery, gearbox, hydraulics, power electronics, recognition model (about 50 minutes) | `python -m training.train` |

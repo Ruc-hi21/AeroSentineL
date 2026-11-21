@@ -14,10 +14,10 @@ from app.theme import BAND_COLORS, BAND_TEXT, MONO, SANS as SANS_FONT, STATES, T
 from src.components import COMPONENTS, PROFILES, get, spec_of_profile
 from src.components.splits import sample_id, sample_path
 from src.config import DATASET, MODEL_VERSION, REPORTS_DIR, RISK_BANDS, SAMPLE_SET, SUBSETS
-from src.data.loader import read_sensor_file
 from src.explainability.sensor_names import SENSOR_INFO, describe
 from src.models.artifacts import available_subsets, load_artifacts, model_status
 from src.pipeline import analyze
+from src.store import get_store
 
 # Sample files (data/samples/, see src.config.SAMPLE_SET): a failing and a healthy held-out unit per component,
 # each with its own history. Keyed 'FD001_failing'; SAMPLE_INFO holds profile, unit and state. The full test
@@ -53,9 +53,23 @@ def get_result():
     return st.session_state.get("result")
 
 
+def history_store():
+    """The past-records database: DATABASE_URL from .streamlit/secrets.toml or the environment (a Neon Postgres
+    connection string), else a local SQLite file. None when it cannot be reached; analyses then run without it."""
+    url = None
+    try:
+        url = st.secrets.get("DATABASE_URL")
+    except Exception:  # noqa: BLE001 - no secrets file
+        pass
+    return get_store(url)
+
+
 def run_analysis(name, content, subset=None, component=None):
-    """Analyze uploaded bytes and store the result for every page. None = the recognition model decides."""
-    result = analyze(read_sensor_file(io.BytesIO(content)), subset=subset, name=name, component=component)
+    """Analyze uploaded bytes and store the result for every page. None = the recognition model decides.
+
+    The pipeline reads the file itself, so an unreadable file comes back as a FAILED result with a plain message
+    instead of an exception on the page."""
+    result = analyze(io.BytesIO(content), subset=subset, name=name, component=component, store=history_store())
     st.session_state["last_run"] = result
     st.session_state["last_file"] = (name, content)  # the admin data check profiles the file that was analysed
     if result.status != "FAILED":
@@ -236,7 +250,11 @@ def unit_label(row):
 
 
 def unit_picker(units, key="unit", label=None):
-    """Select an engine, most urgent first. The choice is shared across pages."""
+    """Select an engine, most urgent first. The choice is shared across pages.
+    A file with a single unit (the usual case: one engine and its history) needs no choice, so no picker is drawn."""
+    if len(units) == 1:
+        st.session_state["selected_unit"] = units["unit"].iloc[0]
+        return units.iloc[0]
     label = label or insights.spec_of(units).unit_title
     ordered = insights.add_states(units)
     options = ordered["unit"].tolist()
@@ -387,6 +405,26 @@ def rul_chart(unit_history, row=None, height=360, spec=None):
         fig.update_xaxes(title_text=spec.time_title.lower())
     fig.update_yaxes(title_text=f"predicted {spec.rul_short} ({spec.life_unit})", range=[0, spec.rul_cap + 5], row=1, col=1)
     fig.update_layout(height=height, showlegend=True, margin=dict(t=30, b=40, l=56, r=RIGHT_LABELS))
+    return crosshair(fig)
+
+
+def past_forecasts_chart(past, spec, height=300):
+    """One point per earlier analysis of the unit: the forecast made then, with its 80% range, at the age it had."""
+    fig = go.Figure()
+    _band_zones(fig, spec=spec)
+    has_range = past["rul_low"].notna() & past["rul_high"].notna()
+    when = pd.to_datetime(past["created_at"]).dt.strftime("%d %b %Y %H:%M")
+    fig.add_trace(go.Scatter(
+        x=past["cycle"], y=past["predicted_rul"], mode="lines+markers", name="Forecast at each upload",
+        line=dict(color=T["accent"], width=1.6, dash="dot"), marker=dict(color=T["accent"], size=9, line=dict(color=T["bg"], width=2)),
+        error_y=dict(type="data", symmetric=False, array=(past["rul_high"] - past["predicted_rul"]).where(has_range, 0),
+                     arrayminus=(past["predicted_rul"] - past["rul_low"]).where(has_range, 0), color=T["accent"], thickness=1.2, width=6),
+        customdata=list(zip(when, past["source"].fillna(""), past["cycles_seen"].fillna(0).astype(int))),
+        hovertemplate=f"{spec.rul_short} " + "%{y:.0f} " + spec.life_unit + "<br>%{customdata[0]} · %{customdata[1]}"
+                      "<br>%{customdata[2]} " + spec.time_title.lower() + "s of history<extra></extra>"))
+    fig.update_xaxes(title_text=f"{spec.time_title.lower()} at upload")
+    fig.update_yaxes(title_text=f"predicted {spec.rul_short} ({spec.life_unit})", range=[0, spec.rul_cap + 5])
+    fig.update_layout(height=height, showlegend=False, margin=dict(t=20, b=40, l=56, r=RIGHT_LABELS))
     return crosshair(fig)
 
 

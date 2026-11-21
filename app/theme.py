@@ -472,6 +472,47 @@ button:focus-visible, a:focus-visible, [role="tab"]:focus-visible { outline: 2px
 .as-side.wide dl > div { display: flex; flex-direction: column; gap: 3px; }
 .as-side.wide dd { font-size: 13px; }
 
+/* ---------- ingest v2: readiness strip, upload box, column reference ---------- */
+@keyframes as-ready { 0%, 100% { box-shadow: 0 0 0 0 rgba(66, 190, 101, .55); } 50% { box-shadow: 0 0 0 5px rgba(66, 190, 101, 0); } }
+@keyframes as-float-icon { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -6px); } }
+.as-ready { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 18px 0 8px; }
+.as-ready .m { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #12161b;
+  transition: transform var(--t-std) var(--ease-out), border-color var(--t-std) var(--ease), opacity var(--t-std) var(--ease); }
+.as-ready .m:hover { transform: translateY(-3px); border-color: rgba(95, 212, 248, .5); }
+.as-ready .m img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.as-ready .m .b { padding: 8px 10px 9px; display: flex; align-items: center; gap: 7px; }
+.as-ready .m .b i { width: 7px; height: 7px; border-radius: 50%; background: var(--s-ok); flex: none; animation: as-ready 2.2s var(--ease) infinite; }
+.as-ready .m .b span { font-size: 12px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-ready .m.dim { opacity: .38; }
+.as-ready .m.on { border-color: var(--s-ok); box-shadow: 0 0 0 1px var(--s-ok), 0 10px 26px -14px rgba(66, 190, 101, .9); }
+.as-ready-note { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-3); margin: 0 2px 6px; }
+.as-ready-note b { color: var(--s-ok); font-weight: 500; }
+.st-key-ingest_drop [data-testid="stFileUploaderDropzone"] { min-height: 230px !important; padding-top: 92px !important; }
+.st-key-ingest_drop [data-testid="stFileUploaderDropzone"]::after { content: ""; position: absolute; left: 50%; top: 26px; width: 52px; height: 52px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235fd4f8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4'/%3E%3Cpath d='M7 9l5-5 5 5'/%3E%3Cpath d='M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/%3E%3C/svg%3E") center / 52px no-repeat; animation: as-float-icon 2.8s var(--ease) infinite; pointer-events: none; }
+.st-key-ingest_drop [data-testid="stFileUploaderDropzoneInstructions"] { text-align: center; }
+.as-cols { margin: 6px 0 2px; }
+.as-cols .fmt { font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+.as-cols .fmt b { color: var(--text-0); font-weight: 600; }
+.as-cols .g { margin: 10px 0 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--brand-cyan); }
+.as-cols .g small { color: var(--text-3); letter-spacing: .04em; margin-left: 6px; }
+.as-cols .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.as-cols .c { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 3px;
+  background: #13171c; font-size: 12px; color: var(--text-2); }
+.as-cols .c code { font-family: var(--mono) !important; font-size: 12px; color: var(--text-0) !important; background: none !important; border: 0 !important;
+  padding: 0 !important; }
+.as-cols .c.id { border-color: rgba(63, 162, 255, .5); }
+.as-cols .c.set { border-color: rgba(241, 194, 27, .45); }
+@media (max-width: 900px) { .as-ready { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ---------- past records line (ingest) ---------- */
+.as-rec { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: -4px 0 10px; font-size: 12.5px; color: var(--text-2); }
+.as-rec b { color: var(--text-0); font-weight: 600; font-family: var(--mono); }
+.as-rec .db { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-cyan);
+  border: 1px solid rgba(95, 212, 248, .4); border-radius: 3px; padding: 2px 7px; }
+.as-rec .err { color: var(--s-warn); }
+
 /* ---------- home: title band (radar grid, scan sweep, letter-by-letter wordmark, channel ticker) ---------- */
 @keyframes as-letter { from { opacity: 0; transform: translateY(.45em) scale(.96); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes as-scan { 0% { transform: translateX(-30%); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateX(130%); opacity: 0; } }
@@ -701,9 +742,10 @@ def esc(text):
 
 
 def page_head(title, context="", meta="", kicker=""):
-    """Title row: a mono kicker, the page name, one line of context, optional right-aligned metadata (pre-escaped HTML)."""
-    st.html(f'<div class="as-head"><div>{f"<div class=k>{esc(kicker)}</div>" if kicker else ""}<h1>{esc(title)}</h1>'
-            f'{f"<div class=ctx>{context}</div>" if context else ""}</div>'
+    """Title row: a mono kicker, the page name and optional right-aligned metadata (pre-escaped HTML).
+
+    `context` (the page's one-line description) is accepted but not shown: the pages carry only their title."""
+    st.html(f'<div class="as-head"><div>{f"<div class=k>{esc(kicker)}</div>" if kicker else ""}<h1>{esc(title)}</h1></div>'
             f'{f"<div class=meta>{meta}</div>" if meta else ""}</div>')
 
 
@@ -888,3 +930,12 @@ def status_card(title, rows, ready=True):
     return (f'<div class="as-side wide" style="--c:{color}"><div class="top"><div class="scope"></div><div>'
             f'<div class="k">{"Data loaded" if ready else "Standing by"}</div><b>{esc(title)}</b></div></div>'
             f'{f"<dl>{facts}</dl>" if facts else ""}</div>')
+
+def readiness(items, note_left, note_right=""):
+    """The five component models as a strip of image tiles with a live 'ready' light.
+
+    items: [(key, name, state)] with state 'ready', 'on' (the loaded file's component) or 'dim'."""
+    tiles = "".join(f'<div class="m {state}"><img src="app/static/brand/thumb_{esc(key)}.jpg" alt=""><div class="b"><i></i>'
+                    f'<span>{esc(name)}</span></div></div>' for key, name, state in items)
+    return (f'<div class="as-ready-note"><span>{note_left}</span><span>{note_right}</span></div>'
+            f'<div class="as-ready">{tiles}</div>')

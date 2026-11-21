@@ -50,6 +50,7 @@ class AnalysisResult:
     profile: dict | None = None  # why that model, operating conditions, fault modes
     routing: dict | None = None  # component-recognition decision, confidence and signals
     eda: dict | None = None  # exploratory profile of the uploaded table
+    records: dict | None = None  # past records: database, stored cycles joined per unit, rows saved (src/store.py)
     units: pd.DataFrame | None = None  # one row per unit, at its latest cycle
     history: pd.DataFrame | None = None  # every cycle: sensors, health score, predicted RUL
     stages: dict = field(default_factory=dict)  # stage -> "ok" or "failed: <reason>"
@@ -163,12 +164,40 @@ def _choose_profile(spec, df, name, version):
     return subset, reason
 
 
-def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=None):
+def _join_history(result, store, df, spec, subset):
+    """The upload joined to each unit's stored past readings. Without a database the upload is used as it is."""
+    result.records = {"backend": store.backend, "joined": {}, "stored": 0, "error": None}
+    try:
+        with _timed(result, "history"):
+            df, result.records["joined"] = store.merge(df, spec.key, subset, spec.columns)
+    except Exception as exc:  # noqa: BLE001 - past records improve a forecast; they are never required for one
+        logger.exception("job=%s could not read past records", result.job_id)
+        result.records["error"] = f"past records not read ({type(exc).__name__})"
+    return df
+
+
+def _save_history(result, store, upload, spec, units, history, name):
+    """Keep the upload's readings and the new forecasts for the next analysis of the same units."""
+    try:
+        with _timed(result, "save"):
+            seen = history.groupby("unit").size()
+            result.records["stored"] = store.save(upload, spec.key, result.subset, spec.columns,
+                                                  units=units.assign(cycles_seen=units["unit"].map(seen)),
+                                                  source=name, job_id=result.job_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("job=%s could not save records", result.job_id)
+        result.records["error"] = f"records not saved ({type(exc).__name__})"
+
+
+def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=None, store=None):
     """Analyze a file path, uploaded file or DataFrame of sensor data.
 
     component (turbofan, battery, bearing) and subset (FD001..FD004, PCOE, FEMTO) override the
     automatic choice. Left as None, the component-recognition model picks the component, and for
     turbofans the subset comes from the file name or the number of operating conditions.
+
+    store (src.store.HistoryStore): when given, each unit's stored past readings are joined to the upload
+    before scoring, and the upload and its forecasts are saved afterwards.
     """
     result = AnalysisResult(job_id=f"job_{uuid.uuid4().hex[:8]}")
     start = time.perf_counter()
@@ -192,6 +221,9 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=Non
             subset, reason = _choose_profile(spec, df, name, version)
         artifacts = load_artifacts(version, subset)
         result.model_version, result.subset = version, subset
+        upload = df
+        if store is not None:
+            df = _join_history(result, store, df, spec, subset)
         with _timed(result, "validate"):
             result.validation = validate_dataset(df, artifacts.required_columns)
         with _timed(result, "clean"):
@@ -284,6 +316,8 @@ def analyze(source, version=MODEL_VERSION, subset=None, name=None, component=Non
 
     units["review_reasons"] = _review_reasons(units, history, spec)
     units["needs_review"] = units["review_reasons"].apply(bool)
+    if store is not None:
+        _save_history(result, store, upload, spec, units, history, name)
     result.units = units
     result.history = history
     result.status = "COMPLETED" if all(v == "ok" for v in result.stages.values()) else "PARTIAL"

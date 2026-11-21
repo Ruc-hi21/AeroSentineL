@@ -6,7 +6,8 @@ the timing and the explanation each have their own page (Degradation, RUL and ri
 import streamlit as st
 
 from app import insights, theme
-from app.components import DRIFT_COLORS, model_trust, require_model, require_result, rul_chart, step_unit, unit_picker
+from app.components import (DRIFT_COLORS, history_store, past_forecasts_chart, require_model, require_result, rul_chart,
+                            step_unit, unit_picker)
 from app.instruments import gas_path, gas_path_payload
 from app.theme import BAND_COLORS, BAND_TEXT, STATES, esc
 
@@ -27,8 +28,9 @@ theme.page_head(f"{spec.unit_title} status", f"Is this {noun} all right, how lon
 pick, prev, nxt, _, help_col = st.columns([3.2, 0.7, 0.7, 2.6, 1.8], vertical_alignment="bottom")
 with pick:
     row = unit_picker(units, key="engine", label=f"{spec.unit_title} (most urgent first)")
-prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "engine", -1), width="stretch")
-nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
+if len(units) > 1:  # stepping only makes sense when the file holds several units
+    prev.button("Previous", key="engine_prev", on_click=step_unit, args=(units, "engine", -1), width="stretch")
+    nxt.button("Next", key="engine_next", on_click=step_unit, args=(units, "engine", 1), width="stretch")
 with help_col:
     theme.guide([
         ("Condition", "Critical, Warning, Degrading or Healthy, from the model's risk band and the sensor drift."),
@@ -87,12 +89,6 @@ else:
                             color=STATES["WARNING"]["color"] if len(hot) else None, meter=len(hot) / max(1, len(drift)),
                             tip="The part that carries the most-drifted sensor. It shows where the evidence is measured, "
                                 "not a confirmed root cause."))
-trust = model_trust(result)
-if trust:
-    items.append(theme.stat("Model evidence", trust["level"], color=trust["color"], meter=trust["hits"] / max(1, trust["units"]),
-                            foot=f"band right on {trust['hits']} of {insights.count(trust['units'], spec)} in test",
-                            tip="How this model did on units it never saw in training. Indicative means too few test units "
-                                "to rely on the figure."))
 theme.stats(items)
 
 found = insights.parts(row)
@@ -131,6 +127,16 @@ if has_rul and "predicted_rul" in result.history:
     theme.chart(fig, key="engine_rul_chart")
 else:
     st.info("No forecast is available for this analysis.")
+
+# Every earlier forecast for this unit, from the past-records database: how the outlook moved upload by upload.
+store = history_store()
+try:
+    past = store.forecasts_of(spec.key, result.subset, row["unit"]) if store is not None and has_rul else None
+except Exception:  # noqa: BLE001 - the database being down must not break the page
+    past = None
+if past is not None and len(past) > 1:
+    theme.section("Past forecasts", f"{len(past)} uploads on record · {store.backend}", kicker="Records")
+    theme.chart(past_forecasts_chart(past, spec), key="engine_past_chart")
 
 # Where on the component the evidence sits.
 theme.section("Component map", "the component, part by part; hover a part for its readings", kicker="Location")
