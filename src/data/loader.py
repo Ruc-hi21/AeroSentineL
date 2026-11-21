@@ -1,6 +1,9 @@
 """Read C-MAPSS sensor files from disk or from an uploaded file."""
 
+import csv
 import io
+import re
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -9,29 +12,77 @@ from src.components import spec_of_profile, to_canonical
 from src.config import DATASET, RAW_COLUMNS, RAW_DATA_DIR
 from src.errors import InvalidDataError
 
+DELIMITERS = [",", ";", "\t", "|"]  # tried in this order; plain whitespace is the fallback (NASA C-MAPSS layout)
+SAMPLE_LINES = 60  # lines inspected to work out the layout
+_NUMBER = re.compile(r"^[+-]?(\d+([.,]\d*)?|[.,]\d+)([eE][+-]?\d+)?$")
+
+
+def _decode(content):
+    """Bytes to text: UTF-16 (Excel 'Unicode text' exports), UTF-8 with or without a BOM, else Latin-1."""
+    if content[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return content.decode("utf-16")
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return content.decode("latin-1")
+
 
 def _read_text(source):
     if isinstance(source, (str, Path)):
-        return Path(source).read_text()
+        return _decode(Path(source).read_bytes())
     content = source.read()  # file-like object, e.g. a Streamlit upload
-    return content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+    return _decode(content) if isinstance(content, bytes) else content
+
+
+def _split(line, sep):
+    return line.split() if sep is None else line.split(sep)
+
+
+def _layout(lines):
+    """(delimiter or None for whitespace, index of the first table line).
+
+    A delimiter qualifies when most sample lines split into the same number (2 or more) of fields with it; of
+    those, the one giving the most fields wins. That keeps decimal commas ('0,0023' in a semicolon file from
+    European Excel) from being mistaken for the separator. Lines before the table, such as a title or notes,
+    are skipped: the table starts at the first line whose field count matches the table's."""
+    best = None
+    for sep in [*DELIMITERS, None]:
+        counts = [len(_split(line, sep)) for line in lines]
+        common, n = Counter(counts).most_common(1)[0]
+        if common >= 2 and n >= max(2, 0.6 * len(counts)) and (best is None or common > best[2]):
+            best = (sep, next(i for i, c in enumerate(counts) if c == common), common)
+    return (best[0], best[1]) if best else (None, 0)
+
+
+def _is_header(fields):
+    """A header row has at least one field that is not a number (so '1.2e-05' still counts as data)."""
+    return any(f.strip() and not _NUMBER.match(f.strip().strip('"')) for f in fields)
 
 
 def read_sensor_file(source):
-    """Read raw C-MAPSS text (whitespace separated, no header) or a CSV with named columns."""
-    text = _read_text(source)
-    if not text.strip():
+    """Read a sensor table: NASA C-MAPSS text (whitespace separated, no header) or a table with named columns.
+
+    The layout is worked out from the file itself: comma, semicolon, tab, pipe or whitespace separated,
+    decimal commas (semicolon files from European Excel), UTF-8/UTF-16 text, and title lines above the table."""
+    text = _read_text(source).replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line for line in text.split("\n") if line.strip() and not line.lstrip().startswith("#")]
+    if not lines:
         raise InvalidDataError("The file is empty.")
 
-    first_line = text.lstrip().split("\n", 1)[0]
+    sep, start = _layout(lines[:SAMPLE_LINES])
+    lines = lines[start:]
+    header = _is_header(_split(lines[0], sep))
+    sample = " ".join(lines[1:SAMPLE_LINES] if header else lines[:SAMPLE_LINES])
+    decimal = "," if sep in (";", "\t", None) and re.search(r"\d,\d", sample) and "." not in sample else "."
     try:
-        if any(ch.isalpha() for ch in first_line):
-            df = pd.read_csv(io.StringIO(text))
-            df.columns = [str(c).strip() for c in df.columns]  # strip BOM or whitespace from headers
-            return df
-        df = pd.read_csv(io.StringIO(text), sep=r"\s+", header=None)
-    except (pd.errors.ParserError, UnicodeDecodeError) as exc:
-        raise InvalidDataError(f"Could not parse the file: {exc}") from exc
+        df = pd.read_csv(io.StringIO("\n".join(lines)), sep=r"\s+" if sep is None else sep, header=0 if header else None,
+                         decimal=decimal, skipinitialspace=True, engine="python")
+    except (pd.errors.ParserError, ValueError, csv.Error) as exc:
+        raise InvalidDataError(f"Could not read the file as a table: {exc}") from exc
+    df = df.dropna(axis=1, how="all")  # trailing separators leave empty columns
+    if header:
+        df.columns = [str(c).strip().strip('"') for c in df.columns]  # stray quotes or whitespace in headers
+        return df
 
     if df.shape[1] != len(RAW_COLUMNS):
         raise InvalidDataError(
