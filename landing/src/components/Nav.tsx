@@ -45,11 +45,11 @@ export default function Nav() {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center px-4 sm:top-4">
+      <div className="nav-shell pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center px-4 sm:top-4">
         <nav
           aria-label="Main"
           className={`pointer-events-auto flex h-14 w-full max-w-[1104px] items-center justify-between gap-4 rounded-2xl border pl-4 pr-2 backdrop-blur-xl transition-[background-color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            scrolled || open ? 'border-line bg-white/80' : 'border-transparent bg-white/50'
+            scrolled || open ? 'border-line bg-base/75' : 'border-transparent bg-base/20'
           }`}
         >
           <Link href="/" aria-label="AeroSentinel home" className="shrink-0 rounded-lg">
@@ -114,7 +114,7 @@ export default function Nav() {
         {open && (
           <motion.div
             id="mobile-menu"
-            className="fixed inset-0 z-40 bg-white/95 px-4 pt-24 backdrop-blur-2xl lg:hidden"
+            className="fixed inset-0 z-40 bg-base/95 px-4 pt-24 backdrop-blur-2xl lg:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}

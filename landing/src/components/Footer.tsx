@@ -1,18 +1,17 @@
 import Link from 'next/link';
 import { GithubLogo } from '@phosphor-icons/react/dist/ssr';
 import { NAV, REPO_URL } from '@/lib/site';
-import { DemoButton, Logo, Reveal, SignInButton } from './ui';
+import { DemoButton, Logo, Reveal, SignInButton, SplitWords } from './ui';
 
 export function FinalCta() {
   return (
-    <section aria-labelledby="cta-title" className="section border-t border-line">
-      <div className="blueprint absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_10%,transparent_65%)]" aria-hidden="true" />
+    <section id="cta" aria-labelledby="cta-title" className="relative flex min-h-[100svh] items-start pt-32 lg:pt-40">
       <div className="wrap relative flex flex-col items-center text-center">
-        <Reveal>
-          <h2 id="cta-title" className="heading-1 hero-ink mx-auto max-w-[680px]">
-            See which unit needs
-            <br /> attention first.
-          </h2>
+        <span className="eyebrow">Cleared for departure</span>
+        <h2 id="cta-title" className="display-1 mx-auto mt-6 max-w-[900px]">
+          <SplitWords text="See which unit needs attention first." wordClass="hero-ink" />
+        </h2>
+        <Reveal delay={0.2}>
           <p className="body-lead mx-auto mt-6 max-w-[520px] text-muted">
             The demo opens on a fleet of sample units, with the most urgent one already at the top.
           </p>
@@ -29,7 +28,7 @@ export function FinalCta() {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-line">
+    <footer className="site-footer border-t border-line bg-base/90">
       <div className="wrap grid grid-cols-1 gap-12 py-16 md:grid-cols-12">
         <div className="md:col-span-5">
           <Logo />

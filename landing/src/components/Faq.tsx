@@ -42,7 +42,7 @@ const FAQ = [
 export default function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" aria-labelledby="faq-title" className="section border-t border-line">
+    <section id="faq" aria-labelledby="faq-title" className="section">
       <div className="wrap grid grid-cols-1 gap-12 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <SectionHead id="faq-title" title="Questions engineers ask first.">

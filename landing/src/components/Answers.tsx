@@ -217,7 +217,7 @@ export default function Answers() {
   const Panel = PANELS[active];
 
   return (
-    <section id="answers" aria-labelledby="answers-title" className="section border-t border-line">
+    <section id="answers" aria-labelledby="answers-title" className="section">
       <div className="wrap">
         <SectionHead id="answers-title" title="Four answers for every unit in your fleet.">
           Upload once and every engine, cell, gearbox, hydraulic session or power switch gets the same four answers, on

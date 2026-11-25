@@ -49,7 +49,7 @@ export default function ConsoleShowcase() {
   );
 
   return (
-    <section id="console" aria-labelledby="console-title" className="section border-t border-line">
+    <section id="console" aria-labelledby="console-title" className="section">
       <div className="wrap">
         <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end">
           <SectionHead id="console-title" title="See the console before you sign in.">

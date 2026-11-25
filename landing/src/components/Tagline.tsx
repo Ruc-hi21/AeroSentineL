@@ -37,7 +37,7 @@ export default function Tagline() {
 
   const words = LINES.join(' ').split(' ');
   return (
-    <section ref={root} aria-label="What AeroSentinel changes" className="section border-t border-line">
+    <section ref={root} aria-label="What AeroSentinel changes" className="section">
       <div className="wrap">
         <p className="heading-1 mx-auto max-w-[920px] text-center [text-wrap:balance]">
           {words.map((w, i) => (

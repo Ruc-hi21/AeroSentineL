@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from '@phosphor-icons/react';
@@ -60,13 +61,49 @@ export function Reveal({
   );
 }
 
+/** A heading whose words slide up out of their own clip, one after another, when it scrolls in. */
+export function SplitWords({ text, wordClass }: { text: string; wordClass?: string }) {
+  const reduce = useReducedMotion();
+  const words = text.split(' ');
+  return (
+    <motion.span
+      className="block"
+      initial="hide"
+      whileInView="show"
+      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+      transition={{ staggerChildren: reduce ? 0 : 0.045 }}
+    >
+      {words.map((w, i) => (
+        <Fragment key={i}>
+          <span className="wm">
+            <motion.span
+              className={wordClass}
+              variants={{
+                hide: reduce ? { opacity: 0 } : { y: '115%' },
+                show: { y: '0%', opacity: 1, transition: { duration: reduce ? 0.3 : 0.95, ease: EASE } },
+              }}
+            >
+              {w}
+            </motion.span>
+          </span>
+          {i < words.length - 1 ? ' ' : ''}
+        </Fragment>
+      ))}
+    </motion.span>
+  );
+}
+
 export function SectionHead({ title, children, id }: { title: React.ReactNode; children?: React.ReactNode; id?: string }) {
   return (
-    <Reveal as="header" className="max-w-[680px]">
+    <header className="max-w-[720px]">
       <h2 id={id} className="heading-2 text-ink">
-        {title}
+        {typeof title === 'string' ? <SplitWords text={title} /> : title}
       </h2>
-      {children && <p className="body-lead mt-6 text-muted">{children}</p>}
-    </Reveal>
+      {children && (
+        <Reveal delay={0.15}>
+          <p className="body-lead mt-6 text-muted">{children}</p>
+        </Reveal>
+      )}
+    </header>
   );
 }

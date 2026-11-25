@@ -125,7 +125,7 @@ export default function Evaluation() {
   );
 
   return (
-    <section id="evaluation" aria-labelledby="evaluation-title" className="section border-t border-line">
+    <section id="evaluation" aria-labelledby="evaluation-title" className="section">
       <div className="wrap">
         <div className="grid grid-cols-1 items-end gap-8 lg:grid-cols-12">
           <div className="lg:col-span-7">

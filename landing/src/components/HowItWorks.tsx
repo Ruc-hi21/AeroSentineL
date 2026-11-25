@@ -45,7 +45,7 @@ export default function HowItWorks() {
   );
 
   return (
-    <section id="how" aria-labelledby="how-title" className="section border-t border-line">
+    <section id="how" aria-labelledby="how-title" className="section">
       <div className="blueprint absolute inset-0 [mask-image:linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]" aria-hidden="true" />
       <div className="wrap relative">
         <SectionHead id="how-title" title="From a sensor file to a decision in three steps.">
