@@ -50,10 +50,11 @@ export function Reveal({
   return (
     <Comp
       className={className}
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 64, rotateX: 24, scale: 0.96 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
       viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      transition={{ duration: reduce ? 0.3 : 0.7, ease: EASE, delay }}
+      transition={{ duration: reduce ? 0.3 : 1, ease: EASE, delay }}
+      style={{ transformPerspective: 1200, transformOrigin: '50% 100%' }}
     >
       {children}
     </Comp>

@@ -41,8 +41,9 @@ export default function Tagline() {
       <div className="wrap">
         <p className="heading-1 mx-auto max-w-[920px] text-center [text-wrap:balance]">
           {words.map((w, i) => (
-            <span key={i} className="tw">
-              {w}{i < words.length - 1 ? ' ' : ''}
+            <span key={i}>
+              <span className="tw">{w}</span>
+              {i < words.length - 1 ? ' ' : ''}
             </span>
           ))}
         </p>

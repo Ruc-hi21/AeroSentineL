@@ -11,6 +11,6 @@ export default function config(phase) {
     outputFileTracingRoot: import.meta.dirname,
     // The dev server keeps its own cache, so running `next build` (which uses
     // .next and exports to out/) never breaks a running `next dev`.
-    ...(phase === PHASE_DEVELOPMENT_SERVER ? { distDir: '.next-dev' } : {}),
+    ...(phase === PHASE_DEVELOPMENT_SERVER ? { distDir: process.env.NEXT_DIST_DIR || '.next-dev' } : {}),
   };
 }

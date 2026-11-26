@@ -242,7 +242,7 @@ function Rig() {
   return null;
 }
 
-export default function EngineScene({ scroll }: { scroll: { p: number } }) {
+export default function EngineScene({ scroll, start = true }: { scroll: { p: number }; start?: boolean }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
   const shared = useMemo<Shared>(() => {
@@ -252,12 +252,12 @@ export default function EngineScene({ scroll }: { scroll: { p: number } }) {
 
   // The hero's one authored moment: the engine assembles from an exploded view.
   useEffect(() => {
-    if (shared.reduce) return;
-    const t = gsap.to(shared.assemble, { p: 1, duration: 2.4, delay: 0.35, ease: 'expo.out' });
+    if (shared.reduce || !start) return;
+    const t = gsap.to(shared.assemble, { p: 1, duration: 2.6, delay: 0.1, ease: 'expo.out' });
     return () => {
       t.kill();
     };
-  }, [shared]);
+  }, [shared, start]);
 
   // Stop rendering when the hero is off screen
   useEffect(() => {

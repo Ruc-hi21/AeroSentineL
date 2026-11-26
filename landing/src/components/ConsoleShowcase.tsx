@@ -30,13 +30,13 @@ export default function ConsoleShowcase() {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       gsap.fromTo(
         '.console-frame',
-        { rotateX: 26, scale: 0.9, y: 40 },
+        { rotateX: 52, scale: 0.78, y: 120 },
         {
           rotateX: 0,
           scale: 1,
           y: 0,
-          ease: 'none',
-          scrollTrigger: { trigger: stage.current, start: 'top 95%', end: 'top 25%', scrub: 0.6 },
+          ease: 'power1.out',
+          scrollTrigger: { trigger: stage.current, start: 'top 105%', end: 'top 20%', scrub: 0.8 },
         },
       );
       gsap.fromTo(

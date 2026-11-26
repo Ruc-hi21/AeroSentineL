@@ -5,6 +5,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { Reveal, SectionHead } from './ui';
+import Tilt from './Tilt';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -73,7 +74,8 @@ export default function Problem() {
         </div>
 
         <Reveal className="lg:col-span-7" delay={0.1}>
-          <div ref={root} className="rounded-2xl border border-line bg-surface p-4 sm:p-6">
+          <Tilt max={5}>
+          <div ref={root} className="rounded-2xl border border-line bg-surface p-4 shadow-[0_30px_60px_-36px_rgb(0_0_0/0.35)] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-4">
               <span className="title-4 text-ink">HPC outlet temperature, drift from healthy</span>
               <span className="caption-5 text-faint">Illustrative unit</span>
@@ -126,6 +128,7 @@ export default function Problem() {
               </g>
             </svg>
           </div>
+          </Tilt>
         </Reveal>
       </div>
     </section>

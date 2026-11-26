@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Clock, Gauge, Waveform, Path } from '@phosphor-icons/react';
 import { EASE } from '@/lib/site';
 import { Reveal, SectionHead } from './ui';
+import Tilt from './Tilt';
 
 const QUESTIONS = [
   {
@@ -261,6 +262,7 @@ export default function Answers() {
           </Reveal>
 
           <Reveal className="lg:col-span-7" delay={0.1}>
+            <Tilt max={5}>
             <div
               id="answer-panel"
               role="tabpanel"
@@ -283,6 +285,7 @@ export default function Answers() {
                 </motion.div>
               </AnimatePresence>
             </div>
+            </Tilt>
           </Reveal>
         </div>
       </div>

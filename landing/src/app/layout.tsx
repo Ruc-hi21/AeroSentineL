@@ -28,7 +28,15 @@ export const viewport: Viewport = { themeColor: '#ffffff', colorScheme: 'light' 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Before first paint: the opening shot plays on every load of the home page, never for reduced motion */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var h=document.documentElement;if(location.pathname==='/'){h.setAttribute('data-intro',matchMedia('(prefers-reduced-motion: reduce)').matches?'skip':'play')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body>
         <a
           href="#main"

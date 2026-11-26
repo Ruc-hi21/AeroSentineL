@@ -218,3 +218,72 @@ p, li, dd { text-wrap: pretty; }
 .prose-legal p, .prose-legal li { font-size: 1rem; line-height: 1.5rem; color: var(--color-muted); margin-top: 12px; max-width: 68ch; }
 .prose-legal ul { list-style: disc; padding-left: 20px; }
 .station[data-side="down"] { transform: translate(40%, 70%); }
+
+/* ───────────────────────── Sky hero (opening + dive) ───────────────────────── */
+html[data-intro="play"] { overflow: hidden; }
+/* the nav waits for the title */
+html[data-intro="play"] nav[aria-label="Main"] { opacity: 0; transform: translateY(-12px); }
+nav[aria-label="Main"] { transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out), background-color 500ms var(--ease-out), border-color 500ms var(--ease-out); }
+
+.sky-canvas { opacity: 0; animation: sky-in 900ms var(--ease-out) 80ms forwards; }
+@keyframes sky-in { to { opacity: 1; } }
+
+/* low sun: a soft vertical shaft and a warm bloom, like light through haze */
+.sky-shaft {
+  background:
+    radial-gradient(40% 55% at 50% 26%, rgb(255 226 180 / 0.32), transparent 70%),
+    linear-gradient(90deg, transparent 46%, rgb(255 236 205 / 0.16) 50%, transparent 54%);
+  mix-blend-mode: screen;
+}
+.sky-vignette {
+  background:
+    radial-gradient(46% 30% at 50% 48%, rgb(70 34 30 / 0.34), transparent 100%),
+    radial-gradient(120% 90% at 50% 40%, transparent 55%, rgb(40 20 50 / 0.35) 100%);
+}
+
+.sky-kicker { font-size: 11px; letter-spacing: 0.55em; text-transform: uppercase; color: rgb(255 255 255 / 0.92); margin-bottom: 22px; padding-left: 0.55em; }
+.sky-title {
+  font-size: clamp(3rem, 12.5vw, 11.5rem); line-height: 0.9; font-weight: 600; letter-spacing: -0.045em;
+  color: #fffaf3; text-shadow: 0 2px 2px rgb(90 40 20 / 0.12), 0 8px 50px rgb(110 50 20 / 0.45);
+}
+.sky-kicker { text-shadow: 0 1px 12px rgb(90 40 20 / 0.6); }
+.sky-sub { margin-top: 22px; color: rgb(255 255 255 / 0.9); text-shadow: 0 2px 20px rgb(120 60 20 / 0.4); }
+.sky-ghost { color: #fff; border: 1px solid rgb(255 255 255 / 0.5); background: rgb(255 255 255 / 0.1); backdrop-filter: blur(10px); }
+@media (hover: hover) and (pointer: fine) { .sky-ghost:hover { background: rgb(255 255 255 / 0.2); } }
+
+/* letters arrive one by one after the flash */
+.sky-kicker span, .sky-title span { display: inline-block; opacity: 0; transform: translateY(0.4em); filter: blur(8px);
+  transition: opacity 900ms var(--ease-out), transform 1100ms var(--ease-out), filter 900ms var(--ease-out); }
+.sky-title span { transform: translateY(0.35em) scale(1.15); }
+.sky-sub, .sky-cta { opacity: 0; transform: translateY(16px); transition: opacity 900ms var(--ease-out) 0.75s, transform 900ms var(--ease-out) 0.75s; }
+.sky-hero[data-phase="shown"] .sky-kicker span,
+.sky-hero[data-phase="shown"] .sky-title span { opacity: 1; transform: none; filter: blur(0); }
+.sky-hero[data-phase="shown"] .sky-sub, .sky-hero[data-phase="shown"] .sky-cta { opacity: 1; transform: none; }
+.sky-hint { opacity: 0; transition: opacity 800ms var(--ease-out) 1.4s; }
+.sky-hero[data-phase="shown"] .sky-hint { opacity: 1; }
+.sky-hint-line { width: 1px; height: 40px; background: linear-gradient(to bottom, rgb(255 255 255 / 0.9), transparent); animation: hint 1.8s var(--ease-out) infinite; transform-origin: top; }
+@keyframes hint { 0% { transform: scaleY(0); opacity: 1; } 70% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* the boom: a warm white flash that clears onto the title */
+.sky-flash { opacity: 0; background: radial-gradient(circle at 50% 50%, #ffffff 0%, #fff6e8 45%, #ffe4c4 100%); }
+.sky-hero[data-phase="boom"] .sky-flash { opacity: 1; transition: opacity 120ms cubic-bezier(0.2, 0, 0, 1); }
+.sky-hero[data-phase="shown"] .sky-flash { opacity: 0; transition: opacity 1000ms var(--ease-out); }
+
+.sky-skip {
+  position: absolute; right: 20px; bottom: 20px; padding: 8px 14px; border-radius: 999px; z-index: 5;
+  color: #fff; border: 1px solid rgb(255 255 255 / 0.4); background: rgb(255 255 255 / 0.12); backdrop-filter: blur(8px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sky-kicker span, .sky-title span, .sky-sub, .sky-cta, .sky-hint { transition: none; }
+  .sky-canvas { animation: none; opacity: 1; }
+}
+
+/* ───────────────────────── Depth on scroll ───────────────────────── */
+html.lenis-on { scroll-behavior: auto; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* Tagline words tip up out of the page as they light */
+.tw { display: inline-block; transform: perspective(600px) rotateX(55deg) translateY(0.25em); transform-origin: 50% 100%; opacity: 0.35;
+  transition: color 600ms var(--ease-out), transform 700ms var(--ease-out), opacity 600ms var(--ease-out); }
+.tw.on { transform: perspective(600px) rotateX(0) translateY(0); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tw { transform: none; opacity: 1; } }
